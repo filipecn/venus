@@ -1,3 +1,9 @@
+compile_commands.json
+build
+.cache
+.clangd
+.clang-tidy
+
 # Prerequisites
 *.d
 
