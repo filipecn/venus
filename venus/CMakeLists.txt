@@ -1,11 +1,15 @@
 set(VENUS_ENGINE_HEADERS
     core/debug.h
+    core/instance.h
+    core/physical_device.h
     core/time.h 
     core/types.h
     core/vk.h
   )
 set(VENUS_ENGINE_SOURCES
     core/debug.cpp
+    core/instance.cpp
+    core/physical_device.cpp
     core/time.cpp
     core/vk.cpp)
 
