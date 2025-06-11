@@ -19,50 +19,49 @@
 /// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 /// IN THE SOFTWARE.
 ///
-///\file time.cpp
+///\file surface_khr.cpp.c
 ///\author FilipeCN (filipedecn@gmail.com)
 ///\date 2025-06-07
 ///
 ///\brief
 
-#include <chrono>
-#include <mutex>
-#include <thread>
-#include <venus/core/time.h>
+#include <venus/io/surface_khr.h>
 
 namespace venus::core {
 
-SystemTime SystemTime::s_instance;
+SurfaceKHR::SurfaceKHR() = default;
 
-const i64 SystemTime::cpu_frequency =
-    SystemTime::CPUClock::period::den / SystemTime::CPUClock::period::num;
+SurfaceKHR::SurfaceKHR(const Instance &instance, VkSurfaceKHR vk_surface_handle)
+    : vk_instance_{instance.handle()}, vk_surface_handle_{vk_surface_handle} {}
 
-const i64 SystemTime::wall_frequency =
-    SystemTime::WallClock::period::den / SystemTime::WallClock::period::num;
-
-SystemTime::SystemTime() = default;
-
-SystemTime::~SystemTime() = default;
-
-void SystemTime::init() {
-  std::unique_lock<std::shared_mutex> lock(s_instance.mutex_);
-  if (s_instance.start_.count(std::this_thread::get_id()) == 0)
-    s_instance.start_[std::this_thread::get_id()] = {
-        .wall_time = WallClock::now(), .cpu_time = CPUClock::now()};
+SurfaceKHR::SurfaceKHR(SurfaceKHR &&other) noexcept {
+  destroy();
+  vk_instance_ = other.vk_instance_;
+  vk_surface_handle_ = other.vk_surface_handle_;
+  other.vk_instance_ = VK_NULL_HANDLE;
+  other.vk_surface_handle_ = VK_NULL_HANDLE;
 }
 
-SystemTime::TimeSample SystemTime::initTime() {
-  std::shared_lock<std::shared_mutex> lock(s_instance.mutex_);
-  auto it = s_instance.start_.find(std::this_thread::get_id());
-  assert(it != s_instance.start_.end());
-  return it->second;
+SurfaceKHR::~SurfaceKHR() { destroy(); }
+
+SurfaceKHR &SurfaceKHR::operator=(SurfaceKHR &&other) noexcept {
+  vk_instance_ = other.vk_instance_;
+  vk_surface_handle_ = other.vk_surface_handle_;
+  other.vk_instance_ = VK_NULL_HANDLE;
+  other.vk_surface_handle_ = VK_NULL_HANDLE;
+  return *this;
 }
 
-SystemTime::TimeSample SystemTime::initTime(std::thread::id thread_id) {
-  std::shared_lock<std::shared_mutex> lock(s_instance.mutex_);
-  auto it = s_instance.start_.find(thread_id);
-  assert(it != s_instance.start_.end());
-  return it->second;
+void SurfaceKHR::destroy() {
+  if (vk_instance_ && vk_surface_handle_)
+    vkDestroySurfaceKHR(vk_instance_, vk_surface_handle_, nullptr);
+  vk_surface_handle_ = VK_NULL_HANDLE;
+}
+
+VkSurfaceKHR SurfaceKHR::handle() const { return vk_surface_handle_; }
+
+bool SurfaceKHR::good() const {
+  return vk_instance_ != VK_NULL_HANDLE && vk_surface_handle_ != VK_NULL_HANDLE;
 }
 
 } // namespace venus::core

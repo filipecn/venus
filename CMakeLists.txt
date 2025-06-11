@@ -35,6 +35,7 @@ include(catch2)
 include(glfw)
 include(vma)
 include(volk)
+include(hermes)
 
 # ##############################################################################
 # ENGINE                                                                       #

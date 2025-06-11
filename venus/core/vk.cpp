@@ -77,9 +77,8 @@ void vk::init() {
   }
 
   auto version = volkGetInstanceVersion();
-  VENUS_INFO(std::format("Vulkan version {}.{}.{} initialized.",
-                         VK_VERSION_MAJOR(version), VK_VERSION_MINOR(version),
-                         VK_VERSION_PATCH(version)));
+  VENUS_INFO("Vulkan version {}.{}.{} initialized.", VK_VERSION_MAJOR(version),
+             VK_VERSION_MINOR(version), VK_VERSION_PATCH(version));
 
   auto &v = get();
 }

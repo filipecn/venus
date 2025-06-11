@@ -1,17 +1,18 @@
 set(VENUS_ENGINE_HEADERS
-    core/debug.h
-    core/instance.h
-    core/physical_device.h
-    core/time.h 
-    core/types.h
+  #core/debug.h
+    #core/instance.h
+    #core/physical_device.h
     core/vk.h
+    #io/graphics_display.h
+    #io/surface_khr.h
   )
 set(VENUS_ENGINE_SOURCES
-    core/debug.cpp
-    core/instance.cpp
-    core/physical_device.cpp
-    core/time.cpp
-    core/vk.cpp)
+  #core/instance.cpp
+  #core/physical_device.cpp
+    core/vk.cpp
+    #io/graphics_display.cpp
+    #io/surface_khr.cpp
+  )
 
 add_library(venus_engine STATIC ${VENUS_ENGINE_HEADERS} ${VENUS_ENGINE_SOURCES})
 
@@ -21,7 +22,7 @@ target_include_directories(
                     "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
 
 target_link_libraries(
-  venus_engine PUBLIC optimized glfw volk GPUOpen::VulkanMemoryAllocator)
+  venus_engine PUBLIC optimized hermes glfw volk GPUOpen::VulkanMemoryAllocator)
 #debug
 #                   gcov)
 

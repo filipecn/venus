@@ -44,7 +44,7 @@ class Instance final {
 public:
   using Ptr = std::shared_ptr<Instance>;
   // ***************************************************************************
-  //                                                              CONSTRUCTORS
+  //                                                               CONSTRUCTORS
   // ***************************************************************************
   Instance();
   ///\brief Construct a new Instance object.
