@@ -7,5 +7,5 @@ set_target_properties(
              CXX_EXTENSIONS YES)
 # CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-format-style='file';-fix;-p")
 
-target_link_libraries(main PRIVATE venus_engine)
+target_link_libraries(main PRIVATE venus)
 # glfw volk GPUOpen::VulkanMemoryAllocator) std=c++20 stdc++

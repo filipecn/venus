@@ -6,10 +6,10 @@ cmake_minimum_required(VERSION 3.12..3.30 FATAL_ERROR)
 project(
   VENUS
   VERSION 0.01
-  DESCRIPTION "Real-time graphics framework"
+  DESCRIPTION "Real-time graphics engine framework"
   LANGUAGES C CXX)
 
-set(VENUS_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+cmake_path(SET VENUS_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
 
 # cmake print functions
 include(CMakePrintHelpers)
@@ -17,7 +17,9 @@ include(CMakePrintHelpers)
 # ##############################################################################
 # OPTIONS                                                                      #
 # ##############################################################################
-option(BUILD_ALL "build all targets" OFF)
+option(VENUS_BUILD_ALL "build all targets" OFF)
+option(VENUS_BUILD_TESTS "build tests" OFF)
+option(VENUS_BUILD_EXAMPLES "build examples" OFF)
 
 # ##############################################################################
 # COMPILATION                                                                  #
@@ -29,13 +31,7 @@ include(ExternalPrograms)
 # ##############################################################################
 # DEPENDENCIES                                                                 #
 # ##############################################################################
-include(ExternalProject)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/ext")
-include(catch2)
-include(glfw)
-include(vma)
-include(volk)
-include(hermes)
+add_subdirectory(ext)
 
 # ##############################################################################
 # ENGINE                                                                       #
@@ -45,7 +41,9 @@ add_subdirectory(venus)
 # ##############################################################################
 # TESTS                                                                        #
 # ##############################################################################
-# add_subdirectory(tests)
+#if (VENUS_BUILD_TESTS)
+  # add_subdirectory(tests)
+  #endif (VENUS_BUILD_TESTS)
 
 # ##############################################################################
 # COMPILATION/RUN SANITY TEST                                                  #
@@ -53,4 +51,6 @@ add_subdirectory(venus)
 # try_compile(COMPILATION_TEST_RESULT bindir SOURCES source.cpp)
 # try_run(RUN_TEST_RESULT bindr SOURCES source.cpp)
 
-add_subdirectory(examples)
+if (VENUS_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif (VENUS_BUILD_EXAMPLES)

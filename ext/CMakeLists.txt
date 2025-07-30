@@ -1,0 +1,10 @@
+include(ExternalProject)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
+include(glfw)
+include(vma)
+include(volk)
+include(hermes)
+
+if (BUILD_TESTS)  
+  include(catch2)
+endif (BUILD_TESTS)

@@ -1,11 +1,10 @@
 include(FetchContent)
 
 FetchContent_Declare(
-  hermes
+  hermes 
   GIT_REPOSITORY https://github.com/filipecn/hermes.git
-  GIT_TAG "origin/modern"
-)
+  GIT_TAG modern)
+
+set(HERMES_INCLUDE_TO_STRING ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(hermes)
-
-SET(HERMES_INCLUDES ${hermes_SOURCE_DIR})

@@ -1,106 +1,36 @@
-/// Copyright (c) 2025, FilipeCN.
-///
-/// The MIT License (MIT)
-///
-/// Permission is hereby granted, free of charge, to any person obtaining a copy
-/// of this software and associated documentation files (the "Software"), to
-/// deal in the Software without restriction, including without limitation the
-/// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-/// sell copies of the Software, and to permit persons to whom the Software is
-/// furnished to do so, subject to the following conditions:
-///
-/// The above copyright notice and this permission notice shall be included in
-/// all copies or substantial portions of the Software.
-/// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-/// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-/// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-/// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-/// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-/// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-/// IN THE SOFTWARE.
-///
-///\file instance.cpp
-///\author FilipeCN (filipedecn@gmail.com)
-///\date 2025-06-07
-///
-///\brief
+/* Copyright (c) 2019, FilipeCN.
+ *
+ * The MIT License (MIT)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
 
-#include <venus/core/debug.h>
+/// \file   instance.cpp
+/// \author FilipeCN (filipedecn@gmail.com)
+/// \date   2025-06-07
+
 #include <venus/core/instance.h>
 
+#include <venus/core/vk_debug.h>
+
+#include <utility>
+
 namespace venus::core {
-
-class SupportInfo {
-public:
-  /// Checks if extension is supported by the instance
-  ///\param desired_instance_extension **[in]** extension name (ex: )
-  ///\return bool true if extension is supported
-  static bool
-  isInstanceExtensionSupported(const char *desired_instance_extension) {
-    static bool available_loaded = false;
-    if (!available_loaded) {
-      VENUS_ASSERT(checkAvailableExtensions(vk_extensions_))
-      available_loaded = true;
-    }
-
-    for (const auto &extension : vk_extensions_)
-      if (std::string(extension.extensionName) ==
-          std::string(desired_instance_extension))
-        return true;
-    return false;
-  }
-  static bool isValidationLayerSupported(const char *validation_layer) {
-    static bool available_loaded = false;
-    if (!available_loaded) {
-      VENUS_ASSERT(checkAvailableValidationLayers(vk_validation_layers_))
-      available_loaded = true;
-    }
-
-    for (const auto &layer : vk_validation_layers_)
-      if (std::string(layer.layerName) == std::string(validation_layer))
-        return true;
-    return false;
-  }
-
-private:
-  /// Gets the list of the properties of supported instance extensions on the
-  /// current hardware platform.
-  /// \param extensions **[out]** list of extensions
-  /// \return bool true if success
-  static bool
-  checkAvailableExtensions(std::vector<VkExtensionProperties> &extensions) {
-    u32 extensions_count = 0;
-    R_CHECK_VULKAN(vkEnumerateInstanceExtensionProperties(
-                       nullptr, &extensions_count, nullptr),
-                   false)
-    VENUS_ASSERT(extensions_count != 0);
-    extensions.resize(extensions_count);
-    R_CHECK_VULKAN(vkEnumerateInstanceExtensionProperties(
-                       nullptr, &extensions_count, &extensions[0]),
-                   false)
-    VENUS_ASSERT(extensions_count != 0);
-    return true;
-  }
-  static bool checkAvailableValidationLayers(
-      std::vector<VkLayerProperties> &validation_layers) {
-    u32 layer_count = 0;
-    R_CHECK_VULKAN(vkEnumerateInstanceLayerProperties(&layer_count, nullptr),
-                   false)
-    VENUS_ASSERT(layer_count != 0)
-    validation_layers.resize(layer_count);
-    R_CHECK_VULKAN(vkEnumerateInstanceLayerProperties(&layer_count,
-                                                      validation_layers.data()),
-                   false)
-    VENUS_ASSERT(layer_count != 0)
-    return true;
-  }
-
-  static std::vector<VkExtensionProperties> vk_extensions_;
-  static std::vector<VkLayerProperties> vk_validation_layers_;
-};
-
-std::vector<VkExtensionProperties> SupportInfo::vk_extensions_;
-std::vector<VkLayerProperties> SupportInfo::vk_validation_layers_;
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
@@ -130,7 +60,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
               VkDebugUtilsMessageTypeFlagsEXT messageType,
               const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
               void *pUserData) {
-  VENUS_DEBUG("validation layer: ", pCallbackData->pMessage);
+  HERMES_DEBUG("validation layer: ", pCallbackData->pMessage);
   return VK_FALSE;
 }
 
@@ -148,64 +78,99 @@ void populateDebugMessengerCreateInfo(
   create_info.pfnUserCallback = debugCallback;
 }
 
-Instance::Instance() = default;
-
-Instance::Instance(const std::string &application_name,
-                   const std::vector<const char *> &desired_instance_extensions,
-                   const std::vector<const char *> &validation_layers) {
-  init(application_name, desired_instance_extensions, validation_layers);
-}
-
-Instance::Instance(Instance &&other) noexcept {
-  destroy();
-  vk_instance_ = other.vk_instance_;
-  vk_debug_messenger_ = other.vk_debug_messenger_;
-  other.vk_instance_ = VK_NULL_HANDLE;
-  other.vk_debug_messenger_ = VK_NULL_HANDLE;
-}
-
-Instance::~Instance() { destroy(); }
-
-Instance &Instance::operator=(Instance &&other) noexcept {
-  destroy();
-  vk_instance_ = other.vk_instance_;
-  vk_debug_messenger_ = other.vk_debug_messenger_;
-  other.vk_instance_ = VK_NULL_HANDLE;
-  other.vk_debug_messenger_ = VK_NULL_HANDLE;
+Instance::Config &Instance::Config::setApiVersion(const vk::Version &version) {
+  api_version_ = version;
   return *this;
 }
 
-bool Instance::init(
-    const std::string &application_name,
-    const std::vector<const char *> &desired_instance_extensions,
-    const std::vector<const char *> &validation_layers) {
-  destroy();
-  SupportInfo support_info;
-  std::vector<const char *> instance_extensions = desired_instance_extensions;
-  instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-  for (auto &extension : instance_extensions)
-    if (!support_info.isInstanceExtensionSupported(extension)) {
-      VENUS_WARN("{}{}{}", "Extension named '", extension,
-                 "' is not supported.");
-      return false;
+Instance::Config &Instance::Config::setAppVersion(const vk::Version &version) {
+  app_version_ = version;
+  return *this;
+}
+
+Instance::Config &
+Instance::Config::setEngineVersion(const vk::Version &version) {
+  engine_version_ = version;
+  return *this;
+}
+
+Instance::Config &Instance::Config::setName(const std::string_view &app_name) {
+  app_name_ = app_name;
+  return *this;
+}
+
+Instance::Config &
+Instance::Config::setEngineName(const std::string_view &engine_name) {
+  engine_name_ = engine_name;
+  return *this;
+}
+
+Instance::Config &
+Instance::Config::addLayer(const std::string_view &layer_name) {
+  layers_.emplace_back(layer_name);
+  return *this;
+}
+
+Instance::Config &
+Instance::Config::addExtension(const std::string_view &extension_name) {
+  extensions_.emplace_back(extension_name);
+  return *this;
+}
+
+#ifdef VENUS_DEBUG
+Instance::Config &Instance::Config::addDebugMessageSeverityFlags(
+    VkDebugUtilsMessageSeverityFlagsEXT flags) {
+  message_severity_flags_ |= flags;
+  return *this;
+}
+
+Instance::Config &Instance::Config::addDebugMessageTypeFlags(
+    VkDebugUtilsMessageTypeFlagsEXT flags) {
+  message_type_flags_ |= flags;
+  return *this;
+}
+
+Instance::Config &Instance::Config::enableDebugUtilsExtension() {
+  extensions_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  return *this;
+}
+
+#endif
+
+Result<Instance> Instance::Config::create() {
+
+  std::vector<const char *> instance_extensions;
+  for (auto &extension : extensions_) {
+    instance_extensions.emplace_back(extension.c_str());
+    if (!vk::isInstanceExtensionSupported(extension.c_str())) {
+      HERMES_WARN("{}{}{}", "Extension named '", extension,
+                  "' is not supported.");
+      return VeResult::incompatible();
     }
-  for (auto &layer : validation_layers)
-    if (!support_info.isValidationLayerSupported(layer)) {
-      VENUS_WARN("Validation layer named '", layer, "' is not supported.");
-      return false;
+  }
+
+  std::vector<const char *> validation_layers;
+  for (auto &layer : layers_) {
+    validation_layers.emplace_back(layer.c_str());
+    if (!vk::isValidationLayerSupported(layer.c_str())) {
+      HERMES_WARN("Validation layer named '", layer, "' is not supported.");
+      return Result<Instance>::error(VeResult::incompatible());
     }
+  }
+
   VkApplicationInfo info;
-  info.pApplicationName = application_name.c_str();
+  info.pApplicationName = app_name_.c_str();
   info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  info.apiVersion = VK_MAKE_VERSION(1, 0, 0);
-  info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+  info.apiVersion = *api_version_;
+  info.engineVersion = *engine_version_;
+  info.applicationVersion = *app_version_;
   info.pNext = nullptr;
-  info.pEngineName = "venus";
+  info.pEngineName = engine_name_.c_str();
+
   VkInstanceCreateInfo create_info;
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pNext = nullptr;
-  create_info.flags = 0;
+  create_info.flags = flags_;
   create_info.pApplicationInfo = &info;
   create_info.enabledLayerCount = validation_layers.size();
   create_info.ppEnabledLayerNames =
@@ -215,59 +180,112 @@ bool Instance::init(
   create_info.ppEnabledExtensionNames =
       (instance_extensions.size()) ? instance_extensions.data() : nullptr;
 
+#ifdef VENUS_DEBUG
   VkDebugUtilsMessengerCreateInfoEXT debug_create_info;
   populateDebugMessengerCreateInfo(debug_create_info);
   create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
+#endif
 
-  R_CHECK_VULKAN(vkCreateInstance(&create_info, nullptr, &vk_instance_), false)
+  VkInstance vk_instance{VK_NULL_HANDLE};
 
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkCreateInstance(&create_info, nullptr, &vk_instance));
+  // load vulkan entrypoints
+  volkLoadInstance(vk_instance);
+
+#ifdef VENUS_DEBUG
+  VkDebugUtilsMessengerEXT vk_debug_messenger{VK_NULL_HANDLE};
   VkDebugUtilsMessengerCreateInfoEXT debug_after_create_info;
   populateDebugMessengerCreateInfo(debug_after_create_info);
-  R_CHECK_VULKAN(CreateDebugUtilsMessengerEXT(vk_instance_,
-                                              &debug_after_create_info, nullptr,
-                                              &vk_debug_messenger_),
-                 false)
-  return good();
+  VENUS_VK_RETURN_BAD_RESULT(CreateDebugUtilsMessengerEXT(
+      vk_instance, &debug_after_create_info, nullptr, &vk_debug_messenger));
+#endif
+
+  Instance instance;
+  instance.vk_instance_ = vk_instance;
+#ifdef VENUS_DEBUG
+  instance.vk_debug_messenger_ = vk_debug_messenger;
+  instance.config_ = *this;
+#endif
+
+  return Result<Instance>(std::move(instance));
+}
+
+Instance::Instance(Instance &&rhs) noexcept { *this = std::move(rhs); }
+
+Instance::~Instance() { destroy(); }
+
+Instance &Instance::operator=(Instance &&rhs) noexcept {
+  destroy();
+  vk_instance_ = rhs.vk_instance_;
+  rhs.vk_instance_ = VK_NULL_HANDLE;
+#ifdef VENUS_DEBUG
+  vk_debug_messenger_ = rhs.vk_debug_messenger_;
+  rhs.vk_debug_messenger_ = VK_NULL_HANDLE;
+  config_ = rhs.config_;
+#endif
+  return *this;
 }
 
 void Instance::destroy() {
-  if (good()) {
-    if (vk_debug_messenger_)
-      DestroyDebugUtilsMessengerEXT(vk_instance_, vk_debug_messenger_, nullptr);
-    // TODO why this gives a seg fault?!
-    // vkDestroyInstance(vk_instance_, nullptr);
+  if (!vk_instance_)
+    return;
+#ifdef VENUS_DEBUG
+  if (vk_debug_messenger_) {
+    DestroyDebugUtilsMessengerEXT(vk_instance_, vk_debug_messenger_, nullptr);
+    vk_debug_messenger_ = VK_NULL_HANDLE;
   }
-  vk_debug_messenger_ = VK_NULL_HANDLE;
+#endif
+  vkDestroyInstance(vk_instance_, nullptr);
   vk_instance_ = VK_NULL_HANDLE;
 }
 
-VkInstance Instance::handle() const { return vk_instance_; }
+VkInstance Instance::operator*() const { return vk_instance_; }
 
-bool Instance::good() const { return vk_instance_ != VK_NULL_HANDLE; }
+Instance::operator bool() const { return vk_instance_ != VK_NULL_HANDLE; }
 
-std::vector<PhysicalDevice>
+Result<std::vector<PhysicalDevice>>
 Instance::enumerateAvailablePhysicalDevices() const {
   std::vector<PhysicalDevice> physical_devices;
   u32 devices_count = 0;
-  R_CHECK_VULKAN(
-      vkEnumeratePhysicalDevices(vk_instance_, &devices_count, nullptr),
-      physical_devices)
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkEnumeratePhysicalDevices(vk_instance_, &devices_count, nullptr));
   if (devices_count == 0) {
-    VENUS_ERROR("Could not get the number of available physical devices.");
-    return physical_devices;
+    HERMES_ERROR("Could not get the number of available physical devices.");
+    return VeResult::notFound();
   }
   std::vector<VkPhysicalDevice> devices(devices_count);
-  R_CHECK_VULKAN(
-      vkEnumeratePhysicalDevices(vk_instance_, &devices_count, devices.data()),
-      physical_devices)
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkEnumeratePhysicalDevices(vk_instance_, &devices_count, devices.data()));
   if (devices_count == 0) {
-    VENUS_ERROR("Could not enumerate physical devices.");
-    return physical_devices;
+    HERMES_ERROR("Could not enumerate physical devices.");
+    return VeResult::notFound();
   }
   for (auto &device : devices)
     physical_devices.emplace_back(device);
 
-  return physical_devices;
+  return Result<std::vector<PhysicalDevice>>(physical_devices);
 }
 
 } // namespace venus::core
+
+namespace venus {
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Instance::Config)
+HERMES_PUSH_DEBUG_VENUS_FIELD(api_version_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(app_version_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(engine_version_)
+HERMES_PUSH_DEBUG_FIELD(app_name_)
+HERMES_PUSH_DEBUG_FIELD(engine_name_)
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(layers_, layer)
+HERMES_PUSH_DEBUG_FIELD_VALUE(layer, layer)
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(extensions_, extension)
+HERMES_PUSH_DEBUG_FIELD_VALUE(extension, extension)
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Instance)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_instance_);
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+} // namespace venus
