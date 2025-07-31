@@ -1,13 +1,22 @@
 set(VENUS_HEADERS
   core/debug.h
+  core/device.h
   core/instance.h
   core/physical_device.h
+  core/result.h
   core/vk_api.h
+  core/vk_debug.h
+
+  io/display.h
+  io/glfw_display.h
 )
 set(VENUS_SOURCES
+  core/device.cpp
   core/instance.cpp
   core/physical_device.cpp
   core/vk_api.cpp
+  
+  io/glfw_display.cpp
 )
 
 add_library(venus STATIC ${VENUS_HEADERS} ${VENUS_SOURCES})
@@ -17,8 +26,7 @@ target_include_directories(
   venus PUBLIC "$<BUILD_INTERFACE:${VENUS_SOURCE_DIR}>"
                     "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
 
-target_link_libraries(
-  venus PUBLIC optimized hermes glfw volk GPUOpen::VulkanMemoryAllocator)
+target_link_libraries( venus PUBLIC optimized hermes glfw VK)
 #debug
 #                   gcov)
 

@@ -39,42 +39,54 @@
 
 namespace venus::core {
 
-bool checkAvailableExtensions(std::vector<VkExtensionProperties> &extensions) {
+Result<std::vector<VkExtensionProperties>> checkAvailableInstanceExtensions() {
   u32 extensions_count = 0;
-  VENUS_VK_RETURN_BAD(vkEnumerateInstanceExtensionProperties(
-                          nullptr, &extensions_count, nullptr),
-                      false)
-  HERMES_ASSERT(extensions_count != 0);
-  extensions.resize(extensions_count);
-  VENUS_VK_RETURN_BAD(vkEnumerateInstanceExtensionProperties(
-                          nullptr, &extensions_count, &extensions[0]),
-                      false)
-  HERMES_ASSERT(extensions_count != 0);
-  return true;
+  VENUS_VK_RETURN_BAD_RESULT(vkEnumerateInstanceExtensionProperties(
+      nullptr, &extensions_count, nullptr));
+  if (!extensions_count) {
+    HERMES_ERROR("Failed to enumerate instance extension count.");
+    return VeResult::notFound();
+  }
+  std::vector<VkExtensionProperties> extensions(extensions_count);
+  VENUS_VK_RETURN_BAD_RESULT(vkEnumerateInstanceExtensionProperties(
+      nullptr, &extensions_count, &extensions[0]));
+  if (!extensions_count) {
+    HERMES_ERROR("Failed to enumerate instance extensions.");
+    return VeResult::notFound();
+  }
+
+  return Result<std::vector<VkExtensionProperties>>(std::move(extensions));
 }
 
-bool checkAvailableValidationLayers(
-    std::vector<VkLayerProperties> &validation_layers) {
+Result<std::vector<VkLayerProperties>> checkAvailableValidationLayers() {
   u32 layer_count = 0;
-  VENUS_VK_RETURN_BAD(vkEnumerateInstanceLayerProperties(&layer_count, nullptr),
-                      false)
-  HERMES_ASSERT(layer_count != 0)
-  validation_layers.resize(layer_count);
-  VENUS_VK_RETURN_BAD(vkEnumerateInstanceLayerProperties(
-                          &layer_count, validation_layers.data()),
-                      false)
-  HERMES_ASSERT(layer_count != 0)
-  return true;
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
+  if (!layer_count) {
+    HERMES_ERROR("Failed to enumerate validation layer count.");
+    return VeResult::notFound();
+  }
+  std::vector<VkLayerProperties> validation_layers(layer_count);
+  VENUS_VK_RETURN_BAD_RESULT(vkEnumerateInstanceLayerProperties(
+      &layer_count, validation_layers.data()));
+  if (!layer_count) {
+    HERMES_ERROR("Failed to enumerate validation layers.");
+    return VeResult::notFound();
+  }
+
+  return Result<std::vector<VkLayerProperties>>(std::move(validation_layers));
+}
+
+const std::vector<VkLayerProperties> &vk::availableValidationLayers() {
+  return get().vk_validation_layers_;
+}
+
+const std::vector<VkExtensionProperties> &vk::availableInstanceExtensions() {
+  return get().vk_extensions_;
 }
 
 bool vk::isInstanceExtensionSupported(const char *desired_instance_extension) {
   auto &vki = get();
-  static bool available_loaded = false;
-  if (!available_loaded) {
-    HERMES_ASSERT(::venus::core::checkAvailableExtensions(vki.vk_extensions_))
-    available_loaded = true;
-  }
-
   for (const auto &extension : vki.vk_extensions_)
     if (std::string_view(extension.extensionName) ==
         std::string_view(desired_instance_extension))
@@ -84,13 +96,6 @@ bool vk::isInstanceExtensionSupported(const char *desired_instance_extension) {
 
 bool vk::isValidationLayerSupported(const char *validation_layer) {
   auto &vki = get();
-  static bool available_loaded = false;
-  if (!available_loaded) {
-    HERMES_ASSERT(::venus::core::checkAvailableValidationLayers(
-        vki.vk_validation_layers_))
-    available_loaded = true;
-  }
-
   for (const auto &layer : vki.vk_validation_layers_)
     if (std::string_view(layer.layerName) == std::string_view(validation_layer))
       return true;
@@ -195,6 +200,14 @@ VeResult vk::init(const vk::Version &required_version) {
   }
 
   auto &v = get();
+
+  VENUS_ASSIGN_RESULT_OR_RETURN(v.vk_extensions_,
+                                checkAvailableInstanceExtensions(),
+                                VeResult::notFound());
+  VENUS_ASSIGN_RESULT_OR_RETURN(v.vk_validation_layers_,
+                                checkAvailableValidationLayers(),
+                                VeResult::notFound());
+
   return VeResult::noError();
 }
 
@@ -203,8 +216,8 @@ VeResult vk::init(const vk::Version &required_version) {
 namespace venus {
 #ifdef VENUS_INCLUDE_TO_STRING
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::vk::Version)
-return std::format("{}.{}.{}", object.major_version_, object.minor_version_,
-                   object.patch_version_);
+HERMES_PUSH_DEBUG_LINE("{}.{}.{}", object.major_version_, object.minor_version_,
+                       object.patch_version_);
 HERMES_TO_STRING_DEBUG_METHOD_END
 #endif
 } // namespace venus

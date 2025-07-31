@@ -61,6 +61,15 @@ public:
     /// \param extension_name
     Config &addExtension(const std::string_view &extension_name);
 #ifdef VENUS_DEBUG
+    /// Enable flags:
+    ///   - VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING
+    ///   - VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR
+    Config &enableDefaultDebugMessageSeverityFlags();
+    /// Enable flags:
+    ///   - VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+    ///   - VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    ///   - VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+    Config &enableDefaultDebugMessageTypeFlags();
     Config &
     addDebugMessageSeverityFlags(VkDebugUtilsMessageSeverityFlagsEXT flags);
     Config &addDebugMessageTypeFlags(VkDebugUtilsMessageTypeFlagsEXT flags);
@@ -105,8 +114,14 @@ public:
   /// \return bool true if instance is valid.
   HERMES_NODISCARD operator bool() const;
   /// \return list of detected physical devices.
-  HERMES_NODISCARD Result<std::vector<PhysicalDevice>>
-  enumerateAvailablePhysicalDevices() const;
+  HERMES_NODISCARD Result<PhysicalDevices> physicalDevices() const;
+  /// \brief Detects any hardware capable of graphics and presentation.
+  /// \param surface Output surface object.
+  /// \param graphics_queues Graphics family queues.
+  HERMES_NODISCARD Result<PhysicalDevice>
+  findPhysicalDevice(const VkSurfaceKHR &surface,
+                     vk::GraphicsQueueIndices &graphics_queues) const;
+
   /// \return Vulkan handle
   HERMES_NODISCARD VkInstance operator*() const;
 

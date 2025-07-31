@@ -27,9 +27,10 @@
 
 #pragma once
 
-#include <cassert>
 #include <hermes/core/debug.h>
 #include <venus/core/vk_api.h>
+
+#include <vulkan/vk_enum_string_helper.h>
 
 #ifdef VENUS_INCLUDE_TO_STRING
 
@@ -175,7 +176,7 @@ inline std::string_view vulkanResultString(VkResult err) {
     // case VK_ERROR_INVALID_EXTERNAL_HANDLE_KHR:
     //   return "VK_ERROR_INVALID_EXTERNAL_HANDLE_KHR";
   default:
-    return "UNDEFINED";
+    return string_VkResult(err);
   }
   return "UNDEFINED";
 }
@@ -187,7 +188,8 @@ inline std::string_view vulkanResultString(VkResult err) {
     VkResult _venus_vk_return_ve_error_ = (A);                                 \
     if (_venus_vk_return_ve_error_ != VK_SUCCESS) {                            \
       HERMES_ERROR("vulkan call error: {}", #A);                               \
-      HERMES_ERROR("{}", vulkanResultString(_venus_vk_return_ve_error_));      \
+      HERMES_ERROR(                                                            \
+          "{}", venus::core::vulkanResultString(_venus_vk_return_ve_error_));  \
       return VeResult::vkError();                                              \
     }                                                                          \
   }
@@ -196,7 +198,8 @@ inline std::string_view vulkanResultString(VkResult err) {
     VkResult _venus_vk_return_bad_ = (A);                                      \
     if (_venus_vk_return_bad_ != VK_SUCCESS) {                                 \
       HERMES_ERROR("vulkan call error: {}", #A);                               \
-      HERMES_ERROR("{}", vulkanResultString(_venus_vk_return_bad_));           \
+      HERMES_ERROR("{}",                                                       \
+                   venus::core::vulkanResultString(_venus_vk_return_bad_));    \
       return R;                                                                \
     }                                                                          \
   }
@@ -205,7 +208,7 @@ inline std::string_view vulkanResultString(VkResult err) {
     VkResult _venus_vk_assert_ = (A);                                          \
     if (_venus_vk_assert_ != VK_SUCCESS) {                                     \
       HERMES_ERROR(#A);                                                        \
-      HERMES_ERROR(vulkanResultString(_venus_vk_assert_));                     \
+      HERMES_ERROR(venus::core::vulkanResultString(_venus_vk_assert_));        \
       exit(-1);                                                                \
     }                                                                          \
   }

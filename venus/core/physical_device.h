@@ -31,6 +31,30 @@
 
 #include <vector>
 
+#ifndef VENUS_DECLARE_REF_METHOD
+#define VENUS_DECLARE_REF_METHOD(T)                                            \
+  struct CRef {                                                                \
+    operator bool() const { return ptr_; }                                     \
+    const T *operator->() { return ptr_; }                                     \
+                                                                               \
+  private:                                                                     \
+    friend class T;                                                            \
+    CRef(T *ptr) noexcept : ptr_{ptr} {}                                       \
+    const T *ptr_{nullptr};                                                    \
+  };                                                                           \
+  struct Ref {                                                                 \
+    operator bool() const { return ptr_; }                                     \
+    T *operator->() { return ptr_; }                                           \
+                                                                               \
+  private:                                                                     \
+    friend class T;                                                            \
+    Ref(T *ptr) noexcept : ptr_{ptr} {}                                        \
+    T *ptr_{nullptr};                                                          \
+  };                                                                           \
+  Ref ref() { return Ref(this); }                                              \
+  CRef cref() { return CRef(this); }
+#endif
+
 namespace venus::core {
 
 /// Physical devices are the hardware we intend to use with Vulkan. Thus we
@@ -55,6 +79,8 @@ public:
   PhysicalDevice &operator=(const PhysicalDevice &rhs);
   ~PhysicalDevice() = default;
 
+  VENUS_DECLARE_REF_METHOD(PhysicalDevice)
+
   /// \return VkPhysicalDevice vulkan handle.
   HERMES_NODISCARD VkPhysicalDevice operator*() const;
   /// \return True if this object is valid.
@@ -73,7 +99,7 @@ public:
   /// \param  desired_capabilities desired set of capabalities.
   /// \return A capable queue family index if found, error otherwise.
   HERMES_NODISCARD Result<u32>
-  selectIndexOfQueueFamily(VkQueueFlagBits desired_capabilities) const;
+  selectIndexOfQueueFamily(VkQueueFlags desired_capabilities) const;
   /// Finds a queue family of a physical device that can accept commands for a
   /// given surface.
   /// \param  vk_presentation_surface surface handle.
@@ -157,6 +183,7 @@ public:
   VENUS_TO_STRING_FRIEND(PhysicalDevice);
 
 private:
+  friend class PhysicalDevices;
   /// Vulkan handle
   VkPhysicalDevice vk_device_{VK_NULL_HANDLE};
   /// Available device extensions
@@ -173,6 +200,44 @@ private:
   std::vector<VkQueueFamilyProperties> vk_queue_families_;
 
   VENUS_TO_STRING_FRIEND(PhysicalDevice);
+};
+
+/// Holds a list of physical devices that can be selected from.
+class PhysicalDevices : public std::vector<PhysicalDevice> {
+public:
+  /// Auxiliary class for selecting physical devices.
+  struct Selector {
+
+    Selector &setApiVersion(const vk::Version &version);
+    ///
+    Selector &setSurface(VkSurfaceKHR surface);
+    Selector &setFeatures(const VkPhysicalDeviceFeatures &features);
+    Selector &setFeatures2(const VkPhysicalDeviceFeatures2 &features);
+    Selector &
+    setVulkan12Features(const VkPhysicalDeviceVulkan12Features &features);
+    Selector &
+    setVulkan13Features(const VkPhysicalDeviceVulkan13Features &features);
+    Selector &setDescriptorIndexingFeatures(
+        const VkPhysicalDeviceDescriptorIndexingFeaturesEXT &features);
+    Selector &setSynchronization2Features(
+        const VkPhysicalDeviceSynchronization2FeaturesKHR &features);
+    Selector &addQueueFlags(VkQueueFlags flags);
+
+    /// The selector will look for any device with an api version equal or
+    /// greater than api_version
+    vk::Version api_version{VK_API_VERSION_1_0};
+    /// If a surface is provided, then the selector will search for devices
+    /// with surface support
+    VkSurfaceKHR surface{VK_NULL_HANDLE};
+    vk::DeviceFeatures device_features{};
+    VkQueueFlags queue_flags{};
+  };
+
+  ///
+  Result<PhysicalDevice> select(const Selector &selector) const;
+
+private:
+  VENUS_TO_STRING_FRIEND(PhysicalDevices);
 };
 
 } // namespace venus::core

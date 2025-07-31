@@ -49,7 +49,7 @@ namespace venus::core {
 /// Vulkan API access
 class vk final {
 public:
-  /// \brief Auxiliary struct for managing version.
+  /// Auxiliary struct for managing version.
   class Version {
   public:
     Version(u32 major, u32 minor, u32 patch = 0) noexcept;
@@ -80,6 +80,41 @@ public:
   ///          - INCOMPATIBLE_API if required version is not available.
   static VeResult init(const Version &required_version = {});
 
+  // Layers
+  // ------
+  // Vulkan instance layers are optional, dynamically loaded shared libraries
+  // that can intercept, evaluate, and modify Vulkan API calls. They provide
+  // functionality like validation, debugging, and profiling without modifying
+  // the application's source code. Common Uses of Instance Layers:
+  //
+  // Validation:
+  //    Validation layers check for invalid API usage, helping to catch errors
+  //    during development.
+  //
+  // Debugging:
+  //    API dump layers log API calls for debugging purposes, while validation
+  //    layers provide error messages. Profiling: Layers can be used to profile
+  //    Vulkan application performance. Extension Support: Layers can provide
+  //    implementations of extensions that are not natively supported by the
+  //    driver.
+  //
+  // Key Considerations:
+  //
+  // Performance:
+  //    Layers can introduce overhead, but validation layers are typically used
+  //    only during development and can be disabled for production builds.
+  //
+  // Ordering:
+  //    The order in which layers are placed in the dispatch chain can affect
+  //    their behavior.
+  //
+  // Configuration:
+  //    Vulkan layer settings can be configured using various methods, including
+  //    the Vulkan API, a configuration file, or environment variables.
+
+  /// Retrieve available validation layers.
+  static const std::vector<VkLayerProperties> &availableValidationLayers();
+
   // Instance
   // --------
   // The Vulkan Instance holds all kind of information about the application,
@@ -87,8 +122,10 @@ public:
   // between the application and the Vulkan Library, that can perform
   // operations like the enumeration of available physical devices and creation
   // of logical devices.
-  //
 
+  /// Retrieve available instance extensions.
+  static const std::vector<VkExtensionProperties> &
+  availableInstanceExtensions();
   /// Checks if extension is supported by the current api.
   ///\param extension_name (ex: ).
   ///\return bool true if extension is supported.
@@ -104,6 +141,15 @@ public:
   // need to look for the devices that supports the features we need. We can
   // select any number of graphics cards and use them simultaneously.
 
+  struct DeviceFeatures {
+    VkPhysicalDeviceFeatures f{};
+    VkPhysicalDeviceFeatures2 f2{};
+    VkPhysicalDeviceVulkan13Features v13_f{};
+    VkPhysicalDeviceVulkan12Features v12_f{};
+    VkPhysicalDeviceDescriptorIndexingFeaturesEXT descriptor_indexing_f{};
+    VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2_f{};
+  };
+
   /// Retrieve available queue families exposed by a physical device
   /// \param[in] vk_physical_device
   /// \param[out] queue_families receives the list of available queue_families.
@@ -118,6 +164,21 @@ public:
   static VeResult
   checkAvailableExtensions(VkPhysicalDevice vk_physical_device,
                            std::vector<VkExtensionProperties> &extensions);
+
+  // Family Queues
+  // -------------
+  // Every Vulkan operation requires commands that are submitted to a queue.
+  // Different queues can be processed independently and may support different
+  // types of operations.
+  // Queues with the same capabilities are grouped into families. A device may
+  // expose any number of queue families. For example, there could be a queue
+  // family that only allows processing of compute commands or one that only
+  // allows memory transfer related commands.
+
+  struct GraphicsQueueIndices {
+    u32 graphics_queue_family_index;
+    u32 present_queue_family_index;
+  };
 
   ~vk() = default;
   vk(const vk &) noexcept = delete;
@@ -138,5 +199,5 @@ private:
 } // namespace venus::core
 
 namespace venus {
-HERMES_DECLARE_TO_STRING_DEBUG_METHOD(venus::core::vk::Version);
+HERMES_DECLARE_TO_STRING_DEBUG_METHOD(venus::core::vk::Version)
 } // namespace venus

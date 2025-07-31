@@ -29,6 +29,7 @@
 #include <venus/core/vk_debug.h>
 
 #include <utility>
+#include <vulkan/vulkan_core.h>
 
 namespace venus::core {
 
@@ -118,6 +119,20 @@ Instance::Config::addExtension(const std::string_view &extension_name) {
 }
 
 #ifdef VENUS_DEBUG
+
+Instance::Config &Instance::Config::enableDefaultDebugMessageSeverityFlags() {
+  message_severity_flags_ |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+  message_severity_flags_ |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  return *this;
+}
+
+Instance::Config &Instance::Config::enableDefaultDebugMessageTypeFlags() {
+  message_type_flags_ |= VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+  message_type_flags_ |= VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+  message_type_flags_ |= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+  return *this;
+}
+
 Instance::Config &Instance::Config::addDebugMessageSeverityFlags(
     VkDebugUtilsMessageSeverityFlagsEXT flags) {
   message_severity_flags_ |= flags;
@@ -244,9 +259,8 @@ VkInstance Instance::operator*() const { return vk_instance_; }
 
 Instance::operator bool() const { return vk_instance_ != VK_NULL_HANDLE; }
 
-Result<std::vector<PhysicalDevice>>
-Instance::enumerateAvailablePhysicalDevices() const {
-  std::vector<PhysicalDevice> physical_devices;
+Result<PhysicalDevices> Instance::physicalDevices() const {
+  PhysicalDevices physical_devices;
   u32 devices_count = 0;
   VENUS_VK_RETURN_BAD_RESULT(
       vkEnumeratePhysicalDevices(vk_instance_, &devices_count, nullptr));
@@ -264,8 +278,12 @@ Instance::enumerateAvailablePhysicalDevices() const {
   for (auto &device : devices)
     physical_devices.emplace_back(device);
 
-  return Result<std::vector<PhysicalDevice>>(physical_devices);
+  return Result<PhysicalDevices>(physical_devices);
 }
+
+HERMES_NODISCARD Result<PhysicalDevice>
+Instance::findPhysicalDevice(const VkSurfaceKHR &surface,
+                             vk::GraphicsQueueIndices &graphics_queues) const {}
 
 } // namespace venus::core
 
