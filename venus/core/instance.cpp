@@ -34,34 +34,88 @@
 namespace venus::core {
 
 VkResult CreateDebugUtilsMessengerEXT(
-    VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
-    const VkAllocationCallbacks *pAllocator,
-    VkDebugUtilsMessengerEXT *pDebugMessenger) {
+    VkInstance instance,
+    const VkDebugUtilsMessengerCreateInfoEXT *p_create_info,
+    const VkAllocationCallbacks *p_allocator,
+    VkDebugUtilsMessengerEXT *p_debug_messenger) {
   auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
       instance, "vkCreateDebugUtilsMessengerEXT");
   if (func != nullptr) {
-    return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    return func(instance, p_create_info, p_allocator, p_debug_messenger);
   } else {
     return VK_ERROR_EXTENSION_NOT_PRESENT;
   }
 }
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance,
-                                   VkDebugUtilsMessengerEXT debugMessenger,
-                                   const VkAllocationCallbacks *pAllocator) {
+                                   VkDebugUtilsMessengerEXT debug_messenger,
+                                   const VkAllocationCallbacks *p_allocator) {
   auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
       instance, "vkDestroyDebugUtilsMessengerEXT");
   if (func != nullptr) {
-    func(instance, debugMessenger, pAllocator);
+    func(instance, debug_messenger, p_allocator);
   }
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
-debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-              VkDebugUtilsMessageTypeFlagsEXT messageType,
-              const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-              void *pUserData) {
-  HERMES_DEBUG("validation layer: ", pCallbackData->pMessage);
+debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
+              VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
+              const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
+              void * /*p_user_data*/) {
+
+#ifdef VENUS_NO_DEBUG
+  switch (static_cast<uint32_t>(callback_data->messageIdNumber)) {
+  case 0:
+    // Validation Warning: Override layer has override paths set to
+    // C:/VulkanSDK/<version>/Bin
+    return vk::False;
+  case 0x822806fa:
+    // Validation Warning: vkCreateInstance(): to enable extension
+    // VK_EXT_debug_utils, but this extension is intended to support use by
+    // applications when debugging and it is strongly recommended that it be
+    // otherwise avoided.
+    return vk::False;
+  case 0xe8d1a9fe:
+    // Validation Performance Warning: Using debug builds of the validation
+    // layers *will* adversely affect performance.
+    return vk::False;
+  }
+#endif
+
+  // std::cerr << vk::to_string(message_severity) << ": "
+  //           << vk::to_string(message_types) << ":\n";
+  HERMES_ERROR("\tmessageIDName   = <{}>", callback_data->pMessageIdName);
+  HERMES_ERROR("\tmessageIdNumber = {}", callback_data->messageIdNumber);
+  HERMES_ERROR("\tmessage         = <{}>", callback_data->pMessage);
+  if (0 < callback_data->queueLabelCount) {
+    HERMES_ERROR("\tQueue Labels:");
+    for (uint32_t i = 0; i < callback_data->queueLabelCount; i++) {
+      HERMES_ERROR("\t\tlabelName = <{}>",
+                   callback_data->pQueueLabels[i].pLabelName);
+    }
+  }
+  if (0 < callback_data->cmdBufLabelCount) {
+    HERMES_ERROR("\tCommandBuffer Labels:");
+    for (uint32_t i = 0; i < callback_data->cmdBufLabelCount; i++) {
+      HERMES_ERROR("\t\tlabelName = <{}>",
+                   callback_data->pCmdBufLabels[i].pLabelName);
+    }
+  }
+  if (0 < callback_data->objectCount) {
+    HERMES_ERROR("\tObjects:");
+    for (uint32_t i = 0; i < callback_data->objectCount; i++) {
+      HERMES_ERROR("\t\tObject {}", i);
+      HERMES_ERROR("\t\t\tobjectType   = {}",
+                   string_VkObjectType(callback_data->pObjects[i].objectType));
+      HERMES_ERROR("\t\t\tobjectHandle = {}",
+                   callback_data->pObjects[i].objectHandle);
+      if (callback_data->pObjects[i].pObjectName) {
+        HERMES_ERROR("\t\t\tobjectName   = <{}>",
+                     callback_data->pObjects[i].pObjectName);
+      }
+    }
+  }
+
   return VK_FALSE;
 }
 
@@ -115,6 +169,13 @@ Instance::Config::addLayer(const std::string_view &layer_name) {
 Instance::Config &
 Instance::Config::addExtension(const std::string_view &extension_name) {
   extensions_.emplace_back(extension_name);
+  return *this;
+}
+
+Instance::Config &Instance::Config::addExtensions(
+    const std::vector<std::string> &extension_names) {
+  extensions_.insert(extensions_.end(), extension_names.begin(),
+                     extension_names.end());
   return *this;
 }
 
@@ -182,6 +243,15 @@ Result<Instance> Instance::Config::create() {
   info.pNext = nullptr;
   info.pEngineName = engine_name_.c_str();
 
+  u32 vk_version{VK_API_VERSION_1_0};
+  vkEnumerateInstanceVersion(&vk_version);
+  vk::Version max_version(vk_version);
+  if (max_version < api_version_) {
+    HERMES_ERROR("Incompatible Instance version {} (available {}).",
+                 venus::to_string(api_version_), venus::to_string(max_version));
+    return VeResult::incompatible();
+  }
+
   VkInstanceCreateInfo create_info;
   create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   create_info.pNext = nullptr;
@@ -218,6 +288,7 @@ Result<Instance> Instance::Config::create() {
 
   Instance instance;
   instance.vk_instance_ = vk_instance;
+  instance.version_ = api_version_;
 #ifdef VENUS_DEBUG
   instance.vk_debug_messenger_ = vk_debug_messenger;
   instance.config_ = *this;
@@ -275,21 +346,20 @@ Result<PhysicalDevices> Instance::physicalDevices() const {
     HERMES_ERROR("Could not enumerate physical devices.");
     return VeResult::notFound();
   }
-  for (auto &device : devices)
-    physical_devices.emplace_back(device);
+  for (auto &device : devices) {
+    PhysicalDevice pd(device);
+    if (vk::Version(pd.properties().apiVersion) >= version_)
+      physical_devices.emplace_back(std::move(pd));
+  }
 
   return Result<PhysicalDevices>(physical_devices);
 }
-
-HERMES_NODISCARD Result<PhysicalDevice>
-Instance::findPhysicalDevice(const VkSurfaceKHR &surface,
-                             vk::GraphicsQueueIndices &graphics_queues) const {}
 
 } // namespace venus::core
 
 namespace venus {
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Instance::Config)
-HERMES_PUSH_DEBUG_VENUS_FIELD(api_version_)
+HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_VENUS_FIELD(app_version_)
 HERMES_PUSH_DEBUG_VENUS_FIELD(engine_version_)
 HERMES_PUSH_DEBUG_FIELD(app_name_)
@@ -303,6 +373,7 @@ HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Instance)
+HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_VK_HANDLE(vk_instance_);
 HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
 HERMES_TO_STRING_DEBUG_METHOD_END

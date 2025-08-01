@@ -72,7 +72,7 @@ namespace venus::core {
 /// allows memory transfer related commands.
 class PhysicalDevice {
 public:
-  PhysicalDevice(VkPhysicalDevice handle);
+  PhysicalDevice(VkPhysicalDevice handle = VK_NULL_HANDLE);
   PhysicalDevice(PhysicalDevice &&rhs) noexcept;
   PhysicalDevice(const PhysicalDevice &rhs);
   PhysicalDevice &operator=(PhysicalDevice &&rhs) noexcept;
@@ -106,6 +106,11 @@ public:
   /// \return A capable queue if found, error otherwise.
   HERMES_NODISCARD Result<u32>
   selectIndexOfQueueFamily(VkSurfaceKHR vk_presentation_surface) const;
+  /// Finds queues with capabilities for graphics.
+  /// \note If a queue presents both presentation support for the given surface
+  ///       and VK_QUEUE_GRAPHICS_BIT, then it is assigned to both fields.
+  HERMES_NODISCARD Result<vk::GraphicsQueueFamilyIndices>
+  selectGraphicsQueueFamilyIndices(VkSurfaceKHR vk_presentation_surface) const;
   /// Gets the properties and level of support for a given format.
   /// \param vk_format
   VkFormatProperties formatProperties(VkFormat vk_format) const;
@@ -150,10 +155,9 @@ public:
   /// \param[out] image_format            receives available image format.
   /// \param[out] image_color_space       receives available color space.
   /// \return error status.
-  HERMES_NODISCARD VeResult selectFormatOfSwapchainImages(
+  HERMES_NODISCARD Result<VkSurfaceFormatKHR> selectFormatOfSwapchainImages(
       VkSurfaceKHR presentation_surface,
-      VkSurfaceFormatKHR desired_surface_format, VkFormat &image_format,
-      VkColorSpaceKHR &image_color_space) const;
+      VkSurfaceFormatKHR desired_surface_format) const;
   /// Takes a list of candidate formats in order from most desirable to
   /// least desirable, and checks which is the first one that is supported
   /// \param  candidates
@@ -208,9 +212,10 @@ public:
   /// Auxiliary class for selecting physical devices.
   struct Selector {
 
-    Selector &setApiVersion(const vk::Version &version);
-    ///
+    /// \note This adds VK_QUEUE_GRAPHICS_BIT to queue flags.
+    Selector &forGraphics(VkSurfaceKHR surface);
     Selector &setSurface(VkSurfaceKHR surface);
+    Selector &setFeatures(const vk::DeviceFeatures &features);
     Selector &setFeatures(const VkPhysicalDeviceFeatures &features);
     Selector &setFeatures2(const VkPhysicalDeviceFeatures2 &features);
     Selector &
@@ -223,9 +228,6 @@ public:
         const VkPhysicalDeviceSynchronization2FeaturesKHR &features);
     Selector &addQueueFlags(VkQueueFlags flags);
 
-    /// The selector will look for any device with an api version equal or
-    /// greater than api_version
-    vk::Version api_version{VK_API_VERSION_1_0};
     /// If a surface is provided, then the selector will search for devices
     /// with surface support
     VkSurfaceKHR surface{VK_NULL_HANDLE};

@@ -26,4 +26,151 @@
 
 #include <venus/core/device.h>
 
-namespace venus::core {} // namespace venus::core
+#include <venus/core/vk_debug.h>
+
+namespace venus::core {
+
+Device::Config &
+Device::Config::addExtension(const std::string_view &extension_name) {
+  extensions_.emplace_back(extension_name);
+  return *this;
+}
+
+Device::Config &
+Device::Config::addExtensions(const std::vector<std::string> &extension_names) {
+  extensions_.insert(extensions_.end(), extension_names.begin(),
+                     extension_names.end());
+  return *this;
+}
+
+Device::Config &
+Device::Config::setFeatures(const vk::DeviceFeatures &features) {
+  features_ = features;
+  return *this;
+}
+
+Device::Config &
+Device::Config::setFeatures(const VkPhysicalDeviceFeatures &features) {
+  features_.f = features;
+  return *this;
+}
+
+Device::Config &
+Device::Config::setFeatures2(const VkPhysicalDeviceFeatures2 &features) {
+  features_.f2 = features;
+  return *this;
+}
+
+Device::Config &Device::Config::setVulkan12Features(
+    const VkPhysicalDeviceVulkan12Features &features) {
+  features_.v12_f = features;
+  return *this;
+}
+
+Device::Config &Device::Config::setVulkan13Features(
+    const VkPhysicalDeviceVulkan13Features &features) {
+  features_.v13_f = features;
+  return *this;
+}
+
+Device::Config &Device::Config::setDescriptorIndexingFeatures(
+    const VkPhysicalDeviceDescriptorIndexingFeaturesEXT &features) {
+  features_.descriptor_indexing_f = features;
+  return *this;
+}
+
+Device::Config &Device::Config::setSynchronization2Features(
+    const VkPhysicalDeviceSynchronization2FeaturesKHR &features) {
+  features_.synchronization2_f = features;
+  return *this;
+}
+
+Device::Config &Device::Config::addCreateFlags(VkDeviceCreateFlags flags) {
+  flags_ |= flags;
+  return *this;
+}
+
+Device::Config &
+Device::Config::addQueueFamily(u32 index,
+                               const std::vector<f32> &queue_priorities,
+                               VkDeviceQueueCreateFlags flags) {
+  for (auto &family : family_configs_) {
+    if (family.index == index) {
+      family.priorities.insert(family.priorities.end(),
+                               queue_priorities.begin(),
+                               queue_priorities.end());
+      return *this;
+    }
+  }
+  family_configs_.push_back(
+      {.index = index, .priorities = queue_priorities, .flags = flags});
+  return *this;
+}
+
+Result<Device>
+Device::Config::create(const PhysicalDevice &physical_device) const {
+  std::vector<char const *> extensions;
+  extensions.reserve(extensions_.size());
+  for (auto const &ext : extensions_) {
+    extensions.push_back(ext.data());
+  }
+
+  auto features = features_;
+  features.v13_f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+  features.v12_f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+
+  features.v12_f.pNext = &features.v13_f;
+  features.f2.pNext = &features.v12_f;
+
+  std::vector<VkDeviceQueueCreateInfo> queue_infos;
+  for (const auto &family_config : family_configs_) {
+    VkDeviceQueueCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    info.pNext = nullptr;
+    info.flags = family_config.flags;
+    info.queueFamilyIndex = family_config.index;
+    info.queueCount = family_config.priorities.size();
+    info.pQueuePriorities = family_config.priorities.data();
+    queue_infos.push_back(info);
+  }
+
+  VkDeviceCreateInfo create_info{};
+  create_info.pNext = &features.f2;
+  create_info.flags = flags_;
+  create_info.pQueueCreateInfos = queue_infos.data();
+  create_info.queueCreateInfoCount = queue_infos.size();
+  create_info.ppEnabledExtensionNames = extensions.data();
+  create_info.enabledExtensionCount = extensions.size();
+
+  Device device;
+  device.physical_device_ = physical_device;
+  VENUS_VK_RETURN_BAD_RESULT(vkCreateDevice(*physical_device, &create_info,
+                                            nullptr, &device.vk_device_));
+  return Result<Device>(std::move(device));
+}
+
+Device::Device(Device &&rhs) noexcept { *this = std::move(rhs); }
+
+Device::~Device() noexcept { destroy(); }
+
+Device &Device::operator=(Device &&rhs) noexcept {
+  destroy();
+  vk_device_ = rhs.vk_device_;
+  physical_device_ = rhs.physical_device_;
+  rhs.physical_device_ = {};
+  rhs.vk_device_ = VK_NULL_HANDLE;
+  return *this;
+}
+
+void Device::destroy() noexcept {
+  if (vk_device_) {
+    vkDestroyDevice(vk_device_, nullptr);
+    vk_device_ = VK_NULL_HANDLE;
+  }
+}
+
+VkDevice Device::operator*() const { return vk_device_; }
+
+const PhysicalDevice &Device::physical() const { return physical_device_; }
+
+} // namespace venus::core

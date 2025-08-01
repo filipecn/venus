@@ -38,20 +38,77 @@ namespace venus::core {
 /// Device queues need to be requested on device creation, we cannot create or
 /// destroy queues explicitly. They are created/destroyed on logical device
 /// creation/destruction.
+/// \note This class uses RAII.
 class Device {
 public:
   /// Builder for Device class.
   struct Config {
-    VkPhysicalDeviceFeatures f;
-    VkPhysicalDeviceFeatures2 f2;
-    VkPhysicalDeviceVulkan13Features f13{};
-    VkPhysicalDeviceVulkan12Features f12{};
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT desc_i_f;
-    VkPhysicalDeviceSynchronization2FeaturesKHR sync2f;
-  };
-  Device() noexcept;
 
-private:
+    /// \param extension_name
+    Config &addExtension(const std::string_view &extension_name);
+    /// \param extension_names
+    Config &addExtensions(const std::vector<std::string> &extension_names);
+    /// \param features All device features.
+    Config &setFeatures(const vk::DeviceFeatures &features);
+    /// \param features Physical device features.
+    Config &setFeatures(const VkPhysicalDeviceFeatures &features);
+    /// \param features Physical device features2.
+    Config &setFeatures2(const VkPhysicalDeviceFeatures2 &features);
+    /// \param features Physical device vk 12 features.
+    Config &
+    setVulkan12Features(const VkPhysicalDeviceVulkan12Features &features);
+    /// \param features Physical device vk 13 features.
+    Config &
+    setVulkan13Features(const VkPhysicalDeviceVulkan13Features &features);
+    /// \param features Physical device indexing features.
+    Config &setDescriptorIndexingFeatures(
+        const VkPhysicalDeviceDescriptorIndexingFeaturesEXT &features);
+    /// \param features Physical device synchronization2 features.
+    Config &setSynchronization2Features(
+        const VkPhysicalDeviceSynchronization2FeaturesKHR &features);
+    /// \param flags
+    Config &addCreateFlags(VkDeviceCreateFlags flags);
+    /// \note This indicates a family with size of queue_priorities elements.
+    /// \note If the family index has already been added, this will append the
+    ///       priorities to the previous priorities for that family index.
+    /// \param index Queue family index (returned by physical device methods)
+    /// \param queue_priorities Priorities the queues in the family.
+    /// \param flags [def={}]
+    Config &addQueueFamily(u32 index, const std::vector<f32> &queue_priorities,
+                           VkDeviceQueueCreateFlags flags = {});
+
+    /// Creates a new logical device with this configuration.
+    /// \param physical_device
+    /// \return The newly created device or error.
+    HERMES_NODISCARD Result<Device>
+    create(const PhysicalDevice &physical_device) const;
+
+  private:
+    vk::DeviceFeatures features_;
+    std::vector<std::string> extensions_;
+    std::vector<vk::QueueFamilyConfig> family_configs_;
+    VkDeviceCreateFlags flags_;
+  };
+
+  // raii
+
+  Device() noexcept = default;
+  Device(const Device &) = delete;
+  Device(Device &&rhs) noexcept;
+  Device &operator=(const Device &) = delete;
+  Device &operator=(Device &&rhs) noexcept;
+  virtual ~Device() noexcept;
+
+  /// Destroy underlying vulkan logical device object and clear all data.
+  void destroy() noexcept;
+  /// \return Associated physical device.
+  const PhysicalDevice &physical() const;
+  /// \return Underlying vulkan logical device object.
+  VkDevice operator*() const;
+
+protected:
+  VkDevice vk_device_{VK_NULL_HANDLE};
+  PhysicalDevice physical_device_;
 };
 
 class GraphicsDevice : public Device {};

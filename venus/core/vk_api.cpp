@@ -162,6 +162,10 @@ bool vk::Version::operator<(const vk::Version &rhs) const {
   return major_version_ < rhs.major_version_;
 }
 
+bool vk::Version::operator>=(const vk::Version &rhs) const {
+  return !(*this < rhs);
+}
+
 void sanityCheck() {
   void *ptr;
 
@@ -170,7 +174,7 @@ void sanityCheck() {
 #if defined(_WIN32)
       &vkCreateWin32SurfaceKHR;
 #elif defined(__linux__) || defined(__unix__)
-      &vkCreateXlibSurfaceKHR;
+      &vkCreateXcbSurfaceKHR;
 #elif defined(__APPLE__)
       &vkCreateMacOSSurfaceMVK;
 #else
@@ -218,6 +222,11 @@ namespace venus {
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::vk::Version)
 HERMES_PUSH_DEBUG_LINE("{}.{}.{}", object.major_version_, object.minor_version_,
                        object.patch_version_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::vk::GraphicsQueueFamilyIndices)
+HERMES_PUSH_DEBUG_LINE("P[{}] G[{}]", object.graphics_queue_family_index,
+                       object.present_queue_family_index);
 HERMES_TO_STRING_DEBUG_METHOD_END
 #endif
 } // namespace venus

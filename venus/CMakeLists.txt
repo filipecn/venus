@@ -9,6 +9,7 @@ set(VENUS_HEADERS
 
   io/display.h
   io/glfw_display.h
+  io/swapchain.h
 )
 set(VENUS_SOURCES
   core/device.cpp
@@ -17,6 +18,7 @@ set(VENUS_SOURCES
   core/vk_api.cpp
   
   io/glfw_display.cpp
+  io/swapchain.cpp
 )
 
 add_library(venus STATIC ${VENUS_HEADERS} ${VENUS_SOURCES})

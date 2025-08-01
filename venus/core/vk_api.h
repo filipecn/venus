@@ -58,6 +58,7 @@ public:
 
     /// \return Version number comparison.
     bool operator<(const Version &rhs) const;
+    bool operator>=(const Version &rhs) const;
 
     /// \return The full version code in Vulkan standards.
     u32 version() const;
@@ -175,7 +176,13 @@ public:
   // family that only allows processing of compute commands or one that only
   // allows memory transfer related commands.
 
-  struct GraphicsQueueIndices {
+  struct QueueFamilyConfig {
+    u32 index;
+    std::vector<f32> priorities;
+    VkDeviceQueueCreateFlags flags;
+  };
+
+  struct GraphicsQueueFamilyIndices {
     u32 graphics_queue_family_index;
     u32 present_queue_family_index;
   };
@@ -200,4 +207,6 @@ private:
 
 namespace venus {
 HERMES_DECLARE_TO_STRING_DEBUG_METHOD(venus::core::vk::Version)
+HERMES_DECLARE_TO_STRING_DEBUG_METHOD(
+    venus::core::vk::GraphicsQueueFamilyIndices)
 } // namespace venus

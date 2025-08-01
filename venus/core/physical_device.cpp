@@ -24,7 +24,6 @@
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-06-07
 
-#include "venus/core/debug.h"
 #include <venus/core/physical_device.h>
 
 #include <venus/core/vk_debug.h>
@@ -67,6 +66,8 @@ VeResult PhysicalDevice::setHandle(VkPhysicalDevice vk_physical_device) {
   clear();
   // set new info
   vk_device_ = vk_physical_device;
+  if (!vk_device_)
+    return VeResult::noError();
   VENUS_RETURN_BAD_RESULT(
       vk::checkAvailableExtensions(vk_device_, vk_extensions_));
   vkGetPhysicalDeviceFeatures(vk_device_, &vk_features_);
@@ -123,6 +124,19 @@ Result<u32> PhysicalDevice::selectIndexOfQueueFamily(
     }
   }
   return VeResult::notFound();
+}
+
+Result<vk::GraphicsQueueFamilyIndices>
+PhysicalDevice::selectGraphicsQueueFamilyIndices(
+    VkSurfaceKHR vk_presentation_surface) const {
+  vk::GraphicsQueueFamilyIndices indices;
+  VENUS_ASSIGN_RESULT_OR_RETURN(indices.graphics_queue_family_index,
+                                selectIndexOfQueueFamily(VK_QUEUE_GRAPHICS_BIT),
+                                VeResult::notFound());
+  VENUS_ASSIGN_RESULT_OR_RETURN(
+      indices.present_queue_family_index,
+      selectIndexOfQueueFamily(vk_presentation_surface), VeResult::notFound());
+  return Result<vk::GraphicsQueueFamilyIndices>(std::move(indices));
 }
 
 VkFormatProperties PhysicalDevice::formatProperties(VkFormat format) const {
@@ -205,61 +219,63 @@ Result<VkPresentModeKHR> PhysicalDevice::selectPresentationMode(
   return VeResult::notFound();
 }
 
-VeResult PhysicalDevice::selectFormatOfSwapchainImages(
+Result<VkSurfaceFormatKHR> PhysicalDevice::selectFormatOfSwapchainImages(
     VkSurfaceKHR presentation_surface,
-    VkSurfaceFormatKHR desired_surface_format, VkFormat &image_format,
-    VkColorSpaceKHR &image_color_space) const {
+    VkSurfaceFormatKHR desired_surface_format) const {
   // Enumerate supported formats
-  u32 formats_count = 0;
+  u32 candidate_count = 0;
 
   VENUS_VK_RETURN_BAD_RESULT(vkGetPhysicalDeviceSurfaceFormatsKHR(
-      vk_device_, presentation_surface, &formats_count, nullptr))
-  if (0 == formats_count) {
+      vk_device_, presentation_surface, &candidate_count, nullptr))
+  if (0 == candidate_count) {
     HERMES_ERROR("Could not get the number of supported surface formats.");
     return VeResult::notFound();
   }
 
-  std::vector<VkSurfaceFormatKHR> surface_formats(formats_count);
+  std::vector<VkSurfaceFormatKHR> candidates(candidate_count);
   VENUS_VK_RETURN_BAD_RESULT(vkGetPhysicalDeviceSurfaceFormatsKHR(
-      vk_device_, presentation_surface, &formats_count,
-      surface_formats.data()));
-  if (0 == formats_count) {
+      vk_device_, presentation_surface, &candidate_count, candidates.data()));
+  if (0 == candidate_count) {
     HERMES_ERROR("Could not enumerate supported surface formats.");
     return VeResult::notFound();
   }
 
+  VkSurfaceFormatKHR image_format;
   // Select surface format
-  if ((1 == surface_formats.size()) &&
-      (VK_FORMAT_UNDEFINED == surface_formats[0].format)) {
-    image_format = desired_surface_format.format;
-    image_color_space = desired_surface_format.colorSpace;
-    return VeResult::noError();
-  }
-
-  for (auto &surface_format : surface_formats) {
-    if (desired_surface_format.format == surface_format.format &&
-        desired_surface_format.colorSpace == surface_format.colorSpace) {
-      image_format = desired_surface_format.format;
-      image_color_space = desired_surface_format.colorSpace;
-      return VeResult::noError();
+  if (1 == candidate_count) {
+    if (candidates[0].format == VK_FORMAT_UNDEFINED) {
+      image_format.format = VK_FORMAT_B8G8R8A8_UNORM;
+      image_format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    } else {
+      image_format = candidates[0];
     }
+    return Result<VkSurfaceFormatKHR>(image_format);
   }
 
-  for (auto &surface_format : surface_formats) {
-    if (desired_surface_format.format == surface_format.format) {
-      image_format = desired_surface_format.format;
-      image_color_space = surface_format.colorSpace;
+  for (auto &candidate : candidates)
+    if (desired_surface_format.format == candidate.format &&
+        desired_surface_format.colorSpace == candidate.colorSpace)
+      return Result<VkSurfaceFormatKHR>(candidate);
+
+  for (auto &candidate : candidates)
+    if (desired_surface_format.format == candidate.format) {
+      image_format.format = desired_surface_format.format;
+      image_format.colorSpace = candidate.colorSpace;
       HERMES_INFO("Desired combination of format and colorspace is not "
                   "supported. Selecting other colorspace.");
-      return VeResult::noError();
+      return Result<VkSurfaceFormatKHR>(image_format);
     }
-  }
 
-  image_format = surface_formats[0].format;
-  image_color_space = surface_formats[0].colorSpace;
-  HERMES_INFO("Desired format is not supported. Selecting available format - "
-              "colorspace combination.");
-  return VeResult::noError();
+  image_format.format = candidates[0].format;
+  image_format.colorSpace = candidates[0].colorSpace;
+  HERMES_INFO("Desired swapchain surface (format, colorspace) ({}, {}) is not "
+              "supported.",
+              string_VkFormat(desired_surface_format.format),
+              string_VkColorSpaceKHR(desired_surface_format.colorSpace));
+  HERMES_INFO("Selecting available pair ({}, {}) ",
+              string_VkFormat(image_format.format),
+              string_VkColorSpaceKHR(image_format.colorSpace));
+  return Result<VkSurfaceFormatKHR>(image_format);
 }
 
 Result<VkFormat>
@@ -350,14 +366,21 @@ std::ostream &operator<<(std::ostream &os, const PhysicalDevice &d) {
 }
 
 PhysicalDevices::Selector &
-PhysicalDevices::Selector::setApiVersion(const vk::Version &version) {
-  api_version = version;
+PhysicalDevices::Selector::forGraphics(VkSurfaceKHR _surface) {
+  surface = _surface;
+  queue_flags |= VK_QUEUE_GRAPHICS_BIT;
   return *this;
 }
 
 PhysicalDevices::Selector &
 PhysicalDevices::Selector::setSurface(VkSurfaceKHR _surface) {
   surface = _surface;
+  return *this;
+}
+
+PhysicalDevices::Selector &
+PhysicalDevices::Selector::setFeatures(const vk::DeviceFeatures &features) {
+  device_features = features;
   return *this;
 }
 
@@ -408,16 +431,13 @@ PhysicalDevices::Selector::addQueueFlags(VkQueueFlags flags) {
 Result<PhysicalDevice>
 PhysicalDevices::select(const PhysicalDevices::Selector &selector) const {
   for (const auto &physical_device : *this) {
-    if (selector.api_version.version() <=
-        physical_device.vk_properties_.apiVersion) {
-      // TODO check features
-      if (!physical_device.selectIndexOfQueueFamily(selector.queue_flags))
-        continue;
-      if (selector.surface &&
-          !physical_device.selectIndexOfQueueFamily(selector.surface))
-        continue;
-      return Result<PhysicalDevice>(physical_device);
-    }
+    // TODO check features
+    if (!physical_device.selectIndexOfQueueFamily(selector.queue_flags))
+      continue;
+    if (selector.surface &&
+        !physical_device.selectIndexOfQueueFamily(selector.surface))
+      continue;
+    return Result<PhysicalDevice>(physical_device);
   }
   return VeResult::notFound();
 }

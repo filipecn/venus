@@ -29,7 +29,6 @@
 
 #include <venus/core/physical_device.h>
 
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -42,8 +41,6 @@ namespace venus::core {
 /// \note This class uses RAII
 class Instance final {
 public:
-  using Ptr = std::shared_ptr<Instance>;
-
   /// Builder for Instance class.
   struct Config {
     /// \param version Required Vulkan api version.
@@ -60,6 +57,8 @@ public:
     Config &addLayer(const std::string_view &layer_name);
     /// \param extension_name
     Config &addExtension(const std::string_view &extension_name);
+    /// \param extension_names
+    Config &addExtensions(const std::vector<std::string> &extension_names);
 #ifdef VENUS_DEBUG
     /// Enable flags:
     ///   - VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING
@@ -115,18 +114,13 @@ public:
   HERMES_NODISCARD operator bool() const;
   /// \return list of detected physical devices.
   HERMES_NODISCARD Result<PhysicalDevices> physicalDevices() const;
-  /// \brief Detects any hardware capable of graphics and presentation.
-  /// \param surface Output surface object.
-  /// \param graphics_queues Graphics family queues.
-  HERMES_NODISCARD Result<PhysicalDevice>
-  findPhysicalDevice(const VkSurfaceKHR &surface,
-                     vk::GraphicsQueueIndices &graphics_queues) const;
 
   /// \return Vulkan handle
   HERMES_NODISCARD VkInstance operator*() const;
 
 private:
   VkInstance vk_instance_{VK_NULL_HANDLE};
+  vk::Version version_{VK_API_VERSION_1_0};
 #ifdef VENUS_DEBUG
   VkDebugUtilsMessengerEXT vk_debug_messenger_{VK_NULL_HANDLE};
   Config config_{};

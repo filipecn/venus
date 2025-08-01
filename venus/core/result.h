@@ -59,6 +59,9 @@ struct VeResult {
   static VeResult extError() {
     return {HeError::CUSTOM_ERROR, Type::EXT_ERROR};
   }
+  static VeResult inputError() {
+    return {HeError::INVALID_INPUT, Type::NO_ERROR};
+  }
 
   VeResult() = default;
   VeResult(Type type) : base_type(HeError::UNKNOWN_ERROR), type(type) {}
@@ -79,11 +82,12 @@ namespace venus {
 #ifdef VENUS_INCLUDE_TO_STRING
 inline std::string to_string(const VeResult &err) {
   std::stringstream ss;
-  ss << hermes::to_string(err.base_type);
+  if (err.base_type != HeError::CUSTOM_ERROR)
+    ss << hermes::to_string(err.base_type);
   if (err.base_type != HeError::NO_ERROR) {
 #define VE_ERROR_TYPE_NAME(E)                                                  \
   if (err.type == VeResult::Type::E)                                           \
-  ss << " | " << #E
+  ss << #E
     VE_ERROR_TYPE_NAME(NO_ERROR);
     VE_ERROR_TYPE_NAME(VK_ERROR);
     VE_ERROR_TYPE_NAME(INCOMPATIBLE_API);
