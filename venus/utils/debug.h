@@ -29,7 +29,7 @@
 
 #include <cassert>
 #include <hermes/core/debug.h>
-#include <venus/core/result.h>
+#include <venus/utils/result.h>
 
 #ifdef VENUS_INCLUDE_TO_STRING
 
@@ -57,6 +57,15 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD
     if (!_venus_check_ve_error_) {                                             \
       HERMES_ERROR("Error at: {}", #A);                                        \
       HERMES_ERROR("  w/ err: {}", venus::to_string(_venus_check_ve_error_));  \
+    }                                                                          \
+  }
+#endif
+#ifndef VENUS_CHECK_OR_RESULT
+#define VENUS_CHECK_OR_RESULT(A)                                               \
+  {                                                                            \
+    if (!(A)) {                                                                \
+      HERMES_ERROR("Check error: {}", #A);                                     \
+      return VeResult::checkError();                                           \
     }                                                                          \
   }
 #endif

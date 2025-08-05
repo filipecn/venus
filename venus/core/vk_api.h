@@ -28,7 +28,7 @@
 #pragma once
 
 #include <hermes/core/types.h>
-#include <venus/core/debug.h>
+#include <venus/utils/debug.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -49,6 +49,17 @@ namespace venus::core {
 /// Vulkan API access
 class vk final {
 public:
+  /// Utility function for swapping handles.
+  template <typename VK_HANDLE_TYPE>
+  static void swap(VK_HANDLE_TYPE &a, VK_HANDLE_TYPE &b) {
+    std::swap(a, b);
+  }
+
+  /// Utility function for getting data size from VkIndexType.
+  static VkDeviceSize indexSize(VkIndexType type);
+  /// Utility function for getting data size from VkFormat.
+  static VkDeviceSize formatSize(VkFormat format);
+
   /// Auxiliary struct for managing version.
   class Version {
   public:

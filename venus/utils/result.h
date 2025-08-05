@@ -45,6 +45,8 @@ struct VeResult {
     INCOMPATIBLE_API = 2, //!< api version mismatches and incompatibilities
     NOT_FOUND = 3,        //!< api version mismatches and incompatibilities
     EXT_ERROR = 4,        //!< third party lib error
+    CHECK_ERROR = 5,      //!< a check error ocurred
+    IO_ERROR = 6,         //!< an io error ocurred
   };
 
   static VeResult noError() { return {HeError::NO_ERROR, Type::NO_ERROR}; }
@@ -59,9 +61,16 @@ struct VeResult {
   static VeResult extError() {
     return {HeError::CUSTOM_ERROR, Type::EXT_ERROR};
   }
+  static VeResult checkError() {
+    return {HeError::CUSTOM_ERROR, Type::CHECK_ERROR};
+  }
   static VeResult inputError() {
     return {HeError::INVALID_INPUT, Type::NO_ERROR};
   }
+  static VeResult badAllocation() {
+    return {HeError::BAD_ALLOCATION, Type::NO_ERROR};
+  }
+  static VeResult ioError() { return {HeError::CUSTOM_ERROR, Type::IO_ERROR}; }
 
   VeResult() = default;
   VeResult(Type type) : base_type(HeError::UNKNOWN_ERROR), type(type) {}
@@ -93,6 +102,8 @@ inline std::string to_string(const VeResult &err) {
     VE_ERROR_TYPE_NAME(INCOMPATIBLE_API);
     VE_ERROR_TYPE_NAME(NOT_FOUND);
     VE_ERROR_TYPE_NAME(EXT_ERROR);
+    VE_ERROR_TYPE_NAME(CHECK_ERROR);
+    VE_ERROR_TYPE_NAME(IO_ERROR);
 #undef VE_ERROR_TYPE_NAME
   }
   return ss.str();

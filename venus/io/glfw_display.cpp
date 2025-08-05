@@ -24,10 +24,8 @@
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-06-07
 
-#include "venus/core/debug.h"
 #include <venus/io/glfw_display.h>
-
-#include <venus/core/vk_debug.h>
+#include <venus/utils/vk_debug.h>
 
 namespace venus::io {
 

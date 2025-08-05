@@ -26,7 +26,7 @@
 
 #include <venus/core/instance.h>
 
-#include <venus/core/vk_debug.h>
+#include <venus/utils/vk_debug.h>
 
 #include <utility>
 #include <vulkan/vulkan_core.h>

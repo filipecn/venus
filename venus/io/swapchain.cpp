@@ -26,7 +26,7 @@
 
 #include <venus/io/swapchain.h>
 
-#include <venus/core/vk_debug.h>
+#include <venus/utils/vk_debug.h>
 
 namespace venus::io {
 
@@ -209,6 +209,9 @@ Swapchain &Swapchain::operator=(Swapchain &&rhs) noexcept {
   rhs.vk_swapchain_ = VK_NULL_HANDLE;
   vk_device_ = rhs.vk_device_;
   rhs.vk_device_ = VK_NULL_HANDLE;
+#ifdef VENUS_DEBUG
+  config_ = rhs.config_;
+#endif
   return *this;
 }
 

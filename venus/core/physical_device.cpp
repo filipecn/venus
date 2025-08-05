@@ -26,7 +26,7 @@
 
 #include <venus/core/physical_device.h>
 
-#include <venus/core/vk_debug.h>
+#include <venus/utils/vk_debug.h>
 
 namespace venus::core {
 

@@ -3,8 +3,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 include(glfw)
 include(vma)
 include(volk)
-include(vul)
 include(hermes)
+include(glslang)
 
 if (BUILD_TESTS)  
   include(catch2)
@@ -19,4 +19,7 @@ target_link_libraries(VK INTERFACE
   #Vulkan::LayerSettings
   #Vulkan::UtilityHeaders
   #Vulkan::CompilerConfiguration
+  glslang
+  MachineIndependent 
+  glslang-default-resource-limits
 )

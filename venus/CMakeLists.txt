@@ -1,24 +1,48 @@
 set(VENUS_HEADERS
-  core/debug.h
   core/device.h
   core/instance.h
   core/physical_device.h
-  core/result.h
+  core/sync.h
   core/vk_api.h
-  core/vk_debug.h
 
   io/display.h
   io/glfw_display.h
   io/swapchain.h
+
+  mem/buffer.h
+  mem/device_memory.h
+
+  pipeline/command_buffer.h
+  pipeline/descriptors.h
+  pipeline/framebuffer.h
+  pipeline/pipeline.h
+  pipeline/renderpass.h
+  pipeline/shader_module.h
+  
+  utils/debug.h
+  utils/macros.h
+  utils/result.h
+  utils/vk_debug.h
 )
 set(VENUS_SOURCES
   core/device.cpp
   core/instance.cpp
   core/physical_device.cpp
+  core/sync.cpp
   core/vk_api.cpp
   
   io/glfw_display.cpp
   io/swapchain.cpp
+
+  mem/buffer.cpp
+  mem/device_memory.cpp
+
+  pipeline/command_buffer.cpp
+  pipeline/descriptors.cpp
+  pipeline/framebuffer.cpp
+  pipeline/pipeline.cpp
+  pipeline/renderpass.cpp
+  pipeline/shader_module.cpp
 )
 
 add_library(venus STATIC ${VENUS_HEADERS} ${VENUS_SOURCES})

@@ -26,7 +26,7 @@
 
 #include <venus/core/device.h>
 
-#include <venus/core/vk_debug.h>
+#include <venus/utils/vk_debug.h>
 
 namespace venus::core {
 
@@ -174,3 +174,14 @@ VkDevice Device::operator*() const { return vk_device_; }
 const PhysicalDevice &Device::physical() const { return physical_device_; }
 
 } // namespace venus::core
+
+namespace venus {
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Device::Config)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Device)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus

@@ -28,6 +28,7 @@
 #pragma once
 
 #include <venus/core/physical_device.h>
+#include <venus/utils/macros.h>
 
 namespace venus::core {
 
@@ -88,16 +89,13 @@ public:
     std::vector<std::string> extensions_;
     std::vector<vk::QueueFamilyConfig> family_configs_;
     VkDeviceCreateFlags flags_;
+
+    VENUS_TO_STRING_FRIEND(Device::Config);
   };
 
   // raii
 
-  Device() noexcept = default;
-  Device(const Device &) = delete;
-  Device(Device &&rhs) noexcept;
-  Device &operator=(const Device &) = delete;
-  Device &operator=(Device &&rhs) noexcept;
-  virtual ~Device() noexcept;
+  VENUS_DECLARE_RAII_FUNCTIONS(Device)
 
   /// Destroy underlying vulkan logical device object and clear all data.
   void destroy() noexcept;
@@ -109,6 +107,8 @@ public:
 protected:
   VkDevice vk_device_{VK_NULL_HANDLE};
   PhysicalDevice physical_device_;
+
+  VENUS_TO_STRING_FRIEND(Device);
 };
 
 class GraphicsDevice : public Device {};

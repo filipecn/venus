@@ -26,7 +26,7 @@
 
 #include <venus/core/vk_api.h>
 
-#include <venus/core/vk_debug.h>
+#include <venus/utils/vk_debug.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -83,6 +83,29 @@ const std::vector<VkLayerProperties> &vk::availableValidationLayers() {
 
 const std::vector<VkExtensionProperties> &vk::availableInstanceExtensions() {
   return get().vk_extensions_;
+}
+
+VkDeviceSize vk::indexSize(VkIndexType type) {
+  switch (type) {
+  case VK_INDEX_TYPE_UINT32:
+    return sizeof(u32);
+  default:
+    HERMES_ERROR("VkIndexType {} not supported.", string_VkIndexType(type));
+  }
+  return 0;
+}
+
+VkDeviceSize vk::formatSize(VkFormat format) {
+  switch (format) {
+  case VK_FORMAT_R32G32B32A32_SFLOAT:
+    return 4 * sizeof(f32);
+  case VK_FORMAT_R32G32_SFLOAT:
+    return 2 * sizeof(f32);
+  default:
+    HERMES_ERROR("VkFormat {} not supported for Vertex Layout",
+                 string_VkFormat(format));
+  }
+  return 0;
 }
 
 bool vk::isInstanceExtensionSupported(const char *desired_instance_extension) {
