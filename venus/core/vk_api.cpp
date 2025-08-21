@@ -28,15 +28,6 @@
 
 #include <venus/utils/vk_debug.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
-#pragma GCC diagnostic pop
-
 namespace venus::core {
 
 Result<std::vector<VkExtensionProperties>> checkAvailableInstanceExtensions() {
@@ -187,6 +178,22 @@ bool vk::Version::operator<(const vk::Version &rhs) const {
 
 bool vk::Version::operator>=(const vk::Version &rhs) const {
   return !(*this < rhs);
+}
+
+Result<std::vector<VkImage>>
+vk::acquireSwapchainImages(VkDevice vk_device, VkSwapchainKHR vk_swapchain) {
+  std::vector<VkImage> images;
+  u32 images_count = 0;
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkGetSwapchainImagesKHR(vk_device, vk_swapchain, &images_count, nullptr));
+  if (images_count == 0) {
+    HERMES_ERROR("Could not enumerate swapchain images.");
+    return VeResult::notFound();
+  }
+  images.resize(images_count);
+  VENUS_VK_RETURN_BAD_RESULT(vkGetSwapchainImagesKHR(
+      vk_device, vk_swapchain, &images_count, images.data()));
+  return Result<std::vector<VkImage>>(std::move(images));
 }
 
 void sanityCheck() {

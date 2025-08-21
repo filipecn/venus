@@ -30,8 +30,8 @@
 
 namespace venus::core {
 
-PhysicalDevice::PhysicalDevice(VkPhysicalDevice handle) {
-  if (!setHandle(handle))
+PhysicalDevice::PhysicalDevice(VkPhysicalDevice handle, VkInstance instance) {
+  if (!setHandle(handle, instance))
     return;
 }
 
@@ -43,7 +43,8 @@ PhysicalDevice::PhysicalDevice(PhysicalDevice &&rhs) noexcept {
 PhysicalDevice::PhysicalDevice(const PhysicalDevice &rhs) { *this = rhs; }
 
 PhysicalDevice &PhysicalDevice::operator=(const PhysicalDevice &rhs) {
-  vk_device_ = rhs.vk_device_;
+  vk_physical_device_ = rhs.vk_physical_device_;
+  vk_instance_ = rhs.vk_instance_;
   vk_extensions_ = rhs.vk_extensions_;
   vk_features_ = rhs.vk_features_;
   vk_properties_ = rhs.vk_properties_;
@@ -53,7 +54,8 @@ PhysicalDevice &PhysicalDevice::operator=(const PhysicalDevice &rhs) {
 }
 
 PhysicalDevice &PhysicalDevice::operator=(PhysicalDevice &&rhs) noexcept {
-  vk_device_ = rhs.vk_device_;
+  vk_physical_device_ = rhs.vk_physical_device_;
+  vk_instance_ = rhs.vk_instance_;
   vk_extensions_ = std::move(rhs.vk_extensions_);
   vk_features_ = rhs.vk_features_;
   vk_properties_ = rhs.vk_properties_;
@@ -62,21 +64,26 @@ PhysicalDevice &PhysicalDevice::operator=(PhysicalDevice &&rhs) noexcept {
   return *this;
 }
 
-VeResult PhysicalDevice::setHandle(VkPhysicalDevice vk_physical_device) {
+VeResult PhysicalDevice::setHandle(VkPhysicalDevice vk_physical_device,
+                                   VkInstance vk_instance) {
   clear();
   // set new info
-  vk_device_ = vk_physical_device;
-  if (!vk_device_)
+  vk_physical_device_ = vk_physical_device;
+  vk_instance_ = vk_instance;
+  if (!vk_physical_device_)
     return VeResult::noError();
   VENUS_RETURN_BAD_RESULT(
-      vk::checkAvailableExtensions(vk_device_, vk_extensions_));
-  vkGetPhysicalDeviceFeatures(vk_device_, &vk_features_);
-  vkGetPhysicalDeviceProperties(vk_device_, &vk_properties_);
-  vkGetPhysicalDeviceMemoryProperties(vk_device_, &vk_memory_properties_);
+      vk::checkAvailableExtensions(vk_physical_device_, vk_extensions_));
+  vkGetPhysicalDeviceFeatures(vk_physical_device_, &vk_features_);
+  vkGetPhysicalDeviceProperties(vk_physical_device_, &vk_properties_);
+  vkGetPhysicalDeviceMemoryProperties(vk_physical_device_,
+                                      &vk_memory_properties_);
   VENUS_RETURN_BAD_RESULT(
-      vk::checkAvailableQueueFamilies(vk_device_, vk_queue_families_));
+      vk::checkAvailableQueueFamilies(vk_physical_device_, vk_queue_families_));
   return VeResult::noError();
 }
+
+VkInstance PhysicalDevice::instance() const { return vk_instance_; }
 
 void PhysicalDevice::clear() {
   vk_extensions_.clear();
@@ -86,9 +93,13 @@ void PhysicalDevice::clear() {
   vk_queue_families_.clear();
 }
 
-VkPhysicalDevice PhysicalDevice::operator*() const { return vk_device_; }
+VkPhysicalDevice PhysicalDevice::operator*() const {
+  return vk_physical_device_;
+}
 
-PhysicalDevice::operator bool() const { return vk_device_ != VK_NULL_HANDLE; }
+PhysicalDevice::operator bool() const {
+  return vk_instance_ && vk_physical_device_;
+}
 
 bool PhysicalDevice::isExtensionSupported(
     const char *desired_instance_extension) const {
@@ -118,7 +129,8 @@ Result<u32> PhysicalDevice::selectIndexOfQueueFamily(
        ++index) {
     VkBool32 presentation_supported = VK_FALSE;
     VkResult result = vkGetPhysicalDeviceSurfaceSupportKHR(
-        vk_device_, index, presentation_surface, &presentation_supported);
+        vk_physical_device_, index, presentation_surface,
+        &presentation_supported);
     if ((VK_SUCCESS == result) && (VK_TRUE == presentation_supported)) {
       return Result<u32>(index);
     }
@@ -141,7 +153,7 @@ PhysicalDevice::selectGraphicsQueueFamilyIndices(
 
 VkFormatProperties PhysicalDevice::formatProperties(VkFormat format) const {
   VkFormatProperties properties;
-  vkGetPhysicalDeviceFormatProperties(vk_device_, format, &properties);
+  vkGetPhysicalDeviceFormatProperties(vk_physical_device_, format, &properties);
   return properties;
 }
 
@@ -149,8 +161,8 @@ VkImageFormatProperties PhysicalDevice::imageFormatProperties(
     VkFormat format, VkImageType type, VkImageTiling tiling,
     VkImageUsageFlags usage, VkImageCreateFlags flags) const {
   VkImageFormatProperties properties;
-  vkGetPhysicalDeviceImageFormatProperties(vk_device_, format, type, tiling,
-                                           usage, flags, &properties);
+  vkGetPhysicalDeviceImageFormatProperties(vk_physical_device_, format, type,
+                                           tiling, usage, flags, &properties);
   return properties;
 }
 
@@ -191,14 +203,15 @@ Result<VkPresentModeKHR> PhysicalDevice::selectPresentationMode(
   // Enumerate supported present modes
   u32 present_modes_count = 0;
   VENUS_VK_RETURN_BAD_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(
-      vk_device_, presentation_surface, &present_modes_count, nullptr));
+      vk_physical_device_, presentation_surface, &present_modes_count,
+      nullptr));
   if (0 == present_modes_count) {
     HERMES_ERROR("Could not get the number of supported present modes.");
     return VeResult::notFound();
   }
   std::vector<VkPresentModeKHR> present_modes(present_modes_count);
   VENUS_VK_RETURN_BAD_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(
-      vk_device_, presentation_surface, &present_modes_count,
+      vk_physical_device_, presentation_surface, &present_modes_count,
       present_modes.data()));
   if (0 == present_modes_count) {
     HERMES_ERROR("Could not enumerate present modes.");
@@ -226,7 +239,7 @@ Result<VkSurfaceFormatKHR> PhysicalDevice::selectFormatOfSwapchainImages(
   u32 candidate_count = 0;
 
   VENUS_VK_RETURN_BAD_RESULT(vkGetPhysicalDeviceSurfaceFormatsKHR(
-      vk_device_, presentation_surface, &candidate_count, nullptr))
+      vk_physical_device_, presentation_surface, &candidate_count, nullptr))
   if (0 == candidate_count) {
     HERMES_ERROR("Could not get the number of supported surface formats.");
     return VeResult::notFound();
@@ -234,7 +247,8 @@ Result<VkSurfaceFormatKHR> PhysicalDevice::selectFormatOfSwapchainImages(
 
   std::vector<VkSurfaceFormatKHR> candidates(candidate_count);
   VENUS_VK_RETURN_BAD_RESULT(vkGetPhysicalDeviceSurfaceFormatsKHR(
-      vk_device_, presentation_surface, &candidate_count, candidates.data()));
+      vk_physical_device_, presentation_surface, &candidate_count,
+      candidates.data()));
   if (0 == candidate_count) {
     HERMES_ERROR("Could not enumerate supported surface formats.");
     return VeResult::notFound();
@@ -284,7 +298,8 @@ PhysicalDevice::findSupportedFormat(const std::vector<VkFormat> &candidates,
                                     VkFormatFeatureFlags features) const {
   for (VkFormat candidate_format : candidates) {
     VkFormatProperties props;
-    vkGetPhysicalDeviceFormatProperties(vk_device_, candidate_format, &props);
+    vkGetPhysicalDeviceFormatProperties(vk_physical_device_, candidate_format,
+                                        &props);
     if (tiling == VK_IMAGE_TILING_LINEAR &&
         (props.linearTilingFeatures & features) == features) {
       return Result<VkFormat>(candidate_format);
@@ -301,7 +316,7 @@ PhysicalDevice::findSupportedFormat(const std::vector<VkFormat> &candidates,
 PhysicalDevice::surfaceCapabilities(VkSurfaceKHR surface) const {
   VkSurfaceCapabilitiesKHR surface_capabilities;
   VENUS_VK_RETURN_BAD_RESULT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-      vk_device_, surface, &surface_capabilities));
+      vk_physical_device_, surface, &surface_capabilities));
   return Result<VkSurfaceCapabilitiesKHR>(surface_capabilities);
 }
 
@@ -509,7 +524,7 @@ HERMES_PUSH_DEBUG_LINE("#extensions:    {}", object.vk_extensions_.size());
 // HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(vk_extensions_, extension);
 // HERMES_PUSH_DEBUG_VK_VARIABLE(extension.extensionName);
 // HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_);
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_physical_device_);
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::PhysicalDevices)

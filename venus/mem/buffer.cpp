@@ -85,12 +85,13 @@ Buffer::Config &Buffer::Config::addCreateFlags(VkBufferCreateFlags flags) {
   return *this;
 }
 
-Result<Buffer> Buffer::Config::create(const core::Device &device) const {
-  return create(*device);
+Buffer::Config &
+Buffer::Config::setAllocated(const VmaAllocationCreateInfo &memory_info) {
+  allocation_ = memory_info;
+  return *this;
 }
 
-Result<Buffer> Buffer::Config::create(VkDevice vk_device) const {
-
+Result<Buffer> Buffer::Config::create(const core::Device &device) const {
   VkBufferCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   info.pNext = nullptr;
@@ -102,9 +103,31 @@ Result<Buffer> Buffer::Config::create(VkDevice vk_device) const {
   info.pQueueFamilyIndices = nullptr;
 
   Buffer buffer;
-  VENUS_VK_RETURN_BAD_RESULT(
-      vkCreateBuffer(vk_device, &info, nullptr, &buffer.vk_buffer_));
-  buffer.size_ = size_;
+
+  if (allocation_.has_value()) {
+    auto alloc_info = allocation_.value();
+    VmaInfo vma_info;
+    vma_info.allocator = device.allocator();
+    VENUS_VK_RETURN_BAD_RESULT(vmaCreateBuffer(device.allocator(), &info,
+                                               &alloc_info, &buffer.vk_buffer_,
+                                               &vma_info.allocation, nullptr));
+    buffer.info_ = vma_info;
+  } else {
+    VENUS_VK_RETURN_BAD_RESULT(
+        vkCreateBuffer(*device, &info, nullptr, &buffer.vk_buffer_));
+
+    VkInfo vk_info;
+    vk_info.vk_device = *device;
+    vk_info.size = size_;
+    buffer.info_ = vk_info;
+
+    VkBufferDeviceAddressInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    info.pNext = nullptr;
+    info.buffer = buffer.vk_buffer_;
+    buffer.vk_device_address_ = vkGetBufferDeviceAddress(*device, &info);
+  }
+
 #ifdef VENUS_DEBUG
   buffer.config_ = *this;
 #endif
@@ -149,9 +172,13 @@ Buffer::View::~View() noexcept { destroy(); }
 
 Buffer::View &Buffer::View::operator=(Buffer::View &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  core::vk::swap(vk_buffer_view_, rhs.vk_buffer_view_);
+  swap(rhs);
   return *this;
+}
+
+void Buffer::View::swap(Buffer::View &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_buffer_view_);
 }
 
 void Buffer::View::destroy() noexcept {
@@ -166,44 +193,64 @@ VkBufferView Buffer::View::operator*() const { return vk_buffer_view_; }
 
 Buffer::Buffer(Buffer &&rhs) noexcept { *this = std::move(rhs); }
 
-Buffer::~Buffer() { destroy(); }
+Buffer::~Buffer() noexcept { destroy(); }
 
 Buffer &Buffer::operator=(Buffer &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_buffer_, rhs.vk_buffer_);
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  std::swap(size_, rhs.size_);
-#ifdef VENUS_DEBUG
-  config_ = rhs.config_;
-#endif
+  swap(rhs);
   return *this;
 }
 
+// helper type for the visitor
+template <class... Ts> struct overloads : Ts... {
+  using Ts::operator()...;
+};
+
+void Buffer::swap(Buffer &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_buffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(info_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_address_);
+#ifdef VENUS_DEBUG
+  VENUS_SWAP_FIELD_WITH_RHS(config_);
+#endif
+}
+
 void Buffer::destroy() noexcept {
-  if (vk_device_ && vk_buffer_) {
-    vkDestroyBuffer(vk_device_, vk_buffer_, nullptr);
-  }
-  vk_device_ = VK_NULL_HANDLE;
+  std::visit(overloads{
+                 [&](VmaInfo &info) {
+                   if (info.allocator && info.allocation)
+                     vmaDestroyBuffer(info.allocator, vk_buffer_,
+                                      info.allocation);
+                   info.allocation = VK_NULL_HANDLE;
+                 },
+                 [&](VkInfo &info) {
+                   if (info.vk_device && vk_buffer_) {
+                     vkDestroyBuffer(info.vk_device, vk_buffer_, nullptr);
+                     info.vk_device = VK_NULL_HANDLE;
+                     info.size = 0;
+                   }
+                 },
+             },
+             info_);
   vk_buffer_ = VK_NULL_HANDLE;
-  size_ = 0;
+  vk_device_address_ = 0;
 }
 
 Result<VkMemoryRequirements> Buffer::memoryRequirements() const {
   VkMemoryRequirements memory_requirements;
-  vkGetBufferMemoryRequirements(vk_device_, vk_buffer_, &memory_requirements);
+  std::visit(
+      overloads{
+          [&](const VmaInfo &info) { memory_requirements = info.requirements; },
+          [&](const VkInfo &info) {
+            vkGetBufferMemoryRequirements(info.vk_device, vk_buffer_,
+                                          &memory_requirements);
+          },
+      },
+      info_);
   return Result<VkMemoryRequirements>(std::move(memory_requirements));
 }
 
-VkDeviceSize Buffer::sizeInBytes() const { return size_; }
-
-VkDeviceAddress Buffer::deviceAddress() const {
-  VkBufferDeviceAddressInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-  info.pNext = nullptr;
-  info.buffer = vk_buffer_;
-
-  return vkGetBufferDeviceAddress(vk_device_, &info);
-}
+VkDeviceAddress Buffer::deviceAddress() const { return vk_device_address_; }
 
 } // namespace venus::mem
 

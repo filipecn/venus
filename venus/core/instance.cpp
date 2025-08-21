@@ -299,21 +299,23 @@ Result<Instance> Instance::Config::create() {
 
 Instance::Instance(Instance &&rhs) noexcept { *this = std::move(rhs); }
 
-Instance::~Instance() { destroy(); }
+Instance::~Instance() noexcept { destroy(); }
 
 Instance &Instance::operator=(Instance &&rhs) noexcept {
   destroy();
-  vk_instance_ = rhs.vk_instance_;
-  rhs.vk_instance_ = VK_NULL_HANDLE;
-#ifdef VENUS_DEBUG
-  vk_debug_messenger_ = rhs.vk_debug_messenger_;
-  rhs.vk_debug_messenger_ = VK_NULL_HANDLE;
-  config_ = rhs.config_;
-#endif
+  swap(rhs);
   return *this;
 }
 
-void Instance::destroy() {
+void Instance::swap(Instance &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_instance_);
+#ifdef VENUS_DEBUG
+  VENUS_SWAP_FIELD_WITH_RHS(vk_debug_messenger_);
+  VENUS_SWAP_FIELD_WITH_RHS(config_);
+#endif
+}
+
+void Instance::destroy() noexcept {
   if (!vk_instance_)
     return;
 #ifdef VENUS_DEBUG
@@ -347,7 +349,7 @@ Result<PhysicalDevices> Instance::physicalDevices() const {
     return VeResult::notFound();
   }
   for (auto &device : devices) {
-    PhysicalDevice pd(device);
+    PhysicalDevice pd(device, vk_instance_);
     if (vk::Version(pd.properties().apiVersion) >= version_)
       physical_devices.emplace_back(std::move(pd));
   }

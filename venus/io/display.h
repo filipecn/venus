@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "hermes/core/types.h"
+#include <hermes/core/types.h>
 #include <venus/core/vk_api.h>
 
 namespace venus::io {
@@ -42,6 +42,7 @@ public:
 
   // interface
 
+  virtual VeResult init(const char *title, const VkExtent2D &size) = 0;
   /// Creates a vulkan surface object from a given instance handle.
   /// \note The caller is responsible for destroying the newly created object.
   ///       Unless the child class does it.
@@ -65,6 +66,41 @@ public:
 
 protected:
   VkExtent2D resolution_{};
+};
+
+class DisplayLoop {
+public:
+  DisplayLoop(Display &display);
+  DisplayLoop &setFPS(f32 fps);
+
+  struct Iteration {
+    Iteration(DisplayLoop &loop, bool is_end);
+
+    Iteration &operator++();
+    Iteration &operator*();
+    bool operator==(const Iteration &) const;
+    bool operator!=(const Iteration &) const;
+
+  private:
+    DisplayLoop &loop_;
+    bool is_end_{false};
+
+    u32 iteration_index_{0};
+    // fps
+    bool in_frame_{false};
+    std::chrono::system_clock::time_point start_;
+
+    VENUS_TO_STRING_FRIEND(Iteration);
+  };
+
+  Iteration begin();
+  Iteration end();
+
+private:
+  friend class Iteration;
+
+  Display &display_;
+  f32 fps_{60};
 };
 
 } // namespace venus::io

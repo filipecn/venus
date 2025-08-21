@@ -62,15 +62,10 @@ public:
 
   // RAII
 
-  ShaderModule() noexcept = default;
-  ShaderModule(const ShaderModule &) = delete;
-  ShaderModule(ShaderModule &&) noexcept;
-  ~ShaderModule() noexcept;
-
-  ShaderModule &operator=(const ShaderModule &) = delete;
-  ShaderModule &operator=(ShaderModule &&) noexcept;
+  VENUS_DECLARE_RAII_FUNCTIONS(ShaderModule);
 
   void destroy() noexcept;
+  void swap(ShaderModule &rhs) noexcept;
   VkShaderModule operator*() const;
   const std::string &name() const;
 

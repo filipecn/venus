@@ -20,60 +20,58 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   glfw_display.h
+/// \file   display.cpp
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-06-07
-/// \brief  GLFW Display
 
-#pragma once
-
-#include <hermes/core/types.h>
 #include <venus/io/display.h>
-
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 
 namespace venus::io {
 
-class GLFW_Context {
-public:
-  ~GLFW_Context() noexcept;
-  GLFW_Context(const GLFW_Context &other) = delete;
-  GLFW_Context &operator=(const GLFW_Context &other) = delete;
+DisplayLoop::Iteration::Iteration(DisplayLoop &loop, bool is_end)
+    : loop_{loop}, is_end_{is_end} {}
 
-  static VkResult enter();
-  static void leave();
+DisplayLoop::Iteration &DisplayLoop::Iteration::operator++() {
+  if (in_frame_) {
+    // finish frame
+    in_frame_ = false;
+    std::chrono::system_clock::now();
+  }
+  if (loop_.display_.shouldClose())
+    is_end_ = true;
+  loop_.display_.pollEvents();
+  return *this;
+}
 
-private:
-  GLFW_Context() noexcept;
+DisplayLoop::Iteration &DisplayLoop::Iteration::operator*() { return *this; }
 
-  static GLFW_Context instance_;
+bool DisplayLoop::Iteration::operator==(
+    const DisplayLoop::Iteration &rhs) const {
+  return is_end_ == rhs.is_end_;
+}
 
-  bool initialized_{false};
-  u32 client_count_{0};
-};
+bool DisplayLoop::Iteration::operator!=(
+    const DisplayLoop::Iteration &rhs) const {
+  return is_end_ != rhs.is_end_;
+}
 
-class GLFW_Window : public Display {
-public:
-  GLFW_Window() noexcept = default;
-  ~GLFW_Window() noexcept override;
+DisplayLoop::DisplayLoop(Display &display) : display_(display) {}
 
-  // interface
+DisplayLoop &DisplayLoop::setFPS(f32 fps) {
+  fps_ = fps;
+  return *this;
+}
 
-  HERMES_NODISCARD VeResult init(const char *name,
-                                 const VkExtent2D &extent) override;
-  /// Creates a vulkan surface object from a given instance handle.
-  /// \note The caller is responsible for destroying the newly created object.
-  Result<VkSurfaceKHR> createSurface(VkInstance vk_instance) const override;
-  /// Destroy this display resources.
-  VeResult destroy() override;
-  /// \return true if the display is closing and must be destroyed.
-  bool shouldClose() override;
-  /// Receive new input events.
-  void pollEvents() override;
+DisplayLoop::Iteration DisplayLoop::begin() { return {*this, false}; }
 
-private:
-  GLFWwindow *window_{nullptr};
-};
+DisplayLoop::Iteration DisplayLoop::end() { return {*this, true}; }
 
 } // namespace venus::io
+
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::io::DisplayLoop::Iteration)
+HERMES_PUSH_DEBUG_FIELD(iteration_index_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus

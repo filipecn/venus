@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include <venus/core/device.h>
+#include <venus/mem/image.h>
 
 namespace venus::io {
 
@@ -110,24 +110,37 @@ public:
     VENUS_TO_STRING_FRIEND(Swapchain::Config);
   };
 
-  Swapchain() noexcept = default;
-  Swapchain(const Swapchain &rhs) = delete;
-  Swapchain(Swapchain &&rhs) noexcept;
-  ~Swapchain() noexcept;
-
-  Swapchain &operator=(const Swapchain &rhs) = delete;
-  Swapchain &operator=(Swapchain &&rhs) noexcept;
+  VENUS_DECLARE_RAII_FUNCTIONS(Swapchain)
 
   /// Destroy underlying vulkan swapchain object and clear all data.
   void destroy() noexcept;
+  void swap(Swapchain &rhs) noexcept;
   /// \return Vulkan swapchain handle.
   VkSwapchainKHR operator*() const;
   /// \return Associated device.
   VkDevice device() const;
+  /// \return Swapchain image extent.
+  VkExtent2D imageExtent() const;
+  /// \return Swapchain image count.
+  u32 imageCount() const;
+  /// \return Swapchain image color format.
+  VkFormat colorFormat() const;
+  /// \return Swapchain depth buffer.
+  const mem::Image &depthBuffer() const;
+  /// \return Swapchain depth buffer view.
+  const mem::Image::View &depthBufferView() const;
+  /// \return Swapchain image views.
+  const std::vector<mem::Image::View> &imageViews() const;
 
 private:
   VkSwapchainKHR vk_swapchain_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
+  std::vector<mem::Image> images_;
+  std::vector<mem::Image::View> image_views_;
+  mem::Image depth_buffer_;
+  mem::Image::View depth_buffer_view_;
+  VkFormat color_format_;
+  VkExtent2D extent_{};
 
 #ifdef VENUS_DEBUG
   Config config_{};

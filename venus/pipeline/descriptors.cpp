@@ -72,9 +72,13 @@ DescriptorSet::Layout::~Layout() noexcept { destroy(); }
 DescriptorSet::Layout &
 DescriptorSet::Layout::operator=(DescriptorSet::Layout &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  core::vk::swap(vk_layout_, rhs.vk_layout_);
+  swap(rhs);
   return *this;
+}
+
+void DescriptorSet::Layout::swap(DescriptorSet::Layout &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_layout_);
 }
 
 void DescriptorSet::Layout::destroy() noexcept {
@@ -94,11 +98,17 @@ DescriptorSet::DescriptorSet(DescriptorSet &&rhs) noexcept {
 
 DescriptorSet &DescriptorSet::operator=(DescriptorSet &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  core::vk::swap(vk_descriptor_pool_, rhs.vk_descriptor_pool_);
-  core::vk::swap(vk_descriptor_set_, rhs.vk_descriptor_set_);
+  swap(rhs);
   return *this;
 }
+
+void DescriptorSet::swap(DescriptorSet &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_descriptor_pool_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_descriptor_set_);
+}
+
+void DescriptorSet::destroy() noexcept {}
 
 VkDescriptorSet DescriptorSet::operator*() const { return vk_descriptor_set_; }
 
@@ -146,12 +156,16 @@ DescriptorAllocator::~DescriptorAllocator() noexcept { destroy(); }
 DescriptorAllocator &
 DescriptorAllocator::operator=(DescriptorAllocator &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  std::swap(ratios_, rhs.ratios_);
-  std::swap(full_pools_, rhs.full_pools_);
-  std::swap(ready_pools_, rhs.ready_pools_);
-  sets_per_pool_ = rhs.sets_per_pool_;
+  swap(rhs);
   return *this;
+}
+
+void DescriptorAllocator::swap(DescriptorAllocator &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(ratios_);
+  VENUS_SWAP_FIELD_WITH_RHS(full_pools_);
+  VENUS_SWAP_FIELD_WITH_RHS(ready_pools_);
+  VENUS_SWAP_FIELD_WITH_RHS(sets_per_pool_);
 }
 
 void DescriptorAllocator::destroy() noexcept {

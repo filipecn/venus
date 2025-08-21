@@ -97,20 +97,45 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, addFormatFeatures,
                                      VkFormatFeatureFlagBits,
                                      format_features_ |= value)
 
-Result<Image> Image::Config::create(VkDevice vk_device) const {
+Result<Image> Image::Config::create(VkDevice vk_device,
+                                    VkImage vk_image) const {
+  Image image;
+  image.vk_device_ = vk_device;
+  image.vk_image_ = vk_image;
+  image.vk_format_ = info_.format;
+  image.info_ = VkInfo{.memory_ownership = false};
+  return Result<Image>(std::move(image));
+}
+
+Result<Image> Image::Config::create(const core::Device &device) const {
   auto info = info_;
   info.pQueueFamilyIndices = queue_family_indices_.data();
   info.queueFamilyIndexCount = queue_family_indices_.size();
 
   Image image;
-  image.vk_device_ = vk_device;
+
+  if (allocation_.has_value()) {
+    auto alloc_info = allocation_.value();
+    VmaInfo vma_info;
+    vma_info.allocator = device.allocator();
+    VENUS_VK_RETURN_BAD_RESULT(vmaCreateImage(device.allocator(), &info,
+                                              &alloc_info, &image.vk_image_,
+                                              &vma_info.allocation, nullptr));
+    image.info_ = vma_info;
+  } else {
+    VENUS_VK_RETURN_BAD_RESULT(
+        vkCreateImage(*device, &info, nullptr, &image.vk_image_));
+
+    VkInfo vk_info;
+    image.info_ = vk_info;
+  }
+
+  image.vk_device_ = *device;
   image.vk_format_ = info.format;
 #ifdef VENUS_DEBUG
   image.config_ = *this;
 #endif
 
-  VENUS_VK_RETURN_BAD_RESULT(
-      vkCreateImage(vk_device, &info, nullptr, &image.vk_image_));
   return Result<Image>(std::move(image));
 }
 
@@ -128,6 +153,9 @@ VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View::Config,
                                           setSubresourceRange,
                                           VkImageSubresourceRange,
                                           subresourceRange)
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, setAllocated,
+                                     const VmaAllocationCreateInfo &,
+                                     allocation_ = value)
 
 Result<Image::View> Image::View::Config::create(const Image &image) const {
   auto info = info_;
@@ -136,9 +164,12 @@ Result<Image::View> Image::View::Config::create(const Image &image) const {
   info.image = *image;
 
   Image::View view;
-  view.vk_device_ = image.vk_device_;
-  VENUS_VK_RETURN_BAD_RESULT(vkCreateImageView(image.vk_device_, &info_,
-                                               nullptr, &view.vk_image_view_));
+  view.vk_device_ = image.device();
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkCreateImageView(view.vk_device_, &info, nullptr, &view.vk_image_view_));
+#ifdef VENUS_DEBUG
+  view.config_ = *this;
+#endif
   return Result<Image::View>(std::move(view));
 }
 
@@ -148,9 +179,13 @@ Image::View::~View() noexcept { destroy(); }
 
 Image::View &Image::View::operator=(Image::View &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  core::vk::swap(vk_image_view_, rhs.vk_image_view_);
+  swap(rhs);
   return *this;
+}
+
+void Image::View::swap(Image::View &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_image_view_);
 }
 
 void Image::View::destroy() noexcept {
@@ -168,18 +203,40 @@ Image::~Image() noexcept { destroy(); }
 
 Image &Image::operator=(Image &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  core::vk::swap(vk_image_, rhs.vk_image_);
-  vk_format_ = rhs.vk_format_;
-#ifdef VENUS_DEBUG
-  config_ = std::move(rhs.config_);
-#endif
+  swap(rhs);
   return *this;
 }
 
+void Image::swap(Image &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_image_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(info_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_format_);
+#ifdef VENUS_DEBUG
+  VENUS_SWAP_FIELD_WITH_RHS(config_);
+#endif
+}
+
+// helper type for the visitor
+template <class... Ts> struct overloads : Ts... {
+  using Ts::operator()...;
+};
+
 void Image::destroy() noexcept {
-  if (vk_device_ && vk_image_)
-    vkDestroyImage(vk_device_, vk_image_, nullptr);
+  std::visit(overloads{
+                 [&](VmaInfo &info) {
+                   if (info.allocator && info.allocation)
+                     vmaDestroyImage(info.allocator, vk_image_,
+                                     info.allocation);
+                   info.allocation = VK_NULL_HANDLE;
+                 },
+                 [&](VkInfo &info) {
+                   if (vk_device_ && vk_image_ && info.memory_ownership) {
+                     vkDestroyImage(vk_device_, vk_image_, nullptr);
+                   }
+                 },
+             },
+             info_);
   vk_device_ = VK_NULL_HANDLE;
   vk_image_ = VK_NULL_HANDLE;
 }
@@ -188,15 +245,44 @@ VkImage Image::operator*() const { return vk_image_; }
 
 VkFormat Image::format() const { return vk_format_; }
 
+VkDevice Image::device() const { return vk_device_; }
+
 } // namespace venus::mem
 
 namespace venus {
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::View::Config)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageViewCreateFlags, info_.flags)
+HERMES_PUSH_DEBUG_VK_FIELD(info_.image);
+HERMES_PUSH_DEBUG_VK_STRING(VkImageViewType, info_.viewType)
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, info_.format);
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.r)
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.g)
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.b)
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.a)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageAspectFlags,
+                            info_.subresourceRange.aspectMask)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.baseMipLevel)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.levelCount)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.baseArrayLayer)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.layerCount)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::View)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(vk_image_view_);
+HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::Config)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(vk_image_);
+HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, vk_format_);
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 } // namespace venus

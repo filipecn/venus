@@ -193,6 +193,40 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
   VENUS_VK_RETURN_BAD_RESULT(vkCreateSwapchainKHR(
       *device, &create_info, nullptr, &swapchain.vk_swapchain_));
 
+  std::vector<VkImage> images;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      images, core::vk::acquireSwapchainImages(*device, *swapchain));
+
+  for (auto vk_image : images) {
+    mem::Image image;
+    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+        image, mem::Image::Config()
+                   .setFormat(surface_format.format)
+                   .create(*device, vk_image));
+    mem::Image::View view;
+    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+        view, mem::Image::View::Config()
+                  .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+                  .setFormat(surface_format.format)
+                  .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
+                  .create(image));
+
+    swapchain.images_.emplace_back(std::move(image));
+    swapchain.image_views_.emplace_back(std::move(view));
+  }
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      swapchain.depth_buffer_,
+      mem::Image::Config::forDepthBuffer(extent).create(device));
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      swapchain.depth_buffer_view_,
+      mem::Image::View::Config()
+          .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+          .setFormat(surface_format.format)
+          .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
+          .create(swapchain.depth_buffer_));
+
   swapchain.vk_device_ = *device;
 #ifdef VENUS_DEBUG
   swapchain.config_ = *this;
@@ -205,17 +239,30 @@ Swapchain::Swapchain(Swapchain &&rhs) noexcept { *this = std::move(rhs); }
 Swapchain::~Swapchain() noexcept { destroy(); }
 
 Swapchain &Swapchain::operator=(Swapchain &&rhs) noexcept {
-  vk_swapchain_ = rhs.vk_swapchain_;
-  rhs.vk_swapchain_ = VK_NULL_HANDLE;
-  vk_device_ = rhs.vk_device_;
-  rhs.vk_device_ = VK_NULL_HANDLE;
-#ifdef VENUS_DEBUG
-  config_ = rhs.config_;
-#endif
+  destroy();
+  swap(rhs);
   return *this;
 }
 
+void Swapchain::swap(Swapchain &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_swapchain_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(images_);
+  VENUS_SWAP_FIELD_WITH_RHS(image_views_);
+  VENUS_FIELD_SWAP_RHS(depth_buffer_);
+  VENUS_FIELD_SWAP_RHS(depth_buffer_view_);
+  VENUS_SWAP_FIELD_WITH_RHS(color_format_);
+  VENUS_SWAP_FIELD_WITH_RHS(extent_);
+#ifdef VENUS_DEBUG
+  VENUS_SWAP_FIELD_WITH_RHS(config_);
+#endif
+}
+
 void Swapchain::destroy() noexcept {
+  image_views_.clear();
+  images_.clear();
+  depth_buffer_.destroy();
+  depth_buffer_view_.destroy();
   if (vk_device_ && vk_swapchain_) {
     vkDestroySwapchainKHR(vk_device_, vk_swapchain_, nullptr);
     vk_swapchain_ = VK_NULL_HANDLE;
@@ -225,15 +272,41 @@ void Swapchain::destroy() noexcept {
 
 VkSwapchainKHR Swapchain::operator*() const { return vk_swapchain_; }
 
+VkExtent2D Swapchain::imageExtent() const { return extent_; }
+
+u32 Swapchain::imageCount() const { return images_.size(); }
+
+VkFormat Swapchain::colorFormat() const { return color_format_; }
+
+const mem::Image &Swapchain::depthBuffer() const { return depth_buffer_; }
+
+const mem::Image::View &Swapchain::depthBufferView() const {
+  return depth_buffer_view_;
+}
+
+const std::vector<mem::Image::View> &Swapchain::imageViews() const {
+  return image_views_;
+}
+
 } // namespace venus::io
 
 namespace venus {
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::io::Swapchain::Config)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(surface_);
+HERMES_PUSH_DEBUG_VK_STRING(VkImageUsageFlags, usage_flags_);
+HERMES_PUSH_DEBUG_LINE("extent: {}x{}", object.extent_.width,
+                       object.extent_.height);
+HERMES_PUSH_DEBUG_VK_STRING(VkPresentModeKHR, present_mode_);
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, surface_format_.format);
+HERMES_PUSH_DEBUG_VK_STRING(VkColorSpaceKHR, surface_format_.colorSpace);
+HERMES_PUSH_DEBUG_LINE("queues: {}", venus::to_string(object.family_indices_));
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::io::Swapchain)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
+
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 } // namespace venus

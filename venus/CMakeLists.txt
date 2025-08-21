@@ -1,4 +1,7 @@
 set(VENUS_HEADERS
+  app/display_app.h
+  app/graphics_device.h
+
   core/device.h
   core/instance.h
   core/physical_device.h
@@ -11,6 +14,8 @@ set(VENUS_HEADERS
 
   mem/buffer.h
   mem/device_memory.h
+  mem/image.h
+  mem/layout.h
 
   pipeline/command_buffer.h
   pipeline/descriptors.h
@@ -25,17 +30,23 @@ set(VENUS_HEADERS
   utils/vk_debug.h
 )
 set(VENUS_SOURCES
+  app/display_app.cpp
+  app/graphics_device.cpp
+  
   core/device.cpp
   core/instance.cpp
   core/physical_device.cpp
   core/sync.cpp
   core/vk_api.cpp
   
+  io/display.cpp
   io/glfw_display.cpp
   io/swapchain.cpp
 
   mem/buffer.cpp
   mem/device_memory.cpp
+  mem/image.cpp
+  mem/layout.cpp
 
   pipeline/command_buffer.cpp
   pipeline/descriptors.cpp

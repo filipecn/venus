@@ -101,6 +101,61 @@ VkRenderPassBeginInfo CommandBuffer::RenderPassInfo::info() const {
   return info_;
 }
 
+CommandBuffer::SubmitInfo2 &
+CommandBuffer::SubmitInfo2::addWaitInfo(VkPipelineStageFlags2 stage_mask,
+                                        VkSemaphore semaphore) {
+  wait_semaphores_.emplace_back(semaphoreSubmitInfo(stage_mask, semaphore));
+  return *this;
+}
+
+CommandBuffer::SubmitInfo2 &
+CommandBuffer::SubmitInfo2::addSignalInfo(VkPipelineStageFlags2 stage_mask,
+                                          VkSemaphore semaphore) {
+  signal_semaphores_.emplace_back(semaphoreSubmitInfo(stage_mask, semaphore));
+  return *this;
+}
+
+CommandBuffer::SubmitInfo2 &
+CommandBuffer::SubmitInfo2::addCommandBufferInfo(VkCommandBuffer cb) {
+  VkCommandBufferSubmitInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+  info.pNext = nullptr;
+  info.commandBuffer = cb;
+  info.deviceMask = 0;
+  cb_infos_.emplace_back(info);
+  return *this;
+}
+
+VkResult CommandBuffer::SubmitInfo2::submit(VkQueue queue,
+                                            VkFence fence) const {
+  VkSubmitInfo2 info = {};
+  info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+  info.pNext = nullptr;
+
+  info.waitSemaphoreInfoCount = wait_semaphores_.size();
+  info.pWaitSemaphoreInfos = wait_semaphores_.data();
+
+  info.signalSemaphoreInfoCount = signal_semaphores_.size();
+  info.pSignalSemaphoreInfos = signal_semaphores_.data();
+
+  info.commandBufferInfoCount = cb_infos_.size();
+  info.pCommandBufferInfos = cb_infos_.data();
+
+  return vkQueueSubmit2(queue, 1, &info, fence);
+}
+
+VkSemaphoreSubmitInfo CommandBuffer::SubmitInfo2::semaphoreSubmitInfo(
+    VkPipelineStageFlags2 stage_mask, VkSemaphore semaphore) {
+  VkSemaphoreSubmitInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+  info.pNext = nullptr;
+  info.semaphore = semaphore;
+  info.stageMask = stage_mask;
+  info.deviceIndex = 0;
+  info.value = 1;
+  return info;
+}
+
 CommandBuffer::CommandBuffer(CommandBuffer &&rhs) noexcept {
   *this = std::move(rhs);
 }
@@ -109,10 +164,14 @@ CommandBuffer::~CommandBuffer() noexcept { destroy(); }
 
 CommandBuffer &CommandBuffer::operator=(CommandBuffer &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_command_buffer_, rhs.vk_command_buffer_);
-  core::vk::swap(vk_command_pool_, rhs.vk_command_pool_);
-  core::vk::swap(vk_device_, rhs.vk_device_);
+  swap(rhs);
   return *this;
+}
+
+void CommandBuffer::swap(CommandBuffer &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_command_buffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_command_pool_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
 }
 
 void CommandBuffer::destroy() noexcept {
@@ -316,9 +375,13 @@ CommandPool::~CommandPool() noexcept { destroy(); }
 
 CommandPool &CommandPool::operator=(CommandPool &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_command_pool_, rhs.vk_command_pool_);
-  core::vk::swap(vk_device_, rhs.vk_device_);
+  swap(rhs);
   return *this;
+}
+
+void CommandPool::swap(CommandPool &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_command_pool_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
 }
 
 void CommandPool::destroy() noexcept {
@@ -424,7 +487,7 @@ VeResult CommandPool::imadiateSubmit(
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       submit_fence, core::Fence::Config().create(vk_device_));
   short_living_command_buffer.submit(queue, *submit_fence);
-  submit_fence.wait();
+  VENUS_VK_RETURN_BAD_RESULT(submit_fence.wait());
   return VeResult::noError();
 }
 

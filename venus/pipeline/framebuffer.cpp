@@ -78,9 +78,7 @@ Framebuffer::~Framebuffer() noexcept { destroy(); }
 
 Framebuffer &Framebuffer::operator=(Framebuffer &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  core::vk::swap(vk_framebuffer_, rhs.vk_framebuffer_);
-  resolution_ = rhs.resolution_;
+  swap(rhs);
   return *this;
 }
 
@@ -91,7 +89,23 @@ void Framebuffer::destroy() noexcept {
   vk_framebuffer_ = VK_NULL_HANDLE;
 }
 
+void Framebuffer::swap(Framebuffer &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_framebuffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(resolution_);
+}
+
 VkFramebuffer Framebuffer::operator*() const { return vk_framebuffer_; }
+
+Framebuffers::Framebuffers(Framebuffers &&rhs) noexcept {
+  *this = std::move(rhs);
+}
+
+Framebuffers &Framebuffers::operator=(Framebuffers &&rhs) noexcept {
+  destroy();
+  this->swap(rhs);
+  return *this;
+}
 
 Framebuffers::~Framebuffers() noexcept { destroy(); }
 

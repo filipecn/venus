@@ -61,6 +61,36 @@ Pipeline::ShaderStage::create(const ShaderModule &shader_module) const {
   return info;
 }
 
+Pipeline::Pipeline(Pipeline &&rhs) noexcept { *this = std::move(rhs); }
+
+Pipeline::~Pipeline() noexcept { destroy(); }
+
+Pipeline &Pipeline::operator=(Pipeline &&rhs) noexcept {
+  destroy();
+  swap(rhs);
+  return *this;
+}
+
+void Pipeline::swap(Pipeline &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_pipeline_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_pipeline_cache_);
+}
+
+void Pipeline::destroy() noexcept {
+  if (vk_device_) {
+    if (vk_pipeline_cache_)
+      vkDestroyPipelineCache(vk_device_, vk_pipeline_cache_, nullptr);
+    if (vk_pipeline_)
+      vkDestroyPipeline(vk_device_, vk_pipeline_, nullptr);
+  }
+  vk_device_ = VK_NULL_HANDLE;
+  vk_pipeline_cache_ = VK_NULL_HANDLE;
+  vk_pipeline_ = VK_NULL_HANDLE;
+}
+
+VkPipeline Pipeline::operator*() const { return vk_pipeline_; }
+
 GraphicsPipeline::VertexInput &
 GraphicsPipeline::VertexInput::addBindingDescription(
     u32 binding, u32 stride, VkVertexInputRate input_rate) {
@@ -496,6 +526,7 @@ GraphicsPipeline::Config::create(VkDevice vk_device,
   create_info.renderPass = vk_renderpass;
 
   GraphicsPipeline pipeline;
+  pipeline.vk_device_ = vk_device;
   VENUS_VK_RETURN_BAD_RESULT(
       vkCreateGraphicsPipelines(vk_device, VK_NULL_HANDLE, 1, &create_info,
                                 nullptr, &pipeline.vk_pipeline_));

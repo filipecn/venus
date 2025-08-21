@@ -149,9 +149,13 @@ RenderPass::~RenderPass() noexcept { destroy(); }
 
 RenderPass &RenderPass::operator=(RenderPass &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_render_pass_, rhs.vk_render_pass_);
-  core::vk::swap(vk_device_, rhs.vk_device_);
+  swap(rhs);
   return *this;
+}
+
+void RenderPass::swap(RenderPass &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_render_pass_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
 }
 
 void RenderPass::destroy() noexcept {

@@ -107,12 +107,16 @@ ShaderModule::ShaderModule(ShaderModule &&rhs) noexcept {
 
 ShaderModule &ShaderModule::operator=(ShaderModule &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  core::vk::swap(vk_shader_module_, rhs.vk_shader_module_);
+  swap(rhs);
   return *this;
 }
 
 ShaderModule::~ShaderModule() noexcept { destroy(); }
+
+void ShaderModule::swap(ShaderModule &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_shader_module_);
+}
 
 void ShaderModule::destroy() noexcept {
   if (vk_device_ && vk_shader_module_)

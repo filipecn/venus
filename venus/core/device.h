@@ -30,6 +30,10 @@
 #include <venus/core/physical_device.h>
 #include <venus/utils/macros.h>
 
+#define VMA_STATIC_VULKAN_FUNCTIONS 0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#include <vk_mem_alloc.h>
+
 namespace venus::core {
 
 /// The logical device makes the interface of the application and the physical
@@ -69,6 +73,8 @@ public:
         const VkPhysicalDeviceSynchronization2FeaturesKHR &features);
     /// \param flags
     Config &addCreateFlags(VkDeviceCreateFlags flags);
+    /// \param flags
+    Config &addAllocationFlags(VmaAllocatorCreateFlags flags);
     /// \note This indicates a family with size of queue_priorities elements.
     /// \note If the family index has already been added, this will append the
     ///       priorities to the previous priorities for that family index.
@@ -89,6 +95,7 @@ public:
     std::vector<std::string> extensions_;
     std::vector<vk::QueueFamilyConfig> family_configs_;
     VkDeviceCreateFlags flags_;
+    VmaAllocatorCreateInfo allocator_info_;
 
     VENUS_TO_STRING_FRIEND(Device::Config);
   };
@@ -99,18 +106,20 @@ public:
 
   /// Destroy underlying vulkan logical device object and clear all data.
   void destroy() noexcept;
+  void swap(Device &rhs) noexcept;
   /// \return Associated physical device.
   const PhysicalDevice &physical() const;
   /// \return Underlying vulkan logical device object.
   VkDevice operator*() const;
+  /// \return allocator
+  VmaAllocator allocator() const;
 
 protected:
+  VmaAllocator allocator_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
   PhysicalDevice physical_device_;
 
   VENUS_TO_STRING_FRIEND(Device);
 };
-
-class GraphicsDevice : public Device {};
 
 } // namespace venus::core

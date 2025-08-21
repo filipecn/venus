@@ -64,6 +64,7 @@ public:
     VENUS_DECLARE_RAII_FUNCTIONS(Layout)
 
     void destroy() noexcept;
+    void swap(Layout &rhs) noexcept;
 
     VkDescriptorSetLayout operator*() const;
 
@@ -75,6 +76,7 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(DescriptorSet)
 
   void destroy() noexcept;
+  void swap(DescriptorSet &rhs) noexcept;
 
   VkDescriptorSet operator*() const;
   VkDevice device() const;
@@ -131,6 +133,7 @@ public:
   void reset(VkDescriptorPoolResetFlags reset_flags = {});
   /// \brief Destroys all underlying pools.
   void destroy() noexcept;
+  void swap(DescriptorAllocator &rhs) noexcept;
   /// Allocates memory for a given descriptor set with a given layout.
   /// \param device
   /// \param layout descriptor set layout.

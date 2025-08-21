@@ -127,6 +127,7 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(RenderPass);
 
   void destroy() noexcept;
+  void swap(RenderPass &rhs) noexcept;
   VkRenderPass operator*() const;
 
 private:

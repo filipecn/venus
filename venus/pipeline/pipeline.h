@@ -83,6 +83,7 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(Pipeline);
 
   void destroy() noexcept;
+  void swap(Pipeline &rhs) noexcept;
   VkPipeline operator*() const;
   VkPipelineCache cache() const;
 
@@ -94,6 +95,7 @@ protected:
     std::vector<VkPipelineShaderStageCreateInfo> stages_;
   };
 
+  VkDevice vk_device_{VK_NULL_HANDLE};
   VkPipeline vk_pipeline_{VK_NULL_HANDLE};
   VkPipelineCache vk_pipeline_cache_{VK_NULL_HANDLE};
 };

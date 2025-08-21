@@ -92,11 +92,18 @@ public:
     Config &addAspectMask(VkImageAspectFlags aspect);
     /// \param features to append
     Config &addFormatFeatures(VkFormatFeatureFlagBits features);
+    /// Sets this as a self-allocated buffer
+    /// \param memory_config
+    Config &setAllocated(const VmaAllocationCreateInfo &memory_info);
     /// Create image from this configuration.
     /// \param device
     /// \return image or error.
     HERMES_NODISCARD Result<Image> create(const core::Device &device) const;
-    HERMES_NODISCARD Result<Image> create(VkDevice vk_device) const;
+    /// \brief Creates an image from an already existent image.
+    /// \note The newly created image gains ownership over the given vk_image
+    ///       and will destroy it with destroy() is called.
+    HERMES_NODISCARD Result<Image> create(VkDevice vk_device,
+                                          VkImage vk_image) const;
     /// Create an initialized image from this configuration.
     /// \note This copies data into image's buffer memory.
     /// \param gd Graphics device with access to a command buffer.
@@ -105,6 +112,7 @@ public:
     //                                                const void *data) const;
 
   private:
+    std::optional<VmaAllocationCreateInfo> allocation_;
     // format
     VkFormatFeatureFlags format_features_;
     // image
@@ -137,6 +145,8 @@ public:
 
     private:
       VkImageViewCreateInfo info_{};
+
+      VENUS_TO_STRING_FRIEND(Image::View::Config);
     };
 
     // raii
@@ -144,26 +154,43 @@ public:
     VENUS_DECLARE_RAII_FUNCTIONS(View);
 
     void destroy() noexcept;
+    void swap(View &rhs) noexcept;
     VkImageView operator*() const;
 
   private:
     VkDevice vk_device_{VK_NULL_HANDLE};
     VkImageView vk_image_view_{VK_NULL_HANDLE};
+#ifdef VENUS_DEBUG
+    Config config_{};
+#endif
+
+    VENUS_TO_STRING_FRIEND(Image::View);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Image);
 
   /// Frees memory and destroy image/memory objects.
   void destroy() noexcept;
+  void swap(Image &rhs) noexcept;
   /// \return Underlying image vulkan object.
   VkImage operator*() const;
   /// \return Image data format.
   VkFormat format() const;
+  /// \return Associated device.
+  VkDevice device() const;
 
 private:
-  VkDevice vk_device_{VK_NULL_HANDLE};
   VkImage vk_image_{VK_NULL_HANDLE};
+  VkDevice vk_device_{VK_NULL_HANDLE};
   VkFormat vk_format_;
+  struct VkInfo {
+    bool memory_ownership{true};
+  };
+  struct VmaInfo {
+    VmaAllocator allocator{VK_NULL_HANDLE};
+    VmaAllocation allocation{VK_NULL_HANDLE};
+  };
+  std::variant<VkInfo, VmaInfo> info_{VkInfo{}};
 #ifdef VENUS_DEBUG
   Config config_;
 #endif

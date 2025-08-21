@@ -91,6 +91,12 @@ Device::Config &Device::Config::addCreateFlags(VkDeviceCreateFlags flags) {
 }
 
 Device::Config &
+Device::Config::addAllocationFlags(VmaAllocatorCreateFlags flags) {
+  allocator_info_.flags |= flags;
+  return *this;
+}
+
+Device::Config &
 Device::Config::addQueueFamily(u32 index,
                                const std::vector<f32> &queue_priorities,
                                VkDeviceQueueCreateFlags flags) {
@@ -146,6 +152,20 @@ Device::Config::create(const PhysicalDevice &physical_device) const {
   device.physical_device_ = physical_device;
   VENUS_VK_RETURN_BAD_RESULT(vkCreateDevice(*physical_device, &create_info,
                                             nullptr, &device.vk_device_));
+
+  VmaVulkanFunctions vulkan_functions = {};
+  vulkan_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+  vulkan_functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
+  VmaAllocatorCreateInfo allocator_info = allocator_info_;
+  allocator_info.device = device.vk_device_;
+  allocator_info.physicalDevice = *device.physical_device_;
+  allocator_info.instance = device.physical_device_.instance();
+  allocator_info.pVulkanFunctions = &vulkan_functions;
+
+  VENUS_VK_RETURN_BAD_RESULT(
+      vmaCreateAllocator(&allocator_info, &device.allocator_));
+
   return Result<Device>(std::move(device));
 }
 
@@ -155,14 +175,21 @@ Device::~Device() noexcept { destroy(); }
 
 Device &Device::operator=(Device &&rhs) noexcept {
   destroy();
-  vk_device_ = rhs.vk_device_;
-  physical_device_ = rhs.physical_device_;
-  rhs.physical_device_ = {};
-  rhs.vk_device_ = VK_NULL_HANDLE;
+  swap(rhs);
   return *this;
 }
 
+void Device::swap(Device &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(allocator_);
+  VENUS_SWAP_FIELD_WITH_RHS(physical_device_);
+}
+
 void Device::destroy() noexcept {
+  if (allocator_) {
+    vmaDestroyAllocator(allocator_);
+    allocator_ = VK_NULL_HANDLE;
+  }
   if (vk_device_) {
     vkDestroyDevice(vk_device_, nullptr);
     vk_device_ = VK_NULL_HANDLE;
@@ -170,6 +197,8 @@ void Device::destroy() noexcept {
 }
 
 VkDevice Device::operator*() const { return vk_device_; }
+
+VmaAllocator Device::allocator() const { return allocator_; }
 
 const PhysicalDevice &Device::physical() const { return physical_device_; }
 

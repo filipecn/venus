@@ -29,6 +29,9 @@
 
 #include <venus/mem/device_memory.h>
 
+#include <optional>
+#include <variant>
+
 namespace venus::mem {
 
 /// \brief Holds a vulkan buffer object.
@@ -101,16 +104,16 @@ public:
     Config &enableShaderDeviceAddress();
     /// \param flags
     Config &addCreateFlags(VkBufferCreateFlags flags);
+    /// Sets this as a self-allocated buffer
+    /// \param memory_config
+    Config &setAllocated(const VmaAllocationCreateInfo &memory_info);
     /// \brief Creates a buffer object from this configuration.
     /// \param device
     /// \return Buffer object or error.
     HERMES_NODISCARD Result<Buffer> create(const core::Device &device) const;
-    /// \brief Creates a buffer object from this configuration.
-    /// \param vk_device
-    /// \return Buffer object or error.
-    HERMES_NODISCARD Result<Buffer> create(VkDevice vk_device) const;
 
   private:
+    std::optional<VmaAllocationCreateInfo> allocation_;
     VkDeviceSize size_{};                                   //< size in bytes
     VkBufferUsageFlags usage_{};                            //< buffer purpose
     VkSharingMode sharing_mode_{VK_SHARING_MODE_EXCLUSIVE}; //< sharing mode
@@ -144,6 +147,7 @@ public:
 
     VENUS_DECLARE_RAII_FUNCTIONS(View);
 
+    void swap(View &rhs) noexcept;
     void destroy() noexcept;
     VkBufferView operator*() const;
 
@@ -168,6 +172,7 @@ public:
 
   /// Frees memory and destroy buffer/memory objects.
   void destroy() noexcept;
+  void swap(Buffer &rhs) noexcept;
   /// \return Underlying vk buffer object.
   VkBuffer operator*() const;
   /// \return Associated logical device.
@@ -175,8 +180,17 @@ public:
 
 private:
   VkBuffer vk_buffer_{VK_NULL_HANDLE};
-  VkDevice vk_device_{VK_NULL_HANDLE};
-  VkDeviceSize size_{0};
+  VkDeviceAddress vk_device_address_{0};
+  struct VkInfo {
+    VkDevice vk_device{VK_NULL_HANDLE};
+    VkDeviceSize size{0};
+  };
+  struct VmaInfo {
+    VmaAllocator allocator{VK_NULL_HANDLE};
+    VmaAllocation allocation{VK_NULL_HANDLE};
+    VkMemoryRequirements requirements{};
+  };
+  std::variant<VmaInfo, VkInfo> info_{VkInfo{}};
 #ifdef VENUS_DEBUG
   Config config_{};
 #endif

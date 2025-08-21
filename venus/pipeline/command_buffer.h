@@ -71,9 +71,27 @@ public:
     std::vector<VkClearValue> clear_values_;
   };
 
+  struct SubmitInfo2 {
+    SubmitInfo2 &addWaitInfo(VkPipelineStageFlags2 stage_mask,
+                             VkSemaphore semaphore);
+    SubmitInfo2 &addSignalInfo(VkPipelineStageFlags2 stage_mask,
+                               VkSemaphore semaphore);
+    SubmitInfo2 &addCommandBufferInfo(VkCommandBuffer cb);
+    VkResult submit(VkQueue queue, VkFence fence) const;
+
+  private:
+    VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stage_mask,
+                                              VkSemaphore semaphore);
+
+    std::vector<VkSemaphoreSubmitInfo> wait_semaphores_;
+    std::vector<VkSemaphoreSubmitInfo> signal_semaphores_;
+    std::vector<VkCommandBufferSubmitInfo> cb_infos_;
+  };
+
   VENUS_DECLARE_RAII_FUNCTIONS(CommandBuffer)
 
   void destroy() noexcept;
+  void swap(CommandBuffer &rhs) noexcept;
   VkCommandBuffer operator*() const;
 
   HERMES_NODISCARD VeResult begin(VkCommandBufferUsageFlags flags = 0) const;
@@ -311,6 +329,7 @@ public:
                  const std::function<void(CommandBuffer &)> &record_callback);
 
   void destroy() noexcept;
+  void swap(CommandPool &rhs) noexcept;
   VkCommandPool operator*() const;
 
 private:

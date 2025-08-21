@@ -62,10 +62,11 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(Fence)
 
   void destroy() noexcept;
+  void swap(Fence &rhs) noexcept;
   VkFence operator*() const;
 
   HERMES_NODISCARD VkResult status() const;
-  void wait() const;
+  HERMES_NODISCARD VkResult wait() const;
   void reset() const;
 
 private:
@@ -88,6 +89,7 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(Semaphore)
 
   void destroy() noexcept;
+  void swap(Semaphore &rhs) noexcept;
   VkSemaphore operator*() const;
 
 private:

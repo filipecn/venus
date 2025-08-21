@@ -37,45 +37,46 @@ class DeviceMemory {
 public:
   /// Builder for device memory.
   struct Config {
+    /// \param flags allocation flags (vma)
+    Config &setAllocationFlags(VmaAllocationCreateFlags flags);
+    /// \param usage memory usage (vma)
+    Config &setUsage(VmaMemoryUsage usage);
     /// \param properties appending properties.
-    Config &addProperties(VkMemoryPropertyFlags properties);
-    /// \param properties new properties.
-    Config &setProperties(VkMemoryPropertyFlags properties);
+    Config &addRequiredProperties(VkMemoryPropertyFlags properties);
+    /// \param properties appending properties.
+    Config &addPreferredProperties(VkMemoryPropertyFlags properties);
+    /// \param Bitmask containing one bit set for every memory type acceptable
+    ///        for this allocation.
+    Config &addMemoryType(u32 type_bits);
+    /// \param pool (vma)
+    Config &setPool(VmaPool pool);
+    /// \param priority value in [0,1]
+    Config &setPriority(f32 priority);
     /// \param requirements new memory requirements.
     Config &setRequirements(const VkMemoryRequirements &requirements);
-    /// \param allocation_flags
-    Config &addAllocationFlags(VkMemoryAllocateFlags allocation_flags);
     /// Set memory host visible.
     /// \note This sets memory properties eHostCoherent and eHostVisible.
     Config &setHostVisible();
     /// Set memory host visible.
     /// \note This sets memory properties eDeviceLocal.
     Config &setDeviceLocal();
-    /// \note This adds memory allocation flag
-    ///       VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
-    Config &enableDeviceAddress();
+    ///
+    VmaAllocationCreateInfo allocationInfo() const;
     /// Creates a new DeviceMemory from this configuration.
     /// \param device Device holding the new allocated memory.
     /// \return a new DeviceMemory, or error.
     HERMES_NODISCARD Result<DeviceMemory> create(const core::Device &device);
 
   private:
-    VkMemoryAllocateFlags allocation_flags_{};
-    VkMemoryPropertyFlags properties_{};
     VkMemoryRequirements requirements_{};
+    VmaAllocationCreateInfo allocation_{};
 
     VENUS_TO_STRING_FRIEND(DeviceMemory::Config);
   };
 
   // raii
 
-  DeviceMemory() noexcept = default;
-  DeviceMemory(const DeviceMemory &) = delete;
-  DeviceMemory(DeviceMemory &&) noexcept;
-  ~DeviceMemory() noexcept;
-
-  DeviceMemory &operator=(const DeviceMemory &) = delete;
-  DeviceMemory &operator=(DeviceMemory &&) noexcept;
+  VENUS_DECLARE_RAII_FUNCTIONS(DeviceMemory)
 
   /// \note Sometimes the driver may not immediately copy the data into the
   ///       buffer memory. It is also possible that writes to the buffer are not
@@ -128,17 +129,13 @@ public:
                                  VkMemoryMapFlags flags = {});
   /// Frees device memory and destroys this object.
   void destroy() noexcept;
-  /// \return Underlying vulkan device memory object.
-  VkDeviceMemory operator*() const;
-  /// \return Associated vulkan device.
-  VkDevice device() const;
+  void swap(DeviceMemory &rhs) noexcept;
   /// \return This memory capacity in bytes.
   VkDeviceSize size() const;
 
 private:
-  VkDeviceMemory vk_device_memory_{VK_NULL_HANDLE};
-  VkDevice vk_device_{VK_NULL_HANDLE};
-  VkDeviceSize size_{0};
+  VmaAllocator allocator_{VK_NULL_HANDLE};
+  VmaAllocation allocation_{VK_NULL_HANDLE};
   mutable void *mapped_{nullptr};
 #ifdef VENUS_DEBUG
   Config config_;

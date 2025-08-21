@@ -39,6 +39,11 @@
   debug_fields.add(HERMES_DebugFields::Type::Inline, #F, object.F);
 #endif
 
+#ifndef HERMES_PUSH_DEBUG_VK_STRING
+#define HERMES_PUSH_DEBUG_VK_STRING(T, F)                                      \
+  debug_fields.add(HERMES_DebugFields::Type::Inline, #F, string_##T(object.F));
+#endif
+
 #ifndef HERMES_PUSH_DEBUG_VK_VARIABLE
 #define HERMES_PUSH_DEBUG_VK_VARIABLE(F)                                       \
   debug_fields.add(HERMES_DebugFields::Type::Inline, #F, F);

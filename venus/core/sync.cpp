@@ -53,12 +53,16 @@ Fence::Fence(Fence &&rhs) noexcept { *this = std::move(rhs); }
 
 Fence &Fence::operator=(Fence &&rhs) noexcept {
   destroy();
-  vk::swap(vk_fence_, rhs.vk_fence_);
-  vk::swap(vk_device_, rhs.vk_device_);
+  swap(rhs);
   return *this;
 }
 
 Fence::~Fence() noexcept { destroy(); }
+
+void Fence::swap(Fence &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_fence_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+}
 
 void Fence::destroy() noexcept {
   if (vk_device_ && vk_fence_)
@@ -73,8 +77,8 @@ VkResult Fence::status() const {
   return vkGetFenceStatus(vk_device_, vk_fence_);
 }
 
-void Fence::wait() const {
-  vkWaitForFences(vk_device_, 1, &vk_fence_, VK_TRUE, UINT64_MAX);
+VkResult Fence::wait() const {
+  return vkWaitForFences(vk_device_, 1, &vk_fence_, VK_TRUE, UINT64_MAX);
 }
 
 void Fence::reset() const { vkResetFences(vk_device_, 1, &vk_fence_); }
@@ -103,12 +107,16 @@ Semaphore::Semaphore(Semaphore &&rhs) noexcept { *this = std::move(rhs); }
 
 Semaphore &Semaphore::operator=(Semaphore &&rhs) noexcept {
   destroy();
-  vk::swap(vk_semaphore_, rhs.vk_semaphore_);
-  vk::swap(vk_device_, rhs.vk_device_);
+  swap(rhs);
   return *this;
 }
 
 Semaphore::~Semaphore() noexcept { destroy(); }
+
+void Semaphore::swap(Semaphore &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_semaphore_);
+}
 
 void Semaphore::destroy() noexcept {
   if (vk_device_ && vk_semaphore_)

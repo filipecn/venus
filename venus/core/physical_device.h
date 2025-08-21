@@ -72,7 +72,8 @@ namespace venus::core {
 /// allows memory transfer related commands.
 class PhysicalDevice {
 public:
-  PhysicalDevice(VkPhysicalDevice handle = VK_NULL_HANDLE);
+  PhysicalDevice(VkPhysicalDevice handle = VK_NULL_HANDLE,
+                 VkInstance instance = VK_NULL_HANDLE);
   PhysicalDevice(PhysicalDevice &&rhs) noexcept;
   PhysicalDevice(const PhysicalDevice &rhs);
   PhysicalDevice &operator=(PhysicalDevice &&rhs) noexcept;
@@ -86,7 +87,10 @@ public:
   /// \return True if this object is valid.
   HERMES_NODISCARD operator bool() const;
   /// \param vk_physical_device Physical device vulkan handle.
-  HERMES_NODISCARD VeResult setHandle(VkPhysicalDevice vk_physical_device);
+  HERMES_NODISCARD VeResult setHandle(VkPhysicalDevice vk_physical_device,
+                                      VkInstance vk_instance);
+  /// \return associated instance
+  VkInstance instance() const;
   /// Clear data.
   void clear();
 
@@ -188,8 +192,10 @@ public:
 
 private:
   friend class PhysicalDevices;
+  /// associated instance
+  VkInstance vk_instance_{VK_NULL_HANDLE};
   /// Vulkan handle
-  VkPhysicalDevice vk_device_{VK_NULL_HANDLE};
+  VkPhysicalDevice vk_physical_device_{VK_NULL_HANDLE};
   /// Available device extensions
   std::vector<VkExtensionProperties> vk_extensions_;
   /// Device features include items such as geometry and tesselation shaders,

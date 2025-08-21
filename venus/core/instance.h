@@ -29,6 +29,8 @@
 
 #include <venus/core/physical_device.h>
 
+#include <venus/utils/macros.h>
+
 #include <string>
 #include <vector>
 
@@ -98,18 +100,11 @@ public:
     VENUS_TO_STRING_FRIEND(Instance::Config);
   };
 
-  Instance() = default;
-  Instance(Instance &&rhs) noexcept;
-  Instance &operator=(Instance &&rhs) noexcept;
-  ~Instance();
-
-  // raii
-
-  Instance(const Instance &) = delete;
-  Instance &operator=(const Instance &) = delete;
+  VENUS_DECLARE_RAII_FUNCTIONS(Instance);
 
   /// Destroys and invalidate this instance.
-  void destroy();
+  void destroy() noexcept;
+  void swap(Instance &rhs) noexcept;
   /// \return bool true if instance is valid.
   HERMES_NODISCARD operator bool() const;
   /// \return list of detected physical devices.

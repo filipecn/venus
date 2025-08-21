@@ -52,3 +52,11 @@
     return *this;                                                              \
   }
 #endif
+
+#ifndef VENUS_SWAP_FIELD_WITH_RHS
+#define VENUS_SWAP_FIELD_WITH_RHS(FIELD) std::swap(FIELD, rhs.FIELD)
+#endif
+
+#ifndef VENUS_FIELD_SWAP_RHS
+#define VENUS_FIELD_SWAP_RHS(FIELD) FIELD.swap(rhs.FIELD)
+#endif

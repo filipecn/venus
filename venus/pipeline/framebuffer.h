@@ -64,6 +64,7 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(Framebuffer);
 
   void destroy() noexcept;
+  void swap(Framebuffer &rhs) noexcept;
   VkFramebuffer operator*() const;
 
 private:
@@ -74,7 +75,7 @@ private:
 
 class Framebuffers : public std::vector<Framebuffer> {
 public:
-  ~Framebuffers() noexcept;
+  VENUS_DECLARE_RAII_FUNCTIONS(Framebuffers)
 
   void destroy() noexcept;
 };

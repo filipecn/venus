@@ -28,63 +28,79 @@
 
 #include <venus/utils/vk_debug.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+#pragma GCC diagnostic pop
+
 namespace venus::mem {
 
-DeviceMemory::Config &
-DeviceMemory::Config::addProperties(VkMemoryPropertyFlags properties) {
-  properties_ |= properties;
-  return *this;
-}
-
-DeviceMemory::Config &
-DeviceMemory::Config::setProperties(VkMemoryPropertyFlags properties) {
-  properties_ = properties;
-  return *this;
-}
-
-DeviceMemory::Config &DeviceMemory::Config::setRequirements(
-    const VkMemoryRequirements &requirements) {
-  requirements_ = requirements;
-  return *this;
-}
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config, setAllocationFlags,
+                                     VmaAllocationCreateFlags,
+                                     allocation_.flags |= value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config, setUsage,
+                                     VmaMemoryUsage, allocation_.usage = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config,
+                                     addRequiredProperties,
+                                     VkMemoryPropertyFlags,
+                                     allocation_.requiredFlags |= value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config,
+                                     addPreferredProperties,
+                                     VkMemoryPropertyFlags,
+                                     allocation_.preferredFlags |= value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config, addMemoryType, u32,
+                                     allocation_.memoryTypeBits |= value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config, setPool, VmaPool,
+                                     allocation_.pool = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config, setPriority, f32,
+                                     allocation_.priority = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory::Config, setRequirements,
+                                     const VkMemoryRequirements &,
+                                     requirements_ = value);
 
 DeviceMemory::Config &DeviceMemory::Config::setHostVisible() {
-  properties_ = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+  allocation_.requiredFlags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
   return *this;
 }
 
 DeviceMemory::Config &DeviceMemory::Config::setDeviceLocal() {
-  properties_ = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+  allocation_.requiredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
   return *this;
 }
 
-DeviceMemory::Config &DeviceMemory::Config::addAllocationFlags(
-    VkMemoryAllocateFlags allocation_flags) {
-  allocation_flags_ |= allocation_flags;
-  return *this;
+VmaAllocationCreateInfo DeviceMemory::Config::allocationInfo() const {
+  return allocation_;
 }
 
 Result<DeviceMemory> DeviceMemory::Config::create(const core::Device &device) {
   if (!requirements_.size)
     return VeResult::badAllocation();
 
-  VkMemoryAllocateFlagsInfo ext{};
-  ext.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
-  ext.flags = allocation_flags_;
-
-  VkMemoryAllocateInfo allocate_info{};
-  allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  allocate_info.pNext = &ext;
-  allocate_info.allocationSize = requirements_.size;
-  allocate_info.memoryTypeIndex =
-      device.physical().chooseMemoryType(requirements_, properties_, {});
+  // Pure Vulkan
+  // -----------
+  // VkMemoryAllocateFlagsInfo ext{};
+  // ext.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
+  // ext.flags = allocation_flags_;
+  // VkMemoryAllocateInfo allocate_info{};
+  // allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  // allocate_info.pNext = &ext;
+  // allocate_info.allocationSize = requirements_.size;
+  // allocate_info.memoryTypeIndex =
+  //     device.physical().chooseMemoryType(requirements_, properties_, {});
+  // VENUS_VK_RETURN_BAD_RESULT(vkAllocateMemory(
+  //     *device, &allocate_info, nullptr, &device_memory.vk_device_memory_));
 
   DeviceMemory device_memory;
-  VENUS_VK_RETURN_BAD_RESULT(vkAllocateMemory(
-      *device, &allocate_info, nullptr, &device_memory.vk_device_memory_));
-  device_memory.size_ = requirements_.size;
-  device_memory.vk_device_ = *device;
+
+  VENUS_VK_RETURN_BAD_RESULT(
+      vmaAllocateMemory(device.allocator(), &requirements_, &allocation_,
+                        &device_memory.allocation_, nullptr));
+
 #ifdef VENUS_DEBUG
   device_memory.config_ = *this;
 #endif
@@ -99,12 +115,7 @@ DeviceMemory::~DeviceMemory() noexcept { destroy(); }
 
 DeviceMemory &DeviceMemory::operator=(DeviceMemory &&rhs) noexcept {
   destroy();
-  core::vk::swap(vk_device_memory_, rhs.vk_device_memory_);
-  core::vk::swap(vk_device_, rhs.vk_device_);
-  std::swap(size_, rhs.size_);
-#ifdef VENUS_DEBUG
-  config_ = std::move(rhs.config_);
-#endif
+  swap(rhs);
   return *this;
 }
 
@@ -115,55 +126,52 @@ Result<void *> DeviceMemory::map(VkDeviceSize size, VkDeviceSize offset,
                  "only have one mapped memory at a time.");
     return VeResult::badAllocation();
   }
-
-  VENUS_VK_RETURN_BAD_RESULT(vkMapMemory(vk_device_, vk_device_memory_, offset,
-                                         size ? size : size_, flags, &mapped_));
+  VENUS_VK_RETURN_BAD_RESULT(vmaMapMemory(allocator_, allocation_, &mapped_));
+  // vkMapMemory(vk_device_, vk_device_memory_, offset,
+  //                                        size ? size : size_, flags,
+  //                                        &mapped_));
 
   return Result<void *>(mapped_);
 }
 
 void DeviceMemory::unmap() const {
   if (mapped_) {
-    vkUnmapMemory(vk_device_, vk_device_memory_);
+    vmaUnmapMemory(allocator_, allocation_);
     mapped_ = nullptr;
   }
 }
 
 VeResult DeviceMemory::flush(VkDeviceSize size, VkDeviceSize offset) {
-  VkMappedMemoryRange mapped_range = {};
-  mapped_range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  mapped_range.memory = vk_device_memory_;
-  mapped_range.offset = offset;
-  mapped_range.size = size;
-
   VENUS_VK_RETURN_BAD_RESULT(
-      vkFlushMappedMemoryRanges(vk_device_, 1, &mapped_range));
+      vmaFlushAllocation(allocator_, allocation_, offset, size));
   return VeResult::noError();
 }
 
 VeResult DeviceMemory::invalidate(VkDeviceSize size, VkDeviceSize offset) {
-  VkMappedMemoryRange mapped_range = {};
-  mapped_range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  mapped_range.memory = vk_device_memory_;
-  mapped_range.offset = offset;
-  mapped_range.size = size;
   VENUS_VK_RETURN_BAD_RESULT(
-      vkInvalidateMappedMemoryRanges(vk_device_, 1, &mapped_range));
+      vmaInvalidateAllocation(allocator_, allocation_, offset, size));
   return VeResult::noError();
+}
+
+void DeviceMemory::swap(DeviceMemory &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(allocation_);
+  VENUS_SWAP_FIELD_WITH_RHS(allocator_);
+#ifdef VENUS_DEBUG
+  VENUS_SWAP_FIELD_WITH_RHS(config_);
+#endif
 }
 
 void DeviceMemory::destroy() noexcept {
   unmap();
-  if (vk_device_ && vk_device_memory_)
-    vkFreeMemory(vk_device_, vk_device_memory_, nullptr);
-  vk_device_memory_ = VK_NULL_HANDLE;
-  vk_device_ = VK_NULL_HANDLE;
-  size_ = 0;
+  if (allocation_ && allocator_)
+    vmaFreeMemory(allocator_, allocation_);
+  allocator_ = VK_NULL_HANDLE;
+  allocation_ = VK_NULL_HANDLE;
 }
 
 VeResult DeviceMemory::copy(const void *data, VkDeviceSize size_in_bytes,
                             VkDeviceSize offset, VkMemoryMapFlags flags) {
-  if (offset + size_in_bytes > size_) {
+  if (offset + size_in_bytes > allocation_->GetSize()) {
     return VeResult::inputError();
   }
 
@@ -176,11 +184,7 @@ VeResult DeviceMemory::copy(const void *data, VkDeviceSize size_in_bytes,
   return VeResult::noError();
 }
 
-VkDeviceMemory DeviceMemory::operator*() const { return vk_device_memory_; }
-
-VkDevice DeviceMemory::device() const { return vk_device_; }
-
-VkDeviceSize DeviceMemory::size() const { return size_; }
+VkDeviceSize DeviceMemory::size() const { return allocation_->GetSize(); }
 
 } // namespace venus::mem
 
