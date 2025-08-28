@@ -30,19 +30,19 @@
 
 namespace venus::app {
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice::Config, setSurfaceExtent,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, setSurfaceExtent,
                                      const VkExtent2D &,
                                      surface_extent_ = value)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice::Config, setSurface,
-                                     VkSurfaceKHR, surface_ = value)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice::Config, setFeatures,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, setSurface, VkSurfaceKHR,
+                                     surface_ = value)
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, setFeatures,
                                      const core::vk::DeviceFeatures &,
                                      features_ = value)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice::Config, addExtension,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, addExtension,
                                      const std::string_view &,
                                      extensions_.emplace_back(value))
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
-    GraphicsDevice::Config, addExtensions, const std::vector<std::string> &,
+    GraphicsDevice, addExtensions, const std::vector<std::string> &,
     extensions_.insert(extensions_.end(), value.begin(), value.end()))
 
 Result<GraphicsDevice>
@@ -283,7 +283,7 @@ VeResult GraphicsDevice::submit() {
   // that rendering has finished
 
   VENUS_VK_RETURN_BAD_RESULT(
-      pipeline::CommandBuffer::SubmitInfo2()
+      pipeline::SubmitInfo2()
           .addWaitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
                        *frame.image_acquired_semaphore)
           .addSignalInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,

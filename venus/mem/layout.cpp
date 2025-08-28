@@ -26,6 +26,8 @@
 
 #include <venus/mem/layout.h>
 
+#include <venus/utils/vk_debug.h>
+
 namespace venus::mem {
 
 void VertexLayout::pushComponent(VertexLayout::ComponentType component,
@@ -72,3 +74,35 @@ const std::vector<VertexLayout::Component> &VertexLayout::components() const {
 }
 
 } // namespace venus::mem
+
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::VertexLayout::ComponentType)
+#define TO_STR(C)                                                              \
+  if (object == venus::mem::VertexLayout::ComponentType::C)                    \
+    return #C;
+TO_STR(Position)
+TO_STR(Normal)
+TO_STR(Color)
+TO_STR(UV)
+TO_STR(Tangent)
+TO_STR(Bitangent)
+TO_STR(Scalar)
+TO_STR(Vec2)
+TO_STR(Vec3)
+TO_STR(Vec4)
+TO_STR(M3x3)
+TO_STR(M4x4)
+TO_STR(Array)
+#undef TO_STR
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::VertexLayout)
+HERMES_PUSH_DEBUG_VK_FIELD(stride_);
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(components_, component)
+HERMES_PUSH_DEBUG_LINE("{} {} {}", string_VkFormat(component.format),
+                       component.offset, venus::to_string(component.type));
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus

@@ -69,7 +69,7 @@ public:
 
   private:
     VkMemoryRequirements requirements_{};
-    VmaAllocationCreateInfo allocation_{};
+    VmaAllocationCreateInfo vma_allocation_{};
 
     VENUS_TO_STRING_FRIEND(DeviceMemory::Config);
   };
@@ -133,10 +133,12 @@ public:
   /// \return This memory capacity in bytes.
   VkDeviceSize size() const;
 
-private:
-  VmaAllocator allocator_{VK_NULL_HANDLE};
-  VmaAllocation allocation_{VK_NULL_HANDLE};
+protected:
+  VmaAllocator vma_allocator_{VK_NULL_HANDLE};
+  VmaAllocation vma_allocation_{VK_NULL_HANDLE};
   mutable void *mapped_{nullptr};
+
+private:
 #ifdef VENUS_DEBUG
   Config config_;
 #endif

@@ -101,61 +101,6 @@ VkRenderPassBeginInfo CommandBuffer::RenderPassInfo::info() const {
   return info_;
 }
 
-CommandBuffer::SubmitInfo2 &
-CommandBuffer::SubmitInfo2::addWaitInfo(VkPipelineStageFlags2 stage_mask,
-                                        VkSemaphore semaphore) {
-  wait_semaphores_.emplace_back(semaphoreSubmitInfo(stage_mask, semaphore));
-  return *this;
-}
-
-CommandBuffer::SubmitInfo2 &
-CommandBuffer::SubmitInfo2::addSignalInfo(VkPipelineStageFlags2 stage_mask,
-                                          VkSemaphore semaphore) {
-  signal_semaphores_.emplace_back(semaphoreSubmitInfo(stage_mask, semaphore));
-  return *this;
-}
-
-CommandBuffer::SubmitInfo2 &
-CommandBuffer::SubmitInfo2::addCommandBufferInfo(VkCommandBuffer cb) {
-  VkCommandBufferSubmitInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
-  info.pNext = nullptr;
-  info.commandBuffer = cb;
-  info.deviceMask = 0;
-  cb_infos_.emplace_back(info);
-  return *this;
-}
-
-VkResult CommandBuffer::SubmitInfo2::submit(VkQueue queue,
-                                            VkFence fence) const {
-  VkSubmitInfo2 info = {};
-  info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
-  info.pNext = nullptr;
-
-  info.waitSemaphoreInfoCount = wait_semaphores_.size();
-  info.pWaitSemaphoreInfos = wait_semaphores_.data();
-
-  info.signalSemaphoreInfoCount = signal_semaphores_.size();
-  info.pSignalSemaphoreInfos = signal_semaphores_.data();
-
-  info.commandBufferInfoCount = cb_infos_.size();
-  info.pCommandBufferInfos = cb_infos_.data();
-
-  return vkQueueSubmit2(queue, 1, &info, fence);
-}
-
-VkSemaphoreSubmitInfo CommandBuffer::SubmitInfo2::semaphoreSubmitInfo(
-    VkPipelineStageFlags2 stage_mask, VkSemaphore semaphore) {
-  VkSemaphoreSubmitInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
-  info.pNext = nullptr;
-  info.semaphore = semaphore;
-  info.stageMask = stage_mask;
-  info.deviceIndex = 0;
-  info.value = 1;
-  return info;
-}
-
 CommandBuffer::CommandBuffer(CommandBuffer &&rhs) noexcept {
   *this = std::move(rhs);
 }
@@ -208,6 +153,12 @@ VeResult CommandBuffer::submit(VkQueue queue, VkFence fence) const {
   submit_info.pCommandBuffers = &vk_command_buffer_;
   vkQueueSubmit(queue, 1, &submit_info, fence);
   return VeResult::noError();
+}
+
+void CommandBuffer::copy(VkBuffer vk_src_buffer, VkBuffer vk_dst_buffer,
+                         const std::vector<VkBufferCopy> &regions) const {
+  vkCmdCopyBuffer(vk_command_buffer_, vk_src_buffer, vk_dst_buffer,
+                  regions.size(), regions.data());
 }
 
 void CommandBuffer::copy(VkBuffer vk_src_buffer, VkBuffer vk_dst_buffer,
@@ -488,6 +439,105 @@ VeResult CommandPool::imadiateSubmit(
       submit_fence, core::Fence::Config().create(vk_device_));
   short_living_command_buffer.submit(queue, *submit_fence);
   VENUS_VK_RETURN_BAD_RESULT(submit_fence.wait());
+  return VeResult::noError();
+}
+
+SubmitInfo2 &SubmitInfo2::addWaitInfo(VkPipelineStageFlags2 stage_mask,
+                                      VkSemaphore semaphore) {
+  wait_semaphores_.emplace_back(semaphoreSubmitInfo(stage_mask, semaphore));
+  return *this;
+}
+
+SubmitInfo2 &SubmitInfo2::addSignalInfo(VkPipelineStageFlags2 stage_mask,
+                                        VkSemaphore semaphore) {
+  signal_semaphores_.emplace_back(semaphoreSubmitInfo(stage_mask, semaphore));
+  return *this;
+}
+
+SubmitInfo2 &SubmitInfo2::addCommandBufferInfo(VkCommandBuffer cb) {
+  VkCommandBufferSubmitInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+  info.pNext = nullptr;
+  info.commandBuffer = cb;
+  info.deviceMask = 0;
+  cb_infos_.emplace_back(info);
+  return *this;
+}
+
+VkResult SubmitInfo2::submit(VkQueue queue, VkFence fence) const {
+  VkSubmitInfo2 info = {};
+  info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+  info.pNext = nullptr;
+
+  info.waitSemaphoreInfoCount = wait_semaphores_.size();
+  info.pWaitSemaphoreInfos = wait_semaphores_.data();
+
+  info.signalSemaphoreInfoCount = signal_semaphores_.size();
+  info.pSignalSemaphoreInfos = signal_semaphores_.data();
+
+  info.commandBufferInfoCount = cb_infos_.size();
+  info.pCommandBufferInfos = cb_infos_.data();
+
+  return vkQueueSubmit2(queue, 1, &info, fence);
+}
+
+VkSemaphoreSubmitInfo
+SubmitInfo2::semaphoreSubmitInfo(VkPipelineStageFlags2 stage_mask,
+                                 VkSemaphore semaphore) {
+  VkSemaphoreSubmitInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+  info.pNext = nullptr;
+  info.semaphore = semaphore;
+  info.stageMask = stage_mask;
+  info.deviceIndex = 0;
+  info.value = 1;
+  return info;
+}
+
+BufferWritter &BufferWritter::addBuffer(VkBuffer buffer, const void *data,
+                                        u32 size_in_bytes) {
+  data_.emplace_back(data);
+  sizes_.emplace_back(size_in_bytes);
+  buffers_.emplace_back(buffer);
+  return *this;
+}
+
+VeResult BufferWritter::record(const core::Device &device,
+                               VkCommandBuffer cb) const {
+  // compute total staging size
+  std::vector<u32> offsets(1, 0);
+  u32 staging_size = 0;
+  for (const auto &size : sizes_) {
+    offsets.emplace_back(staging_size + size);
+    staging_size += size;
+  }
+
+  mem::AllocatedBuffer staging;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      staging,
+      mem::AllocatedBuffer::Config()
+          .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
+          .setMemoryConfig(
+              mem::DeviceMemory::Config()
+                  .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
+                  .setUsage(VMA_MEMORY_USAGE_CPU_ONLY))
+          .create(device));
+
+  std::vector<VkBufferCopy> copies;
+  for (u32 i = 0; i < data_.size(); ++i) {
+    // transfer data to staging
+    VENUS_RETURN_BAD_RESULT(staging.copy(data_[i], sizes_[i], offsets[i]));
+  }
+
+  // record staging -> device transfer
+  for (u32 i = 0; i < data_.size(); ++i) {
+    VkBufferCopy vertex_copy{0};
+    vertex_copy.dstOffset = 0;
+    vertex_copy.srcOffset = offsets[i];
+    vertex_copy.size = sizes_[i];
+    vkCmdCopyBuffer(cb, *staging, buffers_[i], 1, &vertex_copy);
+  }
+
   return VeResult::noError();
 }
 

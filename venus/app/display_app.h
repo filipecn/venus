@@ -40,12 +40,21 @@ public:
   struct Config {
     Config &setTitle(const std::string_view &title);
     Config &setResolution(const VkExtent2D &resolution);
-    template <typename DisplayType> Config &setDisplay() {
+    template <typename DisplayType>
+    Config &setDisplay(const std::string_view &title,
+                       const VkExtent2D &resolution) {
       display_.reset(new DisplayType());
+      title_ = title;
+      resolution_ = resolution;
       return *this;
     }
     Config &setDeviceFeatures(const core::vk::DeviceFeatures &features);
     Config &setDeviceExtensions(const std::vector<std::string> &extensions);
+    Config &setStartupFn(const std::function<VeResult()> &startup_callback);
+    Config &setShutdownFn(const std::function<VeResult()> &shutdown_callback);
+    Config &setRenderFn(
+        const std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
+            &render_callback);
 
     DisplayApp create() const;
 
@@ -56,6 +65,11 @@ public:
     std::shared_ptr<io::Display> display_;
     core::vk::DeviceFeatures device_features_;
     std::vector<std::string> device_extensions_;
+    // callbacks
+    std::function<VeResult()> startup_callback_{nullptr};
+    std::function<VeResult()> shutdown_callback_{nullptr};
+    std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
+        render_callback_{nullptr};
   };
 
   /// Start the application.
@@ -69,6 +83,11 @@ protected:
 
   core::Instance instance_;
   GraphicsDevice gd_;
+
+  std::function<VeResult()> startup_callback_{nullptr};
+  std::function<VeResult()> shutdown_callback_{nullptr};
+  std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
+      render_callback_{nullptr};
 };
 
 } // namespace venus::app

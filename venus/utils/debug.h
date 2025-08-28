@@ -34,7 +34,7 @@
 #ifdef VENUS_INCLUDE_TO_STRING
 
 namespace venus {
-HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD
+HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
 } // namespace venus
 #define VENUS_TO_STRING_FRIEND(A)                                              \
   friend std::string venus::to_string(const A &, u32)
@@ -88,6 +88,17 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD
   else {                                                                       \
     HERMES_ERROR("Error at: {} = {}", #R, #V);                                 \
     HERMES_ERROR("  w/ err: {}", venus::to_string(_venus_result_.status()));   \
+  }
+#endif
+
+#ifndef VENUS_ASSIGN_RESULT_OR
+#define VENUS_ASSIGN_RESULT_OR(R, V, O)                                        \
+  if (auto _venus_result_ = V)                                                 \
+    R = std::move(*_venus_result_);                                            \
+  else {                                                                       \
+    HERMES_ERROR("Error at: {} = {}", #R, #V);                                 \
+    HERMES_ERROR("  w/ err: {}", venus::to_string(_venus_result_.status()));   \
+    O;                                                                         \
   }
 #endif
 

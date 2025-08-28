@@ -53,16 +53,26 @@ std::vector<std::string> getInstanceExtensions() {
 
 namespace venus::app {
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp::Config, setTitle,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setTitle,
                                      const std::string_view &, title_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp::Config, setResolution,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setResolution,
                                      const VkExtent2D &, resolution_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp::Config, setDeviceFeatures,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setDeviceFeatures,
                                      const core::vk::DeviceFeatures &,
                                      device_features_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp::Config, setDeviceExtensions,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setDeviceExtensions,
                                      const std::vector<std::string> &,
                                      device_extensions_ = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setStartupFn,
+                                     const std::function<VeResult()> &,
+                                     startup_callback_ = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setShutdownFn,
+                                     const std::function<VeResult()> &,
+                                     shutdown_callback_ = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
+    DisplayApp, setRenderFn,
+    const std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)> &,
+    render_callback_ = value);
 
 DisplayApp DisplayApp::Config::create() const {
 
@@ -94,10 +104,15 @@ DisplayApp DisplayApp::Config::create() const {
 }
 
 i32 DisplayApp::run() {
-  for (auto it : io::DisplayLoop(*window_)) {
+  if (startup_callback_)
+    startup_callback_();
+  for (auto it : io::DisplayLoop(*window_).setDurationInFrames(10)) {
     HERMES_INFO("{}", venus::to_string(it));
-    break;
+    if (render_callback_)
+      render_callback_(it.frame());
   }
+  if (shutdown_callback_)
+    shutdown_callback_();
   return shutdown();
 }
 

@@ -71,23 +71,6 @@ public:
     std::vector<VkClearValue> clear_values_;
   };
 
-  struct SubmitInfo2 {
-    SubmitInfo2 &addWaitInfo(VkPipelineStageFlags2 stage_mask,
-                             VkSemaphore semaphore);
-    SubmitInfo2 &addSignalInfo(VkPipelineStageFlags2 stage_mask,
-                               VkSemaphore semaphore);
-    SubmitInfo2 &addCommandBufferInfo(VkCommandBuffer cb);
-    VkResult submit(VkQueue queue, VkFence fence) const;
-
-  private:
-    VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stage_mask,
-                                              VkSemaphore semaphore);
-
-    std::vector<VkSemaphoreSubmitInfo> wait_semaphores_;
-    std::vector<VkSemaphoreSubmitInfo> signal_semaphores_;
-    std::vector<VkCommandBufferSubmitInfo> cb_infos_;
-  };
-
   VENUS_DECLARE_RAII_FUNCTIONS(CommandBuffer)
 
   void destroy() noexcept;
@@ -99,6 +82,11 @@ public:
   ///\param flags
   HERMES_NODISCARD VeResult reset(VkCommandBufferResetFlags flags) const;
   VeResult submit(VkQueue queue, VkFence fence = VK_NULL_HANDLE) const;
+  /// \param vk_src_buffer
+  /// \param vk_dst_buffer
+  /// \param vk_copy_region
+  void copy(VkBuffer vk_src_buffer, VkBuffer vk_dst_buffer,
+            const std::vector<VkBufferCopy> &regions) const;
   /// \param vk_src_buffer
   /// \param vk_dst_buffer
   /// \param vk_copy_region
@@ -335,6 +323,37 @@ public:
 private:
   VkCommandPool vk_command_pool_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
+};
+
+struct SubmitInfo2 {
+  SubmitInfo2 &addWaitInfo(VkPipelineStageFlags2 stage_mask,
+                           VkSemaphore semaphore);
+  SubmitInfo2 &addSignalInfo(VkPipelineStageFlags2 stage_mask,
+                             VkSemaphore semaphore);
+  SubmitInfo2 &addCommandBufferInfo(VkCommandBuffer cb);
+  VkResult submit(VkQueue queue, VkFence fence) const;
+
+private:
+  VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stage_mask,
+                                            VkSemaphore semaphore);
+
+  std::vector<VkSemaphoreSubmitInfo> wait_semaphores_;
+  std::vector<VkSemaphoreSubmitInfo> signal_semaphores_;
+  std::vector<VkCommandBufferSubmitInfo> cb_infos_;
+};
+
+/// \brief Helper class to copy data into buffers from a single source.
+/// The BufferWritter utilizes a staging buffer that concentrates the
+/// data that is distributed into different destination buffers.
+struct BufferWritter {
+  BufferWritter &addBuffer(VkBuffer buffer, const void *data,
+                           u32 size_in_bytes);
+  VeResult record(const core::Device &device, VkCommandBuffer cb) const;
+
+private:
+  std::vector<const void *> data_;
+  std::vector<u32> sizes_;
+  std::vector<VkBuffer> buffers_;
 };
 
 } // namespace venus::pipeline

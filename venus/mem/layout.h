@@ -93,6 +93,14 @@ public:
 private:
   std::vector<Component> components_;
   VkDeviceSize stride_{0};
+
+  VENUS_TO_STRING_FRIEND(VertexLayout);
 };
 
 } // namespace venus::mem
+
+namespace venus {
+
+HERMES_DECLARE_TO_STRING_DEBUG_METHOD(venus::mem::VertexLayout::ComponentType);
+
+}

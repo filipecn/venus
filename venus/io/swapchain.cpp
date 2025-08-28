@@ -217,7 +217,9 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       swapchain.depth_buffer_,
-      mem::Image::Config::forDepthBuffer(extent).create(device));
+      mem::AllocatedImage::Config()
+          .setImageConfig(mem::Image::Config::forDepthBuffer(extent))
+          .create(device));
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       swapchain.depth_buffer_view_,
@@ -261,8 +263,8 @@ void Swapchain::swap(Swapchain &rhs) noexcept {
 void Swapchain::destroy() noexcept {
   image_views_.clear();
   images_.clear();
-  depth_buffer_.destroy();
   depth_buffer_view_.destroy();
+  depth_buffer_.destroy();
   if (vk_device_ && vk_swapchain_) {
     vkDestroySwapchainKHR(vk_device_, vk_swapchain_, nullptr);
     vk_swapchain_ = VK_NULL_HANDLE;

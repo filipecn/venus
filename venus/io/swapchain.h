@@ -137,7 +137,7 @@ private:
   VkDevice vk_device_{VK_NULL_HANDLE};
   std::vector<mem::Image> images_;
   std::vector<mem::Image::View> image_views_;
-  mem::Image depth_buffer_;
+  mem::AllocatedImage depth_buffer_;
   mem::Image::View depth_buffer_view_;
   VkFormat color_format_;
   VkExtent2D extent_{};

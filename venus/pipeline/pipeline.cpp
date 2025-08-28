@@ -61,6 +61,70 @@ Pipeline::ShaderStage::create(const ShaderModule &shader_module) const {
   return info;
 }
 
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Pipeline::Layout, addFlags,
+                                     VkPipelineLayoutCreateFlags,
+                                     flags_ |= value)
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Pipeline::Layout, addDescriptorSetLayout,
+                                     VkDescriptorSetLayout,
+                                     set_layouts_.emplace_back(value))
+Pipeline::Layout::Config &
+Pipeline::Layout::Config::addPushConstantRange(VkShaderStageFlags stage_flags,
+                                               uint32_t offset, uint32_t size) {
+  VkPushConstantRange range;
+  range.offset = offset;
+  range.size = size;
+  range.stageFlags = stage_flags;
+  ranges_.emplace_back(range);
+  return *this;
+}
+
+Result<Pipeline::Layout>
+Pipeline::Layout::Config::create(VkDevice vk_device) const {
+  Pipeline::Layout layout;
+
+  VkPipelineLayoutCreateInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  info.pNext = nullptr;
+  info.flags = flags_;
+  info.pSetLayouts = set_layouts_.data();
+  info.setLayoutCount = set_layouts_.size();
+  info.pPushConstantRanges = ranges_.data();
+  info.pushConstantRangeCount = ranges_.size();
+
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkCreatePipelineLayout(vk_device, &info, nullptr, &layout.vk_layout_));
+
+  layout.vk_device_ = vk_device;
+
+  return Result<Pipeline::Layout>(std::move(layout));
+}
+
+Pipeline::Layout::Layout(Pipeline::Layout &&rhs) noexcept {
+  *this = std::move(rhs);
+}
+
+Pipeline::Layout::~Layout() noexcept { destroy(); }
+
+Pipeline::Layout &Pipeline::Layout::operator=(Pipeline::Layout &&rhs) noexcept {
+  destroy();
+  swap(rhs);
+  return *this;
+}
+
+void Pipeline::Layout::swap(Pipeline::Layout &rhs) {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_layout_);
+}
+
+void Pipeline::Layout::destroy() noexcept {
+  if (vk_device_ && vk_layout_)
+    vkDestroyPipelineLayout(vk_device_, vk_layout_, nullptr);
+  vk_device_ = VK_NULL_HANDLE;
+  vk_layout_ = VK_NULL_HANDLE;
+}
+
+VkPipelineLayout Pipeline::Layout::operator*() const { return vk_layout_; }
+
 Pipeline::Pipeline(Pipeline &&rhs) noexcept { *this = std::move(rhs); }
 
 Pipeline::~Pipeline() noexcept { destroy(); }
@@ -146,34 +210,31 @@ GraphicsPipeline::Rasterizer::Rasterizer() noexcept {
   info_.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   info_.pNext = nullptr;
 }
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setDepthClampEnable, VkBool32,
-                                          depthClampEnable)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setRasterizerDiscardEnable, VkBool32,
-                                          rasterizerDiscardEnable);
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setPolygonMode, VkPolygonMode,
-                                          polygonMode)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setCullMode, VkCullModeFlags,
-                                          cullMode)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setFrontFace, VkFrontFace, frontFace)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setDepthBiasEnable, VkBool32,
-                                          depthBiasEnable)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setDepthBiasConstantFactor, f32,
-                                          depthBiasConstantFactor)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setDepthBiasClamp, f32,
-                                          depthBiasClamp)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setDepthBiasSlopeFactor, f32,
-                                          depthBiasSlopeFactor)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
-                                          setLineWidth, f32, lineWidth)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
+                                   setDepthClampEnable, VkBool32,
+                                   depthClampEnable)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
+                                   setRasterizerDiscardEnable, VkBool32,
+                                   rasterizerDiscardEnable);
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer, setPolygonMode,
+                                   VkPolygonMode, polygonMode)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer, setCullMode,
+                                   VkCullModeFlags, cullMode)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer, setFrontFace,
+                                   VkFrontFace, frontFace)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
+                                   setDepthBiasEnable, VkBool32,
+                                   depthBiasEnable)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
+                                   setDepthBiasConstantFactor, f32,
+                                   depthBiasConstantFactor)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
+                                   setDepthBiasClamp, f32, depthBiasClamp)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
+                                   setDepthBiasSlopeFactor, f32,
+                                   depthBiasSlopeFactor)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer, setLineWidth,
+                                   f32, lineWidth)
 
 VkPipelineRasterizationStateCreateInfo GraphicsPipeline::Rasterizer::create(
     VkPipelineRasterizationStateCreateFlags flags) const {
@@ -196,25 +257,22 @@ GraphicsPipeline::Multisample::Multisample() {
   info_.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
   info_.pNext = nullptr;
 }
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
-                                          setRasterizationSamples,
-                                          VkSampleCountFlagBits,
-                                          rasterizationSamples)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
-                                          setSampleShadingEnable, VkBool32,
-                                          sampleShadingEnable)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
-                                          setMinSampleShading, f32,
-                                          minSampleShading)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
-                                          setAlphaToCoverageEnable, VkBool32,
-                                          alphaToCoverageEnable)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
-                                          setAlphaToOneEnable, VkBool32,
-                                          alphaToOneEnable)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsPipeline::Multisample,
-                                     addSampleMask, VkSampleMask,
-                                     sample_masks_.emplace_back(value))
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
+                                   setRasterizationSamples,
+                                   VkSampleCountFlagBits, rasterizationSamples)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
+                                   setSampleShadingEnable, VkBool32,
+                                   sampleShadingEnable)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
+                                   setMinSampleShading, f32, minSampleShading)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
+                                   setAlphaToCoverageEnable, VkBool32,
+                                   alphaToCoverageEnable)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
+                                   setAlphaToOneEnable, VkBool32,
+                                   alphaToOneEnable)
+VENUS_DEFINE_SET_FIELD_METHOD(GraphicsPipeline::Multisample, addSampleMask,
+                              VkSampleMask, sample_masks_.emplace_back(value))
 
 VkPipelineMultisampleStateCreateInfo GraphicsPipeline::Multisample::create(
     VkPipelineMultisampleStateCreateFlags flags) const {
@@ -508,7 +566,7 @@ GraphicsPipeline::Config::create(VkDevice vk_device,
   auto depth_stencil = depth_stencil_.create();
   auto color_blend = color_blend_.create();
 
-  VkGraphicsPipelineCreateInfo create_info;
+  VkGraphicsPipelineCreateInfo create_info{};
   create_info.flags = {};
   create_info.pStages = stages_.data();
   create_info.stageCount = stages_.size();

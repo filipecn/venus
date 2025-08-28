@@ -23,7 +23,10 @@ set(VENUS_HEADERS
   pipeline/pipeline.h
   pipeline/renderpass.h
   pipeline/shader_module.h
-  
+ 
+  scene/material.h
+  scene/model.h
+
   utils/debug.h
   utils/macros.h
   utils/result.h
@@ -54,6 +57,9 @@ set(VENUS_SOURCES
   pipeline/pipeline.cpp
   pipeline/renderpass.cpp
   pipeline/shader_module.cpp
+  
+  scene/material.cpp
+  scene/model.cpp
 )
 
 add_library(venus STATIC ${VENUS_HEADERS} ${VENUS_SOURCES})

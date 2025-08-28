@@ -28,6 +28,14 @@
 #include <venus/app/graphics_device.h>
 #include <venus/io/glfw_display.h>
 
+VeResult startup() { return VeResult::noError(); }
+
+VeResult shutdown() { return VeResult::noError(); }
+
+VeResult render(const venus::io::DisplayLoop::Iteration::Frame &frame) {
+  return VeResult::noError();
+}
+
 int main() {
   using namespace venus::core;
   using namespace venus::io;
@@ -59,9 +67,10 @@ int main() {
   return DisplayApp::Config()
       .setDeviceFeatures(device_features)
       .setDeviceExtensions(device_extensions)
-      .setDisplay<GLFW_Window>()
-      .setTitle("Hello Vulkan Display App")
-      .setResolution({1024, 1024})
+      .setDisplay<GLFW_Window>("Hello Vulkan Display App", {1024, 1024})
+      .setStartupFn(startup)
+      .setShutdownFn(shutdown)
+      .setRenderFn(render)
       .create()
       .run();
 

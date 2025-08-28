@@ -39,7 +39,7 @@
 
 #ifndef VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD
 #define VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(CLASS, METHOD, TYPE, FIELD)  \
-  CLASS &CLASS::METHOD(TYPE value) {                                           \
+  CLASS::Config &CLASS::Config::METHOD(TYPE value) {                           \
     info_.FIELD = value;                                                       \
     return *this;                                                              \
   }
@@ -47,6 +47,22 @@
 
 #ifndef VENUS_DEFINE_SET_CONFIG_FIELD_METHOD
 #define VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(CLASS, METHOD, TYPE, ASSIGNMENT)  \
+  CLASS::Config &CLASS::Config::METHOD(TYPE value) {                           \
+    (ASSIGNMENT);                                                              \
+    return *this;                                                              \
+  }
+#endif
+
+#ifndef VENUS_DEFINE_SET_INFO_FIELD_METHOD
+#define VENUS_DEFINE_SET_INFO_FIELD_METHOD(CLASS, METHOD, TYPE, FIELD)         \
+  CLASS &CLASS::METHOD(TYPE value) {                                           \
+    info_.FIELD = value;                                                       \
+    return *this;                                                              \
+  }
+#endif
+
+#ifndef VENUS_DEFINE_SET_FIELD_METHOD
+#define VENUS_DEFINE_SET_FIELD_METHOD(CLASS, METHOD, TYPE, ASSIGNMENT)         \
   CLASS &CLASS::METHOD(TYPE value) {                                           \
     (ASSIGNMENT);                                                              \
     return *this;                                                              \

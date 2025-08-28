@@ -92,9 +92,8 @@ public:
     Config &addAspectMask(VkImageAspectFlags aspect);
     /// \param features to append
     Config &addFormatFeatures(VkFormatFeatureFlagBits features);
-    /// Sets this as a self-allocated buffer
-    /// \param memory_config
-    Config &setAllocated(const VmaAllocationCreateInfo &memory_info);
+    //
+    VkImageCreateInfo createInfo() const;
     /// Create image from this configuration.
     /// \param device
     /// \return image or error.
@@ -170,7 +169,7 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(Image);
 
   /// Frees memory and destroy image/memory objects.
-  void destroy() noexcept;
+  virtual void destroy() noexcept;
   void swap(Image &rhs) noexcept;
   /// \return Underlying image vulkan object.
   VkImage operator*() const;
@@ -179,23 +178,44 @@ public:
   /// \return Associated device.
   VkDevice device() const;
 
-private:
+protected:
   VkImage vk_image_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
   VkFormat vk_format_;
-  struct VkInfo {
-    bool memory_ownership{true};
-  };
-  struct VmaInfo {
-    VmaAllocator allocator{VK_NULL_HANDLE};
-    VmaAllocation allocation{VK_NULL_HANDLE};
-  };
-  std::variant<VkInfo, VmaInfo> info_{VkInfo{}};
+
+private:
+  bool ownership_{true};
 #ifdef VENUS_DEBUG
   Config config_;
 #endif
 
   VENUS_TO_STRING_FRIEND(Image);
+};
+
+/// \brief Holds a self-allocated vulkan image object.
+/// The AllocatedImage owns the device memory used by the buffer.
+class AllocatedImage : public Image, public DeviceMemory {
+public:
+  struct Config {
+    Config &setImageConfig(const Image::Config &config);
+    Config &setMemoryConfig(const DeviceMemory::Config &config);
+
+    Result<AllocatedImage> create(const core::Device &device) const;
+
+  private:
+    Image::Config image_config_;
+    DeviceMemory::Config mem_config_;
+  };
+
+  VENUS_DECLARE_RAII_FUNCTIONS(AllocatedImage)
+
+  /// Frees memory and destroy buffer/memory objects.
+  void destroy() noexcept override;
+  //
+  void swap(AllocatedImage &rhs) noexcept;
+
+private:
+  VENUS_TO_STRING_FRIEND(AllocatedImage);
 };
 
 } // namespace venus::mem

@@ -78,7 +78,32 @@ public:
     const void *specialization_data_{nullptr};
   };
   /// Pipeline layout.
-  class Layout {};
+  class Layout {
+  public:
+    struct Config {
+      Config &addFlags(VkPipelineLayoutCreateFlags flags);
+      Config &addDescriptorSetLayout(VkDescriptorSetLayout vk_set_layout);
+      Config &addPushConstantRange(VkShaderStageFlags stage_flags,
+                                   uint32_t offset, uint32_t size);
+
+      Result<Layout> create(VkDevice vk_device) const;
+
+    private:
+      VkPipelineLayoutCreateFlags flags_{};
+      std::vector<VkPushConstantRange> ranges_;
+      std::vector<VkDescriptorSetLayout> set_layouts_;
+    };
+
+    VENUS_DECLARE_RAII_FUNCTIONS(Layout)
+
+    void swap(Layout &rhs);
+    void destroy() noexcept;
+    VkPipelineLayout operator*() const;
+
+  private:
+    VkPipelineLayout vk_layout_{VK_NULL_HANDLE};
+    VkDevice vk_device_{VK_NULL_HANDLE};
+  };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Pipeline);
 

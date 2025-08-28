@@ -29,9 +29,6 @@
 
 #include <venus/mem/device_memory.h>
 
-#include <optional>
-#include <variant>
-
 namespace venus::mem {
 
 /// \brief Holds a vulkan buffer object.
@@ -104,16 +101,14 @@ public:
     Config &enableShaderDeviceAddress();
     /// \param flags
     Config &addCreateFlags(VkBufferCreateFlags flags);
-    /// Sets this as a self-allocated buffer
-    /// \param memory_config
-    Config &setAllocated(const VmaAllocationCreateInfo &memory_info);
+    ///
+    HERMES_NODISCARD VkBufferCreateInfo createInfo() const;
     /// \brief Creates a buffer object from this configuration.
     /// \param device
     /// \return Buffer object or error.
     HERMES_NODISCARD Result<Buffer> create(const core::Device &device) const;
 
   private:
-    std::optional<VmaAllocationCreateInfo> allocation_;
     VkDeviceSize size_{};                                   //< size in bytes
     VkBufferUsageFlags usage_{};                            //< buffer purpose
     VkSharingMode sharing_mode_{VK_SHARING_MODE_EXCLUSIVE}; //< sharing mode
@@ -162,40 +157,61 @@ public:
 
   /// Information about the type of memory and how much of it the
   /// buffer resource requires.
-  /// \param memory_requirements **[out]**
-  /// \return bool true if success
-  HERMES_NODISCARD Result<VkMemoryRequirements> memoryRequirements() const;
+  HERMES_NODISCARD VkMemoryRequirements memoryRequirements() const;
   /// \return Buffer size in bytes.
   VkDeviceSize sizeInBytes() const;
   /// \return Buffer device address.
   HERMES_NODISCARD VkDeviceAddress deviceAddress() const;
 
   /// Frees memory and destroy buffer/memory objects.
-  void destroy() noexcept;
+  virtual void destroy() noexcept;
+  //
   void swap(Buffer &rhs) noexcept;
   /// \return Underlying vk buffer object.
   VkBuffer operator*() const;
   /// \return Associated logical device.
   VkDevice device() const;
 
-private:
+protected:
+  void init(VkDevice vk_device, VkBuffer vk_buffer);
+
+  VkMemoryRequirements vk_memory_requirements_{};
   VkBuffer vk_buffer_{VK_NULL_HANDLE};
+  VkDevice vk_device_{VK_NULL_HANDLE};
   VkDeviceAddress vk_device_address_{0};
-  struct VkInfo {
-    VkDevice vk_device{VK_NULL_HANDLE};
-    VkDeviceSize size{0};
-  };
-  struct VmaInfo {
-    VmaAllocator allocator{VK_NULL_HANDLE};
-    VmaAllocation allocation{VK_NULL_HANDLE};
-    VkMemoryRequirements requirements{};
-  };
-  std::variant<VmaInfo, VkInfo> info_{VkInfo{}};
+
+private:
 #ifdef VENUS_DEBUG
   Config config_{};
 #endif
 
   VENUS_TO_STRING_FRIEND(Buffer);
+};
+
+/// \brief Holds a self-allocated vulkan buffer object.
+/// The AllocatedBuffer owns the device memory used by the buffer.
+class AllocatedBuffer : public Buffer, public DeviceMemory {
+public:
+  struct Config {
+    Config &setBufferConfig(const Buffer::Config &config);
+    Config &setMemoryConfig(const DeviceMemory::Config &config);
+
+    Result<AllocatedBuffer> create(const core::Device &device) const;
+
+  private:
+    Buffer::Config buffer_config_;
+    DeviceMemory::Config mem_config_;
+  };
+
+  VENUS_DECLARE_RAII_FUNCTIONS(AllocatedBuffer)
+
+  /// Frees memory and destroy buffer/memory objects.
+  void destroy() noexcept override;
+  //
+  void swap(AllocatedBuffer &rhs) noexcept;
+
+private:
+  VENUS_TO_STRING_FRIEND(AllocatedBuffer);
 };
 
 } // namespace venus::mem

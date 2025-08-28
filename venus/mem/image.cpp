@@ -65,37 +65,41 @@ Image::Config Image::Config::forDepthBuffer(const VkExtent2D &extent,
       .addAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, setInfo, VkImageCreateInfo,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, setInfo, VkImageCreateInfo,
                                      info_ = value)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, addCreateFlags,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, addCreateFlags,
                                           VkImageCreateFlags, flags)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setImageType,
-                                          VkImageType, imageType)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setFormat, VkFormat,
-                                          format)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setExtent, VkExtent3D,
-                                          extent)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setMipLevels, u32,
-                                          mipLevels)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setArrayLayers, u32,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setImageType, VkImageType,
+                                          imageType)
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setFormat, VkFormat, format)
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setExtent, VkExtent3D, extent)
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setMipLevels, u32, mipLevels)
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setArrayLayers, u32,
                                           arrayLayers)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setSamples,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setSamples,
                                           VkSampleCountFlagBits, samples)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setTiling,
-                                          VkImageTiling, tiling)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, addUsage, VkImageUsageFlags,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setTiling, VkImageTiling,
+                                          tiling)
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addUsage, VkImageUsageFlags,
                                      info_.usage |= value)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setSharingMode,
-                                          VkSharingMode, sharingMode)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, addQueueFamilyIndex, u32,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setSharingMode, VkSharingMode,
+                                          sharingMode)
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addQueueFamilyIndex, u32,
                                      queue_family_indices_.emplace_back(value))
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::Config, setInitialLayout,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setInitialLayout,
                                           VkImageLayout, initialLayout)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, addAspectMask,
-                                     VkImageAspectFlags, aspect_mask_ |= value)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, addFormatFeatures,
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addAspectMask, VkImageAspectFlags,
+                                     aspect_mask_ |= value)
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addFormatFeatures,
                                      VkFormatFeatureFlagBits,
                                      format_features_ |= value)
+
+VkImageCreateInfo Image::Config::createInfo() const {
+  auto info = info_;
+  info.pQueueFamilyIndices = queue_family_indices_.data();
+  info.queueFamilyIndexCount = queue_family_indices_.size();
+  return info;
+}
 
 Result<Image> Image::Config::create(VkDevice vk_device,
                                     VkImage vk_image) const {
@@ -103,32 +107,17 @@ Result<Image> Image::Config::create(VkDevice vk_device,
   image.vk_device_ = vk_device;
   image.vk_image_ = vk_image;
   image.vk_format_ = info_.format;
-  image.info_ = VkInfo{.memory_ownership = false};
+  image.ownership_ = false;
   return Result<Image>(std::move(image));
 }
 
 Result<Image> Image::Config::create(const core::Device &device) const {
-  auto info = info_;
-  info.pQueueFamilyIndices = queue_family_indices_.data();
-  info.queueFamilyIndexCount = queue_family_indices_.size();
 
   Image image;
+  auto info = createInfo();
 
-  if (allocation_.has_value()) {
-    auto alloc_info = allocation_.value();
-    VmaInfo vma_info;
-    vma_info.allocator = device.allocator();
-    VENUS_VK_RETURN_BAD_RESULT(vmaCreateImage(device.allocator(), &info,
-                                              &alloc_info, &image.vk_image_,
-                                              &vma_info.allocation, nullptr));
-    image.info_ = vma_info;
-  } else {
-    VENUS_VK_RETURN_BAD_RESULT(
-        vkCreateImage(*device, &info, nullptr, &image.vk_image_));
-
-    VkInfo vk_info;
-    image.info_ = vk_info;
-  }
+  VENUS_VK_RETURN_BAD_RESULT(
+      vkCreateImage(*device, &info, nullptr, &image.vk_image_));
 
   image.vk_device_ = *device;
   image.vk_format_ = info.format;
@@ -139,23 +128,18 @@ Result<Image> Image::Config::create(const core::Device &device) const {
   return Result<Image>(std::move(image));
 }
 
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View::Config, setFlags,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View, setFlags,
                                           VkImageViewCreateFlags, flags)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View::Config, setImage,
-                                          VkImage, image)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View::Config, setViewType,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View, setImage, VkImage, image)
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View, setViewType,
                                           VkImageViewType, viewType)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View::Config, setFormat,
-                                          VkFormat, format)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View::Config, setComponents,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View, setFormat, VkFormat,
+                                          format)
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View, setComponents,
                                           VkComponentMapping, components)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View::Config,
-                                          setSubresourceRange,
+VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View, setSubresourceRange,
                                           VkImageSubresourceRange,
                                           subresourceRange)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image::Config, setAllocated,
-                                     const VmaAllocationCreateInfo &,
-                                     allocation_ = value)
 
 Result<Image::View> Image::View::Config::create(const Image &image) const {
   auto info = info_;
@@ -186,6 +170,9 @@ Image::View &Image::View::operator=(Image::View &&rhs) noexcept {
 void Image::View::swap(Image::View &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_image_view_);
+#ifdef VENUS_DEBUG
+  VENUS_SWAP_FIELD_WITH_RHS(config_);
+#endif
 }
 
 void Image::View::destroy() noexcept {
@@ -210,33 +197,17 @@ Image &Image::operator=(Image &&rhs) noexcept {
 void Image::swap(Image &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vk_image_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
-  VENUS_SWAP_FIELD_WITH_RHS(info_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_format_);
+  VENUS_SWAP_FIELD_WITH_RHS(ownership_);
 #ifdef VENUS_DEBUG
   VENUS_SWAP_FIELD_WITH_RHS(config_);
 #endif
 }
 
-// helper type for the visitor
-template <class... Ts> struct overloads : Ts... {
-  using Ts::operator()...;
-};
-
 void Image::destroy() noexcept {
-  std::visit(overloads{
-                 [&](VmaInfo &info) {
-                   if (info.allocator && info.allocation)
-                     vmaDestroyImage(info.allocator, vk_image_,
-                                     info.allocation);
-                   info.allocation = VK_NULL_HANDLE;
-                 },
-                 [&](VkInfo &info) {
-                   if (vk_device_ && vk_image_ && info.memory_ownership) {
-                     vkDestroyImage(vk_device_, vk_image_, nullptr);
-                   }
-                 },
-             },
-             info_);
+  if (vk_device_ && vk_image_ && ownership_) {
+    vkDestroyImage(vk_device_, vk_image_, nullptr);
+  }
   vk_device_ = VK_NULL_HANDLE;
   vk_image_ = VK_NULL_HANDLE;
 }
@@ -246,6 +217,63 @@ VkImage Image::operator*() const { return vk_image_; }
 VkFormat Image::format() const { return vk_format_; }
 
 VkDevice Image::device() const { return vk_device_; }
+
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedImage, setImageConfig,
+                                     const Image::Config &,
+                                     image_config_ = value)
+
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedImage, setMemoryConfig,
+                                     const DeviceMemory::Config &,
+                                     mem_config_ = value)
+
+Result<AllocatedImage>
+AllocatedImage::Config::create(const core::Device &device) const {
+  auto info = image_config_.createInfo();
+
+  auto alloc_info = mem_config_.allocationInfo();
+  VkImage vk_image{VK_NULL_HANDLE};
+  VmaAllocation vma_allocation{VK_NULL_HANDLE};
+  VENUS_VK_RETURN_BAD_RESULT(vmaCreateImage(device.allocator(), &info,
+                                            &alloc_info, &vk_image,
+                                            &vma_allocation, nullptr));
+  AllocatedImage image;
+  image.vma_allocator_ = device.allocator();
+  image.vma_allocation_ = vma_allocation;
+  image.vk_format_ = info.format;
+  image.vk_image_ = vk_image;
+  image.vk_device_ = *device;
+
+  return Result<AllocatedImage>(std::move(image));
+}
+
+AllocatedImage::AllocatedImage(AllocatedImage &&rhs) noexcept {
+  *this = std::move(rhs);
+}
+
+AllocatedImage::~AllocatedImage() noexcept { destroy(); }
+
+AllocatedImage &AllocatedImage::operator=(AllocatedImage &&rhs) noexcept {
+  destroy();
+  swap(rhs);
+  return *this;
+}
+
+void AllocatedImage::swap(AllocatedImage &rhs) noexcept {
+  VENUS_SWAP_FIELD_WITH_RHS(vk_image_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_format_);
+  VENUS_SWAP_FIELD_WITH_RHS(vma_allocator_);
+  VENUS_SWAP_FIELD_WITH_RHS(vma_allocation_);
+}
+
+void AllocatedImage::destroy() noexcept {
+  if (vk_image_ && vma_allocator_ && vma_allocation_) {
+    vmaDestroyImage(vma_allocator_, vk_image_, vma_allocation_);
+  }
+  vma_allocation_ = VK_NULL_HANDLE;
+  vk_device_ = VK_NULL_HANDLE;
+  vk_image_ = VK_NULL_HANDLE;
+}
 
 } // namespace venus::mem
 
@@ -279,6 +307,13 @@ HERMES_PUSH_DEBUG_TITLE
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(vk_image_);
+HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, vk_format_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedImage)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_VK_FIELD(vk_image_);
 HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
