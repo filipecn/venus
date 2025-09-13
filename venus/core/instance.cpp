@@ -58,7 +58,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
-debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
+debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
               VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
               const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
               void * /*p_user_data*/) {
@@ -82,6 +82,8 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT /*message_severity*/,
   }
 #endif
 
+  HERMES_ERROR("\t{}",
+               string_VkDebugUtilsMessageSeverityFlagBitsEXT(message_severity));
   // std::cerr << vk::to_string(message_severity) << ": "
   //           << vk::to_string(message_types) << ":\n";
   HERMES_ERROR("\tmessageIDName   = <{}>", callback_data->pMessageIdName);
@@ -184,6 +186,7 @@ Instance::Config &Instance::Config::addExtensions(
 Instance::Config &Instance::Config::enableDefaultDebugMessageSeverityFlags() {
   message_severity_flags_ |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
   message_severity_flags_ |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+  message_severity_flags_ |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT;
   return *this;
 }
 

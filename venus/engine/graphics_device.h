@@ -39,7 +39,7 @@
 #define VENUS_MAX_SWAPCHAIN_IMAGE_COUNT 3
 #endif
 
-namespace venus::app {
+namespace venus::engine {
 
 /// The Graphics Device is responsible for managing the graphics hardware
 /// capable to generate images into frame buffers. This class manages all
@@ -158,4 +158,4 @@ private:
   u32 swapchain_image_index_{0};
 };
 
-} // namespace venus::app
+} // namespace venus::engine

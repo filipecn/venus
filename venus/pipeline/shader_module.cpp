@@ -83,8 +83,10 @@ Result<std::vector<std::uint32_t>> readFile(const std::string &filename) {
   }
   file.seekg(0);
   std::vector<std::uint32_t> rtrn(fileSize / sizeof(std::uint32_t));
-  if (!file.read(reinterpret_cast<char *>(rtrn.data()), fileSize))
-    throw std::runtime_error("file reading failed");
+  if (!file.read(reinterpret_cast<char *>(rtrn.data()), fileSize)) {
+    HERMES_ERROR("file reading failed");
+    return VeResult::ioError();
+  }
   if (rtrn.front() == swapEndianness(spv::MagicNumber))
     for (auto &word : rtrn)
       word = swapEndianness(word);
@@ -116,6 +118,7 @@ ShaderModule::~ShaderModule() noexcept { destroy(); }
 void ShaderModule::swap(ShaderModule &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_shader_module_);
+  VENUS_SWAP_FIELD_WITH_RHS(name_);
 }
 
 void ShaderModule::destroy() noexcept {
@@ -137,7 +140,7 @@ ShaderModule::Config::create(VkDevice vk_device,
   VkShaderModuleCreateInfo info;
   info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
   info.pNext = nullptr;
-  info.codeSize = spirv_.size();
+  info.codeSize = sizeof(uint32_t) * spirv_.size();
   info.pCode = spirv_.data();
   info.flags = flags;
 
@@ -150,3 +153,13 @@ ShaderModule::Config::create(VkDevice vk_device,
 }
 
 } // namespace venus::pipeline
+
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::ShaderModule)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_shader_module_)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
+HERMES_PUSH_DEBUG_FIELD(name_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus

@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include <venus/app/graphics_device.h>
+#include <venus/engine/graphics_engine.h>
 #include <venus/io/display.h>
 
 namespace venus::app {
@@ -48,9 +48,10 @@ public:
       resolution_ = resolution;
       return *this;
     }
-    Config &setDeviceFeatures(const core::vk::DeviceFeatures &features);
-    Config &setDeviceExtensions(const std::vector<std::string> &extensions);
-    Config &setStartupFn(const std::function<VeResult()> &startup_callback);
+    Config &
+    setGraphicsEngineConfig(const engine::GraphicsEngine::Config &config);
+    Config &
+    setStartupFn(const std::function<VeResult(DisplayApp &)> &startup_callback);
     Config &setShutdownFn(const std::function<VeResult()> &shutdown_callback);
     Config &setRenderFn(
         const std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
@@ -59,14 +60,14 @@ public:
     DisplayApp create() const;
 
   private:
+    // engine
+    engine::GraphicsEngine::Config engine_config_;
     // display settings
     std::string title_;
     VkExtent2D resolution_{};
     std::shared_ptr<io::Display> display_;
-    core::vk::DeviceFeatures device_features_;
-    std::vector<std::string> device_extensions_;
     // callbacks
-    std::function<VeResult()> startup_callback_{nullptr};
+    std::function<VeResult(DisplayApp &)> startup_callback_{nullptr};
     std::function<VeResult()> shutdown_callback_{nullptr};
     std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
         render_callback_{nullptr};
@@ -75,16 +76,16 @@ public:
   /// Start the application.
   i32 run();
 
+  const core::Instance &instance() const;
+  const engine::GraphicsDevice &gd() const;
+
 protected:
   i32 shutdown();
 
   std::shared_ptr<io::Display> window_;
   VkSurfaceKHR surface_{VK_NULL_HANDLE};
 
-  core::Instance instance_;
-  GraphicsDevice gd_;
-
-  std::function<VeResult()> startup_callback_{nullptr};
+  std::function<VeResult(DisplayApp &)> startup_callback_{nullptr};
   std::function<VeResult()> shutdown_callback_{nullptr};
   std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
       render_callback_{nullptr};

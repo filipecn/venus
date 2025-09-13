@@ -25,12 +25,16 @@
 /// \brief  Example on how to initialize venus.
 
 #include <venus/app/display_app.h>
-#include <venus/app/graphics_device.h>
+#include <venus/engine/graphics_device.h>
+#include <venus/engine/graphics_engine.h>
 #include <venus/io/glfw_display.h>
 
-VeResult startup() { return VeResult::noError(); }
+VeResult startup(venus::app::DisplayApp &app) {
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::startup());
+  return VeResult::noError();
+}
 
-VeResult shutdown() { return VeResult::noError(); }
+VeResult shutdown() { return venus::engine::GraphicsEngine::shutdown(); }
 
 VeResult render(const venus::io::DisplayLoop::Iteration::Frame &frame) {
   return VeResult::noError();
@@ -65,8 +69,9 @@ int main() {
       VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME};
 
   return DisplayApp::Config()
-      .setDeviceFeatures(device_features)
-      .setDeviceExtensions(device_extensions)
+      .setGraphicsEngineConfig(venus::engine::GraphicsEngine::Config()
+                                   .setDeviceFeatures(device_features)
+                                   .setDeviceExtensions(device_extensions))
       .setDisplay<GLFW_Window>("Hello Vulkan Display App", {1024, 1024})
       .setStartupFn(startup)
       .setShutdownFn(shutdown)
@@ -75,7 +80,7 @@ int main() {
       .run();
 
   Instance instance;
-  GraphicsDevice gd;
+  venus::engine::GraphicsDevice gd;
   PhysicalDevices physical_devices;
   GLFW_Window window;
   VkSurfaceKHR surface;
@@ -97,7 +102,7 @@ int main() {
   VENUS_ASSIGN_RESULT(surface, window.createSurface(*instance));
   // graphics device
 
-  VENUS_ASSIGN_RESULT(gd, GraphicsDevice::Config()
+  VENUS_ASSIGN_RESULT(gd, venus::engine::GraphicsDevice::Config()
                               .setSurface(surface)
                               .setSurfaceExtent(window.resolution())
                               .addExtensions(device_extensions)

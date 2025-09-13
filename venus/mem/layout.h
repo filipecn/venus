@@ -68,7 +68,7 @@ public:
   /// \note Vertex components follow the same order they are pushed.
   /// \param component The component type.
   /// \param format The component data format.
-  void pushComponent(ComponentType component, VkFormat format);
+  VertexLayout &pushComponent(ComponentType component, VkFormat format);
   /// \param other
   /// \return true if this layout contains other's components.
   bool contains(const VertexLayout &other);

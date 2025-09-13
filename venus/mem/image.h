@@ -165,6 +165,11 @@ public:
 
     VENUS_TO_STRING_FRIEND(Image::View);
   };
+  /// Holds image object vk handles
+  struct Handle {
+    VkImage image;
+    VkImageView view;
+  };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Image);
 

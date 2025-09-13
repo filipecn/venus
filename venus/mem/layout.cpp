@@ -30,11 +30,12 @@
 
 namespace venus::mem {
 
-void VertexLayout::pushComponent(VertexLayout::ComponentType component,
-                                 VkFormat format) {
+VertexLayout &VertexLayout::pushComponent(VertexLayout::ComponentType component,
+                                          VkFormat format) {
   components_.push_back(
       {.format = format, .type = component, .offset = stride_});
   stride_ += core::vk::formatSize(format);
+  return *this;
 }
 
 bool VertexLayout::contains(const VertexLayout &other) {

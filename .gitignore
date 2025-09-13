@@ -4,6 +4,8 @@ build
 .clangd
 .clang-tidy
 
+*.spv
+
 # Prerequisites
 *.d
 

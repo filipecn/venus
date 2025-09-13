@@ -5,6 +5,7 @@ include(vma)
 include(volk)
 include(hermes)
 include(glslang)
+include(fastgltf)
 
 if (BUILD_TESTS)  
   include(catch2)
@@ -22,4 +23,5 @@ target_link_libraries(VK INTERFACE
   glslang
   MachineIndependent 
   glslang-default-resource-limits
+  fastgltf
 )

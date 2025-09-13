@@ -53,10 +53,13 @@ public:
                                u32 descritor_count,
                                VkShaderStageFlags stage_flags);
 
-      Result<DescriptorSet::Layout> create(VkDevice vk_device) const;
+      Result<DescriptorSet::Layout> create(VkDevice vk_device,
+                                           void *next = nullptr) const;
 
     private:
       std::vector<VkDescriptorSetLayoutBinding> bindings_;
+
+      VENUS_TO_STRING_FRIEND(Config);
     };
 
     // raii
@@ -71,6 +74,12 @@ public:
   private:
     VkDescriptorSetLayout vk_layout_{VK_NULL_HANDLE};
     VkDevice vk_device_{VK_NULL_HANDLE};
+
+#ifdef VENUS_DEBUG
+    Config config_;
+#endif
+
+    VENUS_TO_STRING_FRIEND(Layout);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(DescriptorSet)

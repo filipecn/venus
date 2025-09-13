@@ -42,34 +42,97 @@ namespace venus::scene {
 /// own ways.
 class Material {
 public:
-  using Ptr = std::shared_ptr<Material>;
+  struct Instance {
+    using Ptr = std::shared_ptr<Instance>;
+
+    Material *material{nullptr};
+    pipeline::DescriptorSet descriptor_set;
+
+    VENUS_DECLARE_RAII_FUNCTIONS(Instance)
+
+    void swap(Instance &rhs);
+    void destroy() noexcept;
+
+    VENUS_TO_STRING_FRIEND(Instance);
+  };
+
+  struct Writer {
+    virtual Result<Instance>
+    write(pipeline::DescriptorAllocator &allocator) = 0;
+
+  protected:
+    pipeline::DescriptorWriter descriptor_writer_;
+  };
+
+  struct Pipeline {
+    struct Config {
+      Config &
+      setPipelineConfig(const pipeline::GraphicsPipeline::Config &config);
+      Config &
+      setPipelineLayoutConfig(const pipeline::Pipeline::Layout::Config &config);
+
+      Result<Material::Pipeline> create(VkDevice vk_device,
+                                        VkRenderPass vk_renderpass) const;
+
+    private:
+      pipeline::GraphicsPipeline::Config pipeline_config_;
+      pipeline::Pipeline::Layout::Config layout_config_;
+
+      VENUS_TO_STRING_FRIEND(Config);
+    };
+
+    VENUS_DECLARE_RAII_FUNCTIONS(Pipeline)
+
+    void destroy() noexcept;
+    void swap(Pipeline &rhs);
+
+    /// \return The underlying pipeline object.
+    HERMES_NODISCARD const pipeline::GraphicsPipeline &pipeline() const;
+    /// \return The underlying pipeline layout.
+    HERMES_NODISCARD const pipeline::Pipeline::Layout &pipelineLayout() const;
+
+  private:
+    pipeline::GraphicsPipeline pipeline_;
+    pipeline::Pipeline::Layout pipeline_layout_;
+
+#ifdef VENUS_DEBUG
+    Config config_;
+#endif
+
+    VENUS_TO_STRING_FRIEND(Pipeline);
+  };
 
   struct Config {
-    Config &setPipelineConfig(const pipeline::GraphicsPipeline::Config &config);
-    Config &
-    setPipelineLayoutConfig(const pipeline::Pipeline::Layout::Config &config);
+    Config &setDescriptorSetLayout(
+        pipeline::DescriptorSet::Layout &&descriptor_set_layout);
+    Config &setMaterialPipelineConfig(const Pipeline::Config &config);
 
     Result<Material> create(VkDevice vk_device,
                             VkRenderPass vk_renderpass) const;
 
   private:
-    pipeline::GraphicsPipeline::Config pipeline_config_;
-    pipeline::Pipeline::Layout::Config layout_config_;
+    pipeline::DescriptorSet::Layout descriptor_set_layout_;
+    Pipeline::Config pipeline_config_;
+
+    VENUS_TO_STRING_FRIEND(Config);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Material)
 
   void destroy() noexcept;
   void swap(Material &rhs);
-  /// \return The underlying pipeline object.
-  HERMES_NODISCARD const pipeline::GraphicsPipeline &pipeline() const;
-  /// \return The underlying pipeline layout.
-  HERMES_NODISCARD const pipeline::Pipeline::Layout &pipelineLayout() const;
+
+  const pipeline::DescriptorSet::Layout &descriptorSetLayout() const;
 
 protected:
-  pipeline::GraphicsPipeline pipeline_;
-  pipeline::Pipeline::Layout pipeline_layout_;
-  pipeline::DescriptorWriter descriptor_writer_;
+  Pipeline pipeline_;
+  pipeline::DescriptorSet::Layout descriptor_set_layout_;
+
+#ifdef VENUS_DEBUG
+  Config config_;
+#endif
+
+  VENUS_TO_STRING_FRIEND(Material);
 };
 
 } // namespace venus::scene

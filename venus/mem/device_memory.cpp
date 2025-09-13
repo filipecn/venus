@@ -133,6 +133,17 @@ Result<void *> DeviceMemory::map(VkDeviceSize size, VkDeviceSize offset,
   return Result<void *>(mapped_);
 }
 
+VeResult DeviceMemory::access(const std::function<void(void *)> &f,
+                              VkDeviceSize size_in_bytes, VkDeviceSize offset,
+                              VkMemoryMapFlags flags) const {
+  void *m = nullptr;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      m, this->map(size_in_bytes, offset, flags));
+  f(m);
+  this->unmap();
+  return VeResult::noError();
+}
+
 void DeviceMemory::unmap() const {
   if (mapped_) {
     vmaUnmapMemory(vma_allocator_, vma_allocation_);

@@ -46,12 +46,12 @@ DescriptorSet::Layout::Config &DescriptorSet::Layout::Config::addLayoutBinding(
 }
 
 Result<DescriptorSet::Layout>
-DescriptorSet::Layout::Config::create(VkDevice vk_device) const {
+DescriptorSet::Layout::Config::create(VkDevice vk_device, void *next) const {
 
   VkDescriptorSetLayoutCreateInfo info;
   info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
   info.flags = {};
-  info.pNext = nullptr;
+  info.pNext = next;
   info.bindingCount = bindings_.size();
   info.pBindings = bindings_.data();
 
@@ -59,6 +59,9 @@ DescriptorSet::Layout::Config::create(VkDevice vk_device) const {
   VENUS_VK_RETURN_BAD_RESULT(vkCreateDescriptorSetLayout(
       vk_device, &info, nullptr, &layout.vk_layout_));
   layout.vk_device_ = vk_device;
+#ifdef VENUS_DEBUG
+  layout.config_ = *this;
+#endif
 
   return Result<DescriptorSet::Layout>(std::move(layout));
 }
@@ -79,6 +82,9 @@ DescriptorSet::Layout::operator=(DescriptorSet::Layout &&rhs) noexcept {
 void DescriptorSet::Layout::swap(DescriptorSet::Layout &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_layout_);
+#ifdef VENUS_DEBUG
+  VENUS_SWAP_FIELD_WITH_RHS(config_);
+#endif
 }
 
 void DescriptorSet::Layout::destroy() noexcept {
@@ -96,6 +102,8 @@ DescriptorSet::DescriptorSet(DescriptorSet &&rhs) noexcept {
   *this = std::move(rhs);
 }
 
+DescriptorSet::~DescriptorSet() noexcept { destroy(); }
+
 DescriptorSet &DescriptorSet::operator=(DescriptorSet &&rhs) noexcept {
   destroy();
   swap(rhs);
@@ -111,6 +119,8 @@ void DescriptorSet::swap(DescriptorSet &rhs) noexcept {
 void DescriptorSet::destroy() noexcept {}
 
 VkDescriptorSet DescriptorSet::operator*() const { return vk_descriptor_set_; }
+
+VkDevice DescriptorSet::device() const { return vk_device_; }
 
 DescriptorAllocator::Config &
 DescriptorAllocator::Config::setInitialSetCount(u32 set_count) {
@@ -323,10 +333,19 @@ namespace venus {
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
     venus::pipeline::DescriptorSet::Layout::Config)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(bindings_, binding)
+HERMES_PUSH_DEBUG_LINE("{} {} {} {}", binding.binding,
+                       string_VkDescriptorType(binding.descriptorType),
+                       binding.descriptorCount,
+                       string_VkShaderStageFlags(binding.stageFlags))
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::DescriptorSet::Layout)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(vk_layout_)
+HERMES_PUSH_DEBUG_VK_FIELD(vk_device_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::DescriptorSet)

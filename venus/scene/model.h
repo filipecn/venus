@@ -27,8 +27,11 @@
 
 #pragma once
 
-#include <hermes/geometry/bounds.h>
+#include <venus/mem/buffer.h>
 #include <venus/mem/layout.h>
+#include <venus/scene/material.h>
+
+#include <hermes/geometry/bounds.h>
 
 namespace venus::scene {
 
@@ -44,12 +47,19 @@ namespace venus::scene {
 /// \note This does not the data (buffers).
 class Model {
 public:
+  using Ptr = std::shared_ptr<Model>;
+
+  template <typename BufferType> struct Storage {
+    BufferType vertices;
+    BufferType indices;
+  };
+
   /// Model surface/piece that may be treated as a separate mesh.
   struct Shape {
     u32 index_base{0};  //< where this shape starts in the index buffer.
     u32 index_count{0}; //< index count of this shape in the index buffer.
-    hermes::geo::bounds::bsphere3 bounds; //< spatial bounds of this shape.
-    // MaterialInstance::Ptr material;       //< material for this shape.
+    hermes::geo::bounds::bsphere3 bounds;    //< spatial bounds of this shape.
+    scene::Material::Instance::Ptr material; //< material for this shape.
 
     VENUS_TO_STRING_FRIEND(Shape);
   };
@@ -64,11 +74,7 @@ public:
     /// \param format
     Config &pushVertexComponent(mem::VertexLayout::ComponentType component,
                                 VkFormat format);
-    /// \param vertex_data Raw pointer to vertex data.
-    /// \param vertex_data_size_in_bytes
-    Config &setVertices(VkBuffer vk_vertex_buffer);
-    /// \param index_data Raw pointer to indices.
-    /// \param index_count (NOT data size in bytes)
+    Config &setVertices(VkBuffer vk_vertex_buffer, VkDeviceAddress vk_address);
     Config &setIndices(VkBuffer vk_index_buffer);
 
     Result<Model> create() const;
@@ -76,6 +82,7 @@ public:
   private:
     VkBuffer vk_vertex_buffer_{VK_NULL_HANDLE};
     VkBuffer vk_index_buffer_{VK_NULL_HANDLE};
+    VkDeviceAddress vk_address_{0};
     std::vector<Shape> shapes_;
     mem::VertexLayout vertex_layout_;
   };
@@ -85,12 +92,14 @@ public:
 
   VkBuffer vertexBuffer() const;
   VkBuffer indexBuffer() const;
+  VkDeviceAddress deviceAddress() const;
 
   VENUS_TO_STRING_FRIEND(Model);
 
 private:
   VkBuffer vk_vertex_buffer_{VK_NULL_HANDLE};
   VkBuffer vk_index_buffer_{VK_NULL_HANDLE};
+  VkDeviceAddress vk_address_{0};
   mem::VertexLayout vertex_layout_;
   std::vector<Shape> shapes_;
 };

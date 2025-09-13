@@ -99,6 +99,28 @@ public:
   HERMES_NODISCARD Result<void *> map(VkDeviceSize size_in_bytes = 0,
                                       VkDeviceSize offset = 0,
                                       VkMemoryMapFlags flags = {}) const;
+  /// \note Sometimes the driver may not immediately copy the data into the
+  ///       buffer memory. It is also possible that writes to the buffer are not
+  ///       visible in the mapped memory yet. There are two ways to deal with
+  ///       that problem:
+  ///         - Use a memory heap that is host coherent, indicated with
+  ///           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+  ///         - Call vkFlushMappedMemoryRanges to after writing to the mapped
+  ///           memory, and call vkInvalidateMappedMemoryRanges before reading
+  ///           from the mapped memory.
+  /// \note Mapping different regions may affect performance. Mapping the whole
+  ///       memory once might be a better choice.
+  /// \note There can exist only one mapped instance at a time. Calling this
+  ///       method with a current map will generate an error.
+  /// \param size_in_bytes [def=0]   Region size in bytes to be mapped. If 0
+  ///                                than the full available range is mapped.
+  /// \param offset        [def=0]   Mapped memory offset in bytes.
+  /// \param flags         [def={}]  Mapping flags.
+  /// \return access status.
+  HERMES_NODISCARD VeResult access(const std::function<void(void *)> &f,
+                                   VkDeviceSize size_in_bytes = 0,
+                                   VkDeviceSize offset = 0,
+                                   VkMemoryMapFlags flags = {}) const;
   /// Flush a memory range to make it visible to the device. (Required for
   /// non-coherent memory)
   ///\param size_in_bytes [def=VK_WHOLE_SIZE] Size of the memory range to flush.

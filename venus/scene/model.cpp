@@ -32,8 +32,12 @@ namespace venus::scene {
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Model, addShape, const Model::Shape &,
                                      shapes_.emplace_back(value));
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Model, setVertices, VkBuffer,
-                                     vk_vertex_buffer_ = value);
+Model::Config &Model::Config::setVertices(VkBuffer vk_vertex_buffer,
+                                          VkDeviceAddress vk_address) {
+  vk_vertex_buffer_ = vk_vertex_buffer;
+  vk_address_ = vk_address;
+  return *this;
+}
 
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Model, setIndices, VkBuffer,
                                      vk_index_buffer_ = value);
@@ -58,6 +62,8 @@ const std::vector<Model::Shape> &Model::shapes() const { return shapes_; }
 VkBuffer Model::vertexBuffer() const { return vk_vertex_buffer_; }
 
 VkBuffer Model::indexBuffer() const { return vk_index_buffer_; }
+
+VkDeviceAddress Model::deviceAddress() const { return vk_address_; }
 
 } // namespace venus::scene
 

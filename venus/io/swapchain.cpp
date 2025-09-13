@@ -229,6 +229,8 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
           .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
           .create(swapchain.depth_buffer_));
 
+  swapchain.color_format_ = surface_format.format;
+  swapchain.extent_ = extent;
   swapchain.vk_device_ = *device;
 #ifdef VENUS_DEBUG
   swapchain.config_ = *this;

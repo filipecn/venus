@@ -1,12 +1,16 @@
 set(VENUS_HEADERS
   app/display_app.h
-  app/graphics_device.h
 
   core/device.h
   core/instance.h
   core/physical_device.h
   core/sync.h
   core/vk_api.h
+
+  engine/gltf_io.h
+  engine/graphics_device.h
+  engine/graphics_engine.h
+  engine/materials.h
 
   io/display.h
   io/glfw_display.h
@@ -26,6 +30,8 @@ set(VENUS_HEADERS
  
   scene/material.h
   scene/model.h
+  scene/scene_graph.h
+  scene/texture.h
 
   utils/debug.h
   utils/macros.h
@@ -34,7 +40,6 @@ set(VENUS_HEADERS
 )
 set(VENUS_SOURCES
   app/display_app.cpp
-  app/graphics_device.cpp
   
   core/device.cpp
   core/instance.cpp
@@ -42,6 +47,11 @@ set(VENUS_SOURCES
   core/sync.cpp
   core/vk_api.cpp
   
+  engine/gltf_io.cpp
+  engine/graphics_device.cpp
+  engine/graphics_engine.cpp
+  engine/materials.cpp
+
   io/display.cpp
   io/glfw_display.cpp
   io/swapchain.cpp
@@ -60,16 +70,22 @@ set(VENUS_SOURCES
   
   scene/material.cpp
   scene/model.cpp
+  scene/scene_graph.cpp
+  scene/texture.cpp
 )
 
 add_library(venus STATIC ${VENUS_HEADERS} ${VENUS_SOURCES})
 
+target_compile_definitions(venus PRIVATE 
+  VENUS_SHADERS_PATH="${VENUS_SOURCE_DIR}/shaders")
+
 # target_include_directories(venus_engine PRIVATE "${VENUS_SOURCE_DIR}/src")
 target_include_directories(
   venus PUBLIC "$<BUILD_INTERFACE:${VENUS_SOURCE_DIR}>"
-                    "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
+               "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
 
-target_link_libraries( venus PUBLIC optimized hermes glfw VK)
+add_dependencies(venus venus_shaders)
+target_link_libraries(venus PUBLIC optimized hermes glfw VK)
 #debug
 #                   gcov)
 

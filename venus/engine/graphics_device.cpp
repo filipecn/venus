@@ -24,11 +24,11 @@
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-07-30
 
-#include <venus/app/graphics_device.h>
+#include <venus/engine/graphics_device.h>
 
 #include <venus/utils/vk_debug.h>
 
-namespace venus::app {
+namespace venus::engine {
 
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, setSurfaceExtent,
                                      const VkExtent2D &,
@@ -366,4 +366,4 @@ VeResult GraphicsDevice::submit(
   return VeResult::noError();
 }
 
-} // namespace venus::app
+} // namespace venus::engine

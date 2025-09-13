@@ -113,6 +113,7 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
   }
 
 #endif
+
 #ifndef VENUS_ASSIGN_RESULT_OR_RETURN
 #define VENUS_ASSIGN_RESULT_OR_RETURN(R, V, B)                                 \
   if (auto _venus_result_ = V)                                                 \
@@ -121,5 +122,16 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
     HERMES_ERROR("Error at: {} = {}", #R, #V);                                 \
     HERMES_ERROR("  w/ err: {}", venus::to_string(_venus_result_.status()));   \
     return B;                                                                  \
+  }
+#endif
+
+#ifndef VENUS_ASSIGN_RESULT_OR_RETURN_VOID
+#define VENUS_ASSIGN_RESULT_OR_RETURN_VOID(R, V)                               \
+  if (auto _venus_result_ = V)                                                 \
+    R = std::move(*_venus_result_);                                            \
+  else {                                                                       \
+    HERMES_ERROR("Error at: {} = {}", #R, #V);                                 \
+    HERMES_ERROR("  w/ err: {}", venus::to_string(_venus_result_.status()));   \
+    return;                                                                    \
   }
 #endif
