@@ -10,6 +10,7 @@ project(
   LANGUAGES C CXX)
 
 cmake_path(SET VENUS_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+cmake_path(SET VENUS_EXAMPLES_DIR ${CMAKE_CURRENT_LIST_DIR}/examples)
 
 # cmake print functions
 include(CMakePrintHelpers)

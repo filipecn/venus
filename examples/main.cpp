@@ -25,28 +25,14 @@
 /// \brief  Example on how to initialize venus.
 
 #include <venus/app/display_app.h>
+#include <venus/engine/gltf_io.h>
 #include <venus/engine/graphics_device.h>
 #include <venus/engine/graphics_engine.h>
 #include <venus/io/glfw_display.h>
 
 VeResult startup(venus::app::DisplayApp &app) {
-  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::startup());
-  return VeResult::noError();
-}
 
-VeResult shutdown() { return venus::engine::GraphicsEngine::shutdown(); }
-
-VeResult render(const venus::io::DisplayLoop::Iteration::Frame &frame) {
-  return VeResult::noError();
-}
-
-int main() {
-  using namespace venus::core;
-  using namespace venus::io;
-  using namespace venus::app;
-  VENUS_CHECK_VE_RESULT(vk::init());
-
-  vk::DeviceFeatures device_features;
+  venus::core::vk::DeviceFeatures device_features;
   device_features.f.shaderUniformBufferArrayDynamicIndexing = true;
   device_features.descriptor_indexing_f.descriptorBindingPartiallyBound = true;
   device_features.synchronization2_f.synchronization2 = true;
@@ -68,10 +54,35 @@ int main() {
       VK_KHR_SWAPCHAIN_EXTENSION_NAME,
       VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME};
 
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::Config()
+                              .setDeviceFeatures(device_features)
+                              .setDeviceExtensions(device_extensions)
+                              .init(app.display()));
+
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::startup());
+
+  venus::scene::GLTF_Node::Ptr node;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      node, venus::scene::GLTF_Node::from(
+                std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box.glb",
+                venus::engine::GraphicsEngine::device()));
+
+  return VeResult::noError();
+}
+
+VeResult shutdown() { return venus::engine::GraphicsEngine::shutdown(); }
+
+VeResult render(const venus::io::DisplayLoop::Iteration::Frame &frame) {
+  return VeResult::noError();
+}
+
+int main() {
+  using namespace venus::core;
+  using namespace venus::io;
+  using namespace venus::app;
+  VENUS_CHECK_VE_RESULT(vk::init());
+
   return DisplayApp::Config()
-      .setGraphicsEngineConfig(venus::engine::GraphicsEngine::Config()
-                                   .setDeviceFeatures(device_features)
-                                   .setDeviceExtensions(device_extensions))
       .setDisplay<GLFW_Window>("Hello Vulkan Display App", {1024, 1024})
       .setStartupFn(startup)
       .setShutdownFn(shutdown)
@@ -79,60 +90,60 @@ int main() {
       .create()
       .run();
 
-  Instance instance;
-  venus::engine::GraphicsDevice gd;
-  PhysicalDevices physical_devices;
-  GLFW_Window window;
-  VkSurfaceKHR surface;
-  PhysicalDevice physical_device;
-  vk::GraphicsQueueFamilyIndices indices;
-  // instance
-  // VENUS_ASSIGN_RESULT(instance, Instance::Config()
-  //                                  .setApiVersion(vk::Version(1, 4, 0))
-  //                                  .setName("hello_vulkan_app")
-  //                                  .addExtensions(getInstanceExtensions())
-  //                                  .enableDefaultDebugMessageSeverityFlags()
-  //                                  .enableDefaultDebugMessageTypeFlags()
-  //                                  .enableDebugUtilsExtension()
-  //                                  .create());
-  HERMES_INFO("\n{}", venus::to_string(instance));
+  // Instance instance;
+  // venus::engine::GraphicsDevice gd;
+  // PhysicalDevices physical_devices;
+  // GLFW_Window window;
+  // VkSurfaceKHR surface;
+  // PhysicalDevice physical_device;
+  // vk::GraphicsQueueFamilyIndices indices;
+  //  instance
+  //  VENUS_ASSIGN_RESULT(instance, Instance::Config()
+  //                                   .setApiVersion(vk::Version(1, 4, 0))
+  //                                   .setName("hello_vulkan_app")
+  //                                   .addExtensions(getInstanceExtensions())
+  //                                   .enableDefaultDebugMessageSeverityFlags()
+  //                                   .enableDefaultDebugMessageTypeFlags()
+  //                                   .enableDebugUtilsExtension()
+  //                                   .create());
+  // HERMES_INFO("\n{}", venus::to_string(instance));
 
   // window
-  VENUS_CHECK_VE_RESULT(window.init("Hello Vulkan App", {1024, 1024}));
-  VENUS_ASSIGN_RESULT(surface, window.createSurface(*instance));
+  // VENUS_CHECK_VE_RESULT(window.init("Hello Vulkan App", {1024, 1024}));
+  // VENUS_ASSIGN_RESULT(surface, window.createSurface(*instance));
   // graphics device
 
-  VENUS_ASSIGN_RESULT(gd, venus::engine::GraphicsDevice::Config()
-                              .setSurface(surface)
-                              .setSurfaceExtent(window.resolution())
-                              .addExtensions(device_extensions)
-                              .create(instance));
+  // VENUS_ASSIGN_RESULT(gd, venus::engine::GraphicsDevice::Config()
+  //                             .setSurface(surface)
+  //                             .setSurfaceExtent(window.resolution())
+  //                             .addExtensions(device_extensions)
+  //                             .create(instance));
 
-  return 0;
+  // return 0;
 
-  VENUS_ASSIGN_RESULT(physical_devices, instance.physicalDevices());
-  HERMES_INFO("\n{}", venus::to_string(physical_devices));
-  VENUS_ASSIGN_RESULT(physical_device,
-                      physical_devices.select(
-                          PhysicalDevices::Selector().forGraphics(surface)));
-  VENUS_ASSIGN_RESULT(
-      indices, physical_device.selectGraphicsQueueFamilyIndices(surface));
-  HERMES_INFO("{}", venus::to_string(indices));
+  // VENUS_ASSIGN_RESULT(physical_devices, instance.physicalDevices());
+  // HERMES_INFO("\n{}", venus::to_string(physical_devices));
+  // VENUS_ASSIGN_RESULT(physical_device,
+  //                     physical_devices.select(
+  //                         PhysicalDevices::Selector().forGraphics(surface)));
+  // VENUS_ASSIGN_RESULT(
+  //     indices, physical_device.selectGraphicsQueueFamilyIndices(surface));
+  // HERMES_INFO("{}", venus::to_string(indices));
 
-  Device device;
-  VENUS_ASSIGN_RESULT(
-      device, Device::Config()
-                  .setFeatures(device_features)
-                  .addQueueFamily(indices.graphics_queue_family_index, {1.f})
-                  .addQueueFamily(indices.present_queue_family_index, {1.f})
-                  .addExtensions(device_extensions)
-                  .create(physical_device));
+  // Device device;
+  // VENUS_ASSIGN_RESULT(
+  //     device, Device::Config()
+  //                 .setFeatures(device_features)
+  //                 .addQueueFamily(indices.graphics_queue_family_index, {1.f})
+  //                 .addQueueFamily(indices.present_queue_family_index, {1.f})
+  //                 .addExtensions(device_extensions)
+  //                 .create(physical_device));
 
-  Swapchain swapchain;
-  VENUS_ASSIGN_RESULT(swapchain, Swapchain::Config()
-                                     .setSurface(surface)
-                                     .setQueueFamilyIndices(indices)
-                                     .setExtent(window.resolution())
-                                     .create(device));
-  return 0;
+  // Swapchain swapchain;
+  // VENUS_ASSIGN_RESULT(swapchain, Swapchain::Config()
+  //                                    .setSurface(surface)
+  //                                    .setQueueFamilyIndices(indices)
+  //                                    .setExtent(window.resolution())
+  //                                    .create(device));
+  // return 0;
 }

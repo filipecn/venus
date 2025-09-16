@@ -26,6 +26,7 @@
 
 #include <venus/app/display_app.h>
 
+#include <venus/utils/macros.h>
 #include <venus/utils/vk_debug.h>
 
 namespace venus::app {
@@ -34,9 +35,6 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setTitle,
                                      const std::string_view &, title_ = value);
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setResolution,
                                      const VkExtent2D &, resolution_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setGraphicsEngineConfig,
-                                     const engine::GraphicsEngine::Config &,
-                                     engine_config_ = value);
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
     DisplayApp, setStartupFn, const std::function<VeResult(DisplayApp &)> &,
     startup_callback_ = value);
@@ -53,11 +51,11 @@ DisplayApp DisplayApp::Config::create() const {
   DisplayApp app;
 
   app.window_ = display_;
+  app.render_callback_ = render_callback_;
+  app.startup_callback_ = startup_callback_;
+  app.shutdown_callback_ = shutdown_callback_;
 
   VENUS_CHECK_VE_RESULT(app.window_->init(title_.c_str(), resolution_));
-
-  // init engine
-  VENUS_CHECK_VE_RESULT(engine_config_.init(app.window_.get()));
 
   return app;
 }
@@ -65,7 +63,7 @@ DisplayApp DisplayApp::Config::create() const {
 i32 DisplayApp::run() {
   if (startup_callback_)
     startup_callback_(*this);
-  for (auto it : io::DisplayLoop(*window_).setDurationInFrames(10)) {
+  for (auto it : io::DisplayLoop(*window_).setDurationInFrames(1)) {
     HERMES_INFO("{}", venus::to_string(it));
     if (render_callback_)
       render_callback_(it.frame());
@@ -77,8 +75,9 @@ i32 DisplayApp::run() {
 
 i32 DisplayApp::shutdown() {
   window_->destroy();
-  VENUS_CHECK_VE_RESULT(engine::GraphicsEngine::shutdown());
   return 0;
 }
+
+const io::Display *DisplayApp::display() const { return window_.get(); }
 
 } // namespace venus::app

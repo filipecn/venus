@@ -29,6 +29,8 @@
 
 #include <venus/mem/device_memory.h>
 
+#include <optional>
+
 namespace venus::mem {
 
 /// \brief Holds a vulkan buffer object.
@@ -178,7 +180,7 @@ protected:
   VkMemoryRequirements vk_memory_requirements_{};
   VkBuffer vk_buffer_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
-  VkDeviceAddress vk_device_address_{0};
+  std::optional<VkDeviceAddress> vk_device_address_;
 
 private:
 #ifdef VENUS_DEBUG

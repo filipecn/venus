@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <venus/engine/graphics_engine.h>
 #include <venus/io/display.h>
 
 namespace venus::app {
@@ -49,8 +48,6 @@ public:
       return *this;
     }
     Config &
-    setGraphicsEngineConfig(const engine::GraphicsEngine::Config &config);
-    Config &
     setStartupFn(const std::function<VeResult(DisplayApp &)> &startup_callback);
     Config &setShutdownFn(const std::function<VeResult()> &shutdown_callback);
     Config &setRenderFn(
@@ -60,8 +57,6 @@ public:
     DisplayApp create() const;
 
   private:
-    // engine
-    engine::GraphicsEngine::Config engine_config_;
     // display settings
     std::string title_;
     VkExtent2D resolution_{};
@@ -76,8 +71,7 @@ public:
   /// Start the application.
   i32 run();
 
-  const core::Instance &instance() const;
-  const engine::GraphicsDevice &gd() const;
+  const io::Display *display() const;
 
 protected:
   i32 shutdown();

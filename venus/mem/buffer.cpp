@@ -97,6 +97,10 @@ Result<Buffer> Buffer::Config::create(const core::Device &device) const {
       vkCreateBuffer(*device, &info, nullptr, &vk_buffer));
 
   Buffer buffer;
+
+  if (usage_ | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+    buffer.vk_device_address_ = 0;
+
   buffer.init(*device, vk_buffer);
 
 #ifdef VENUS_DEBUG
@@ -194,7 +198,12 @@ VkDeviceSize Buffer::sizeInBytes() const {
   return vk_memory_requirements_.size;
 }
 
-VkDeviceAddress Buffer::deviceAddress() const { return vk_device_address_; }
+VkDeviceAddress Buffer::deviceAddress() const {
+  if (vk_device_address_.has_value())
+    return vk_device_address_.value();
+  HERMES_ERROR("Trying to access buffer address. Buffer Address not enabled.");
+  return 0;
+}
 
 VkBuffer Buffer::operator*() const { return vk_buffer_; }
 
@@ -202,14 +211,16 @@ VkDevice Buffer::device() const { return vk_device_; }
 
 void Buffer::init(VkDevice vk_device, VkBuffer vk_buffer) {
   vk_device_ = vk_device;
+  vk_buffer_ = vk_buffer;
   vkGetBufferMemoryRequirements(vk_device_, vk_buffer_,
                                 &vk_memory_requirements_);
-
-  VkBufferDeviceAddressInfo da_info{};
-  da_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
-  da_info.pNext = nullptr;
-  da_info.buffer = vk_buffer_;
-  vk_device_address_ = vkGetBufferDeviceAddress(vk_device_, &da_info);
+  if (vk_device_address_.has_value()) {
+    VkBufferDeviceAddressInfo da_info{};
+    da_info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    da_info.pNext = nullptr;
+    da_info.buffer = vk_buffer_;
+    vk_device_address_ = vkGetBufferDeviceAddress(vk_device_, &da_info);
+  }
 }
 
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedBuffer, setBufferConfig,
@@ -235,6 +246,9 @@ AllocatedBuffer::Config::create(const core::Device &device) const {
   AllocatedBuffer buffer;
   buffer.vma_allocator_ = device.allocator();
   buffer.vma_allocation_ = vma_allocation;
+
+  if (info.usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+    buffer.vk_device_address_ = 0;
   buffer.init(*device, vk_buffer);
 
   return Result<AllocatedBuffer>(std::move(buffer));

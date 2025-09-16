@@ -111,7 +111,7 @@ public:
                             VkRenderPass vk_renderpass) const;
 
   private:
-    pipeline::DescriptorSet::Layout descriptor_set_layout_;
+    mutable pipeline::DescriptorSet::Layout descriptor_set_layout_;
     Pipeline::Config pipeline_config_;
 
     VENUS_TO_STRING_FRIEND(Config);

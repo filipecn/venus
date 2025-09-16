@@ -134,8 +134,6 @@ VeResult GraphicsEngine::Globals::Descriptors::init(GraphicsDevice &gd) {
     scene_data_layout = *scene_data_layout_;
   }
 
-  HERMES_INFO("{}", venus::to_string(scene_data_layout_));
-
   return VeResult::noError();
 }
 

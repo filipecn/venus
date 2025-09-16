@@ -27,6 +27,7 @@
 #include <venus/engine/gltf_io.h>
 
 #include <venus/engine/graphics_engine.h>
+#include <venus/utils/vk_debug.h>
 
 #include <hermes/geometry/quaternion.h>
 
@@ -43,6 +44,22 @@
 #ifdef __linux__
 #pragma GCC diagnostic pop
 #endif
+
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::GLTF_MetallicRoughness)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_HERMES_FIELD(data.color_factors)
+HERMES_PUSH_DEBUG_HERMES_FIELD(data.metal_rough_factors)
+HERMES_PUSH_DEBUG_VENUS_FIELD(resources.color_image)
+HERMES_PUSH_DEBUG_VK_FIELD(resources.color_sampler)
+HERMES_PUSH_DEBUG_VENUS_FIELD(resources.metal_rough_image)
+HERMES_PUSH_DEBUG_VK_FIELD(resources.metal_rough_sampler)
+HERMES_PUSH_DEBUG_VK_FIELD(resources.data_buffer)
+HERMES_PUSH_DEBUG_FIELD(resources.data_buffer_offset)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
 
 namespace venus::scene {
 
@@ -353,6 +370,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
 
     Model::Storage<mem::AllocatedBuffer> storage;
 
+    HERMES_PING;
     VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
         storage.vertices,
         mem::AllocatedBuffer::Config()
@@ -454,7 +472,6 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
 #endif
 
   GLTF_Node::Ptr scene = std::make_shared<GLTF_Node>();
-
   /////////////////////////////////////////////////////////////////////////////
   // SAMPLERS
   /////////////////////////////////////////////////////////////////////////////
@@ -481,7 +498,9 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
       mem::AllocatedBuffer::Config()
           .setBufferConfig(mem::Buffer::Config::forUniform(
               sizeof(GLTF_MetallicRoughness::Data) * asset->materials.size()))
-          .setMemoryConfig(mem::DeviceMemory::Config().setHostVisible())
+          .setMemoryConfig(
+              mem::DeviceMemory::Config().setHostVisible().setUsage(
+                  VMA_MEMORY_USAGE_CPU_TO_GPU))
           .create(*gd));
 
   // we can estimate the descriptors we will need accurately
@@ -517,7 +536,6 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
       // if (mat.alphaMode == fastgltf::AlphaMode::Blend) {
       //   passType = MaterialPass::Transparent;
       // }
-
       GLTF_MetallicRoughness parameters;
       // constants (stored in the uniform buffer)
       data[material_index] = parameters.data =
@@ -561,13 +579,12 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
     // find if the node has a mesh, and if it does hook it to the mesh pointer
     // and allocate it with the meshnode class
     if (node.meshIndex.has_value()) {
-      new_node = std::make_shared<Node>();
+      new_node = std::make_shared<ModelNode>();
       static_cast<ModelNode *>(new_node.get())
           ->setModel(meshes[*node.meshIndex]);
     } else {
       new_node = std::make_shared<Node>();
     }
-
     nodes.push_back(new_node);
     scene->nodes_[node.name.c_str()];
     std::visit(fastgltf::visitor{
@@ -595,6 +612,28 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
                      new_node->setLocalTransform(tm * rm * sm);
                    }},
                node.transform);
+  }
+
+  /////////////////////////////////////////////////////////////////////////////
+  // GRAPH
+  /////////////////////////////////////////////////////////////////////////////
+  // run loop again to setup transform hierarchy
+  for (u32 i = 0; i < asset->nodes.size(); i++) {
+    fastgltf::Node &node = asset->nodes[i];
+    Node::Ptr &scene_node = nodes[i];
+
+    for (auto &c : node.children) {
+      scene_node->addChild(nodes[c]);
+      nodes[c]->setParent(scene_node);
+    }
+  }
+
+  // find the top nodes, with no parents
+  for (auto &node : nodes) {
+    if (node->parent().lock() == nullptr) {
+      scene->top_nodes_.push_back(node);
+      node->updateTrasform(hermes::geo::Transform());
+    }
   }
 
   return Result<GLTF_Node::Ptr>(std::move(scene));

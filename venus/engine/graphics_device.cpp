@@ -73,6 +73,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
       gd.device_,
       core::Device::Config()
           .setFeatures(features_)
+          .addAllocationFlags(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT)
           .addQueueFamily(indices.graphics_queue_family_index, {1.f})
           .addQueueFamily(indices.present_queue_family_index, {1.f})
           .addExtensions(extensions_)

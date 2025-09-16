@@ -92,6 +92,7 @@ Result<Material> Material::Config::create(VkDevice vk_device,
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       material.pipeline_, pipeline_config_.create(vk_device, vk_renderpass));
+  material.descriptor_set_layout_ = std::move(descriptor_set_layout_);
 
   return Result<Material>(std::move(material));
 }

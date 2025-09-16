@@ -98,6 +98,7 @@ Result<DeviceMemory> DeviceMemory::Config::create(const core::Device &device) {
   VENUS_VK_RETURN_BAD_RESULT(
       vmaAllocateMemory(device.allocator(), &requirements_, &vma_allocation_,
                         &device_memory.vma_allocation_, nullptr));
+  device_memory.vma_allocator_ = device.allocator();
 
 #ifdef VENUS_DEBUG
   device_memory.config_ = *this;

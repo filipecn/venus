@@ -71,6 +71,8 @@ public:
 
   Data data;
   Resources resources;
+
+  VENUS_TO_STRING_FRIEND(GLTF_MetallicRoughness);
 };
 
 class GLTF_Node : public Node {
