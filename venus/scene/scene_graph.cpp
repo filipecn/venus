@@ -26,6 +26,23 @@
 
 #include <venus/scene/scene_graph.h>
 
+#include <venus/utils/vk_debug.h>
+
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::RenderObject)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_HERMES_FIELD(bounds)
+HERMES_PUSH_DEBUG_HERMES_FIELD(transform)
+HERMES_PUSH_DEBUG_FIELD(index_count)
+HERMES_PUSH_DEBUG_FIELD(first_index)
+HERMES_PUSH_DEBUG_VK_FIELD(index_buffer)
+HERMES_PUSH_DEBUG_VK_FIELD(vertex_buffer)
+HERMES_PUSH_DEBUG_FIELD(vertex_buffer_address)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+
 namespace venus::scene {
 
 void Node::draw(const hermes::geo::Transform &top_matrix,

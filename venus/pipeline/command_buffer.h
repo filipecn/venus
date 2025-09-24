@@ -30,6 +30,10 @@
 #include <venus/mem/buffer.h>
 #include <venus/pipeline/pipeline.h>
 
+namespace venus::engine {
+class GraphicsDevice;
+}
+
 namespace venus::pipeline {
 
 /// Command buffers record operations and are submitted to the hardware. They
@@ -56,6 +60,40 @@ namespace venus::pipeline {
 /// \note This uses RAII.
 class CommandBuffer {
 public:
+  struct RenderingInfo {
+    struct Attachment {
+      Attachment() noexcept;
+      Attachment &setImageView(VkImageView image_view);
+      Attachment &setImageLayout(VkImageLayout image_layout);
+      Attachment &setResolveMode(VkResolveModeFlagBits resolve_mode);
+      Attachment &setResolveImageView(VkImageView resolve_image_view);
+      Attachment &setResolveImageLayout(VkImageLayout resolve_image_layout);
+      Attachment &setLoadOp(VkAttachmentLoadOp load_op);
+      Attachment &setStoreOp(VkAttachmentStoreOp store_op);
+      Attachment &setClearValue(VkClearValue clear_value);
+      VkRenderingAttachmentInfo operator*() const;
+
+    private:
+      VkRenderingAttachmentInfo info_{};
+    };
+
+    RenderingInfo() noexcept;
+    RenderingInfo &setFlags(VkRenderingFlags flags);
+    RenderingInfo &setRenderArea(const VkRect2D &render_area);
+    RenderingInfo &setLayerCount(u32 layer_count);
+    RenderingInfo &setViewMask(u32 view_mask);
+    RenderingInfo &addColorAttachment(const Attachment &color_attachment);
+    RenderingInfo &setDepthAttachment(const Attachment &depth_attachment);
+    RenderingInfo &setStencilAttachment(const Attachment &stencil_attachment);
+    VkRenderingInfo operator*() const;
+
+  private:
+    VkRenderingInfo info_{};
+    std::vector<VkRenderingAttachmentInfo> color_attachments_;
+    std::optional<VkRenderingAttachmentInfo> depth_attachment_;
+    std::optional<VkRenderingAttachmentInfo> stencil_attachment_;
+  };
+
   struct RenderPassInfo {
     RenderPassInfo() noexcept;
     RenderPassInfo &setRenderArea(i32 x, i32 y, u32 width, u32 height);
@@ -64,7 +102,8 @@ public:
     RenderPassInfo &addClearColorValueu(u32 r, u32 g, u32 b, u32 a);
     RenderPassInfo &addClearDepthStencilValue(f32 depth, u32 stencil);
 
-    VkRenderPassBeginInfo info() const;
+    VkRenderPassBeginInfo info(VkRenderPass vk_renderpass,
+                               VkFramebuffer vk_framebuffer) const;
 
   private:
     VkRenderPassBeginInfo info_{};
@@ -80,7 +119,7 @@ public:
   HERMES_NODISCARD VeResult begin(VkCommandBufferUsageFlags flags = 0) const;
   HERMES_NODISCARD VeResult end() const;
   ///\param flags
-  HERMES_NODISCARD VeResult reset(VkCommandBufferResetFlags flags) const;
+  HERMES_NODISCARD VeResult reset(VkCommandBufferResetFlags flags = 0) const;
   VeResult submit(VkQueue queue, VkFence fence = VK_NULL_HANDLE) const;
   /// \param vk_src_buffer
   /// \param vk_dst_buffer
@@ -187,7 +226,7 @@ public:
   /// \return
   void bind(VkPipelineBindPoint pipeline_bind_point, VkPipelineLayout layout,
             u32 first_set, const std::vector<VkDescriptorSet> &descriptor_sets,
-            const std::vector<u32> &dynamic_offsets = {});
+            const std::vector<u32> &dynamic_offsets = {}) const;
   /// \param pipeline_bind_point  VK_PIPELINE_BIND_POINT_[COMPUTE | GRAPHICS]
   /// \param pipeline_layout      the layout that will be used by pipelines that
   ///                             will access the descriptors
@@ -228,10 +267,14 @@ public:
   /// that will be drawn into.
   /// \param info  Parameters describing the renderpass
   /// \param contents
-  void beginRenderPass(const RenderPassInfo &info,
+  void beginRenderPass(const VkRenderPassBeginInfo &info,
                        VkSubpassContents contents) const;
   /// Finalize rendering contained in the renderpass
   void endRenderPass() const;
+  /// Initializes dynamic rendering
+  void beginRendering(const VkRenderingInfo &info) const;
+  /// Finalize dynamic rendering
+  void endRendering() const;
   /// \param first_binding
   /// \param buffers
   /// \param offsets
@@ -270,14 +313,17 @@ public:
   /// \param height
   /// \param min_depth
   /// \param max_depth
-  void setViewport(f32 width, f32 height, f32 min_depth, f32 max_depth);
+  void setViewport(f32 width, f32 height, f32 min_depth, f32 max_depth) const;
   /// Set the Scissor object
   /// \param offset_x
   /// \param offset_y
   /// \param extent_width
   /// \param extent_height
   void setScissor(i32 offset_x, i32 offset_y, u32 extent_width,
-                  u32 extent_height);
+                  u32 extent_height) const;
+  ///
+  void transitionImage(VkImage vk_image, VkImageLayout current_layout,
+                       VkImageLayout new_layout) const;
 
 private:
   friend class CommandPool;
@@ -349,6 +395,7 @@ struct BufferWritter {
   BufferWritter &addBuffer(VkBuffer buffer, const void *data,
                            u32 size_in_bytes);
   VeResult record(const core::Device &device, VkCommandBuffer cb) const;
+  VeResult immediateSubmit(const engine::GraphicsDevice &gd) const;
 
 private:
   std::vector<const void *> data_;

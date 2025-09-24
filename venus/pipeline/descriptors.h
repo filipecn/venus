@@ -181,22 +181,23 @@ public:
   /// \param size
   /// \param offset
   /// \param type Descriptor type.
-  void writeBuffer(i32 binding, VkBuffer buffer, u32 size, u32 offset,
-                   VkDescriptorType type);
+  DescriptorWriter &writeBuffer(i32 binding, VkBuffer buffer, u32 size,
+                                u32 offset, VkDescriptorType type);
   /// \brief Registers VkWriteDescriptorSet for a given image.
   /// \param binding
   /// \param image
   /// \param sampler
   /// \param layout
   /// \param type Descriptor type.
-  void writeImage(i32 binding, VkImageView image, VkSampler sampler,
-                  VkImageLayout layout, VkDescriptorType type);
+  DescriptorWriter &writeImage(i32 binding, VkImageView image,
+                               VkSampler sampler, VkImageLayout layout,
+                               VkDescriptorType type);
   /// Clears all registered writes.
   void clear();
   /// \brief Updates the descriptor set with all registered writes.
   /// \param device
   /// \param set The descriptor set to update.
-  void update(const DescriptorSet &set);
+  DescriptorWriter &update(const DescriptorSet &set);
 
 private:
   std::deque<VkDescriptorImageInfo> image_infos_;

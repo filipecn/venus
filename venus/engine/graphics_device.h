@@ -66,10 +66,19 @@ public:
     Result<GraphicsDevice> create(const core::Instance &instance) const;
 
   private:
+    bool useDynamicRendering() const;
+
     VkExtent2D surface_extent_{};
     VkSurfaceKHR surface_{VK_NULL_HANDLE};
     core::vk::DeviceFeatures features_{};
     std::vector<std::string> extensions_;
+  };
+
+  struct Output {
+    mem::AllocatedImage color;
+    mem::Image::View color_view;
+    mem::AllocatedImage depth;
+    mem::Image::View depth_view;
   };
 
   /// \note Although the destructor calls destroy(), the destroy method should
@@ -89,15 +98,15 @@ public:
   HERMES_NODISCARD VeResult prepare();
   /// \brief Initiates current command buffer
   HERMES_NODISCARD VeResult
-  beginRecord(const VkCommandBufferUsageFlags &flags = {});
+  beginRecord(const VkCommandBufferUsageFlags &flags = {}) const;
   /// \brief Initiates renderpass
   void beginRenderPass();
   /// \brief Finishes renderpass
   void endRenderPass();
   /// \brief Finishes current command buffer
-  HERMES_NODISCARD VeResult endRecord();
+  HERMES_NODISCARD VeResult endRecord() const;
   /// \brief Submit the current command buffer record.
-  HERMES_NODISCARD VeResult submit();
+  HERMES_NODISCARD VeResult submit() const;
   /// \brief Submit work and present
   HERMES_NODISCARD VeResult finish();
 
@@ -105,11 +114,15 @@ public:
 
   /// Accesses the current command buffer.
   /// \param f Callback receiving access to the command buffer.
-  void record(const std::function<void(const pipeline::CommandBuffer &)> &f);
+  void
+  record(const std::function<void(const pipeline::CommandBuffer &)> &f) const;
   /// Accesses the current command buffer and submit it to the device.
   /// \param f Callback receiving access to the command buffer.
   HERMES_NODISCARD VeResult
-  submit(const std::function<void(const pipeline::CommandBuffer &)> &f);
+  submit(const std::function<void(const pipeline::CommandBuffer &)> &f) const;
+
+  HERMES_NODISCARD VeResult immediateSubmit(
+      const std::function<void(const pipeline::CommandBuffer &)> &f) const;
 
   // Fields access
 
@@ -117,12 +130,19 @@ public:
   const core::Device &operator*() const;
   /// \return The swapchain managed by this object.
   const io::Swapchain &swapchain() const;
-  /// \return The renderpass managed by this object.
-  const pipeline::RenderPass &renderpass() const;
   /// \return The current active command buffer object.
   const pipeline::CommandBuffer &commandBuffer() const;
   /// \return The current swapchain image index.
   u32 currentTargetIndex() const;
+  /// \return Output images.
+  const Output &output() const;
+
+  // Non-dynamic rendering
+
+  /// \return The renderpass managed by this object.
+  const pipeline::RenderPass &renderpass() const;
+  /// \return The current active framebuffer.
+  const pipeline::Framebuffer &framebuffer() const;
 
 private:
   // devices
@@ -134,12 +154,13 @@ private:
   VkQueue graphics_queue_{VK_NULL_HANDLE};
   // swapchain
   io::Swapchain swapchain_;
-  // renderpass
+
+  // Non-dynamic rendering
+
   pipeline::RenderPass renderpass_;
-  // framebuffers
   pipeline::Framebuffers framebuffers_;
 
-  struct FrameData {
+  struct FrameResources {
     // command buffers
     pipeline::CommandPool command_pool;
     pipeline::CommandBuffers command_buffers;
@@ -149,13 +170,25 @@ private:
     core::Fence render_fence;
   };
 
-  /// \return Frame data of the current frame
-  const FrameData &frameData() const;
+  struct ImmediateSubmitResources {
+    // command buffers
+    pipeline::CommandPool command_pool;
+    pipeline::CommandBuffers command_buffers;
+    // sync
+    core::Fence fence;
+  };
 
-  FrameData frames_[VENUS_MAX_SWAPCHAIN_IMAGE_COUNT];
+  /// \return Frame data of the current frame
+  const FrameResources &frameData() const;
+
+  FrameResources frames_[VENUS_MAX_SWAPCHAIN_IMAGE_COUNT];
+  ImmediateSubmitResources imm_submit_data_;
+  Output output_;
+
   u32 swapchain_image_count_{0};
   u32 current_frame_{0};
   u32 swapchain_image_index_{0};
+  bool using_dynamic_rendering_{false};
 };
 
 } // namespace venus::engine

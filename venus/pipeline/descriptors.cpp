@@ -282,8 +282,9 @@ DescriptorAllocator::allocate(VkDescriptorSetLayout vk_layout) {
   return VeResult::badAllocation();
 }
 
-void DescriptorWriter::writeBuffer(i32 binding, VkBuffer buffer, u32 size,
-                                   u32 offset, VkDescriptorType type) {
+DescriptorWriter &DescriptorWriter::writeBuffer(i32 binding, VkBuffer buffer,
+                                                u32 size, u32 offset,
+                                                VkDescriptorType type) {
   buffer_infos_.emplace_back(buffer, offset, size);
   VkWriteDescriptorSet write{};
   write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -293,11 +294,13 @@ void DescriptorWriter::writeBuffer(i32 binding, VkBuffer buffer, u32 size,
   write.descriptorCount = 1;
   write.dstBinding = binding;
   writes_.push_back(write);
+  return *this;
 }
 
-void DescriptorWriter::writeImage(i32 binding, VkImageView image,
-                                  VkSampler sampler, VkImageLayout layout,
-                                  VkDescriptorType type) {
+DescriptorWriter &DescriptorWriter::writeImage(i32 binding, VkImageView image,
+                                               VkSampler sampler,
+                                               VkImageLayout layout,
+                                               VkDescriptorType type) {
   VkDescriptorImageInfo info;
   info.imageView = image;
   info.sampler = sampler;
@@ -311,6 +314,7 @@ void DescriptorWriter::writeImage(i32 binding, VkImageView image,
   write.descriptorCount = 1;
   write.dstBinding = binding;
   writes_.push_back(write);
+  return *this;
 }
 
 void DescriptorWriter::clear() {
@@ -319,12 +323,13 @@ void DescriptorWriter::clear() {
   writes_.clear();
 }
 
-void DescriptorWriter::update(const DescriptorSet &set) {
+DescriptorWriter &DescriptorWriter::update(const DescriptorSet &set) {
   for (auto &write : writes_)
     write.dstSet = *set;
 
   vkUpdateDescriptorSets(set.device(), writes_.size(), writes_.data(), 0,
                          nullptr);
+  return *this;
 }
 
 } // namespace venus::pipeline

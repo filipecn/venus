@@ -120,6 +120,14 @@ void Material::Pipeline::destroy() noexcept {
   pipeline_layout_.destroy();
 }
 
+const pipeline::GraphicsPipeline &Material::Pipeline::pipeline() const {
+  return pipeline_;
+}
+
+const pipeline::Pipeline::Layout &Material::Pipeline::pipelineLayout() const {
+  return pipeline_layout_;
+}
+
 Material::Material(Material &&rhs) noexcept { *this = std::move(rhs); }
 
 Material::~Material() noexcept { destroy(); }
@@ -143,6 +151,8 @@ void Material::destroy() noexcept {
 const pipeline::DescriptorSet::Layout &Material::descriptorSetLayout() const {
   return descriptor_set_layout_;
 }
+
+const Material::Pipeline &Material::pipeline() const { return pipeline_; }
 
 } // namespace venus::scene
 

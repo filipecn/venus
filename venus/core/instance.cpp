@@ -82,40 +82,63 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
   }
 #endif
 
-  HERMES_ERROR("\t{}",
-               string_VkDebugUtilsMessageSeverityFlagBitsEXT(message_severity));
+  hermes::cstr message;
+
+  hermes::cstr::format(
+      "\t{}", string_VkDebugUtilsMessageSeverityFlagBitsEXT(message_severity));
   // std::cerr << vk::to_string(message_severity) << ": "
   //           << vk::to_string(message_types) << ":\n";
-  HERMES_ERROR("\tmessageIDName   = <{}>", callback_data->pMessageIdName);
-  HERMES_ERROR("\tmessageIdNumber = {}", callback_data->messageIdNumber);
-  HERMES_ERROR("\tmessage         = <{}>", callback_data->pMessage);
+  message += hermes::cstr::format("\tmessageIDName   = <{}>\n",
+                                  callback_data->pMessageIdName);
+  message += hermes::cstr::format("\tmessageIdNumber = {}\n",
+                                  callback_data->messageIdNumber);
+  message += hermes::cstr::format("\tmessage         = <{}>\n",
+                                  callback_data->pMessage);
   if (0 < callback_data->queueLabelCount) {
-    HERMES_ERROR("\tQueue Labels:");
+    message += hermes::cstr::format("\tQueue Labels:\n");
     for (uint32_t i = 0; i < callback_data->queueLabelCount; i++) {
-      HERMES_ERROR("\t\tlabelName = <{}>",
-                   callback_data->pQueueLabels[i].pLabelName);
+      message += hermes::cstr::format(
+          "\t\tlabelName = <{}>\n", callback_data->pQueueLabels[i].pLabelName);
     }
   }
   if (0 < callback_data->cmdBufLabelCount) {
-    HERMES_ERROR("\tCommandBuffer Labels:");
+    message += hermes::cstr::format("\tCommandBuffer Labels:\n");
     for (uint32_t i = 0; i < callback_data->cmdBufLabelCount; i++) {
-      HERMES_ERROR("\t\tlabelName = <{}>",
-                   callback_data->pCmdBufLabels[i].pLabelName);
+      message += hermes::cstr::format(
+          "\t\tlabelName = <{}>\n", callback_data->pCmdBufLabels[i].pLabelName);
     }
   }
   if (0 < callback_data->objectCount) {
-    HERMES_ERROR("\tObjects:");
+    message += hermes::cstr::format("\tObjects:\n");
     for (uint32_t i = 0; i < callback_data->objectCount; i++) {
-      HERMES_ERROR("\t\tObject {}", i);
-      HERMES_ERROR("\t\t\tobjectType   = {}",
-                   string_VkObjectType(callback_data->pObjects[i].objectType));
-      HERMES_ERROR("\t\t\tobjectHandle = {}",
-                   callback_data->pObjects[i].objectHandle);
+      message += hermes::cstr::format("\t\tObject {}\n", i);
+      message += hermes::cstr::format(
+          "\t\t\tobjectType   = {}\n",
+          string_VkObjectType(callback_data->pObjects[i].objectType));
+      message += hermes::cstr::format("\t\t\tobjectHandle = {}\n",
+                                      callback_data->pObjects[i].objectHandle);
       if (callback_data->pObjects[i].pObjectName) {
-        HERMES_ERROR("\t\t\tobjectName   = <{}>",
-                     callback_data->pObjects[i].pObjectName);
+        message += hermes::cstr::format("\t\t\tobjectName   = <{}>\n",
+                                        callback_data->pObjects[i].pObjectName);
       }
     }
+  }
+
+  switch (message_severity) {
+  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+    HERMES_DEBUG("{}", message.str());
+    break;
+  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+    HERMES_INFO("{}", message.str());
+    break;
+  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+    HERMES_WARN("{}", message.str());
+    break;
+  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+    HERMES_ERROR("{}", message.str());
+    break;
+  default:
+    HERMES_INFO("{}", message.str());
   }
 
   return VK_FALSE;

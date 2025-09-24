@@ -42,7 +42,7 @@ namespace venus::io {
 class GLTF_File {};
 
 } // namespace venus::io
-  //
+
 namespace venus::scene {
 
 class GLTF_MetallicRoughness : public Material::Writer {

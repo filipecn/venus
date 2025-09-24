@@ -98,7 +98,7 @@ Result<Buffer> Buffer::Config::create(const core::Device &device) const {
 
   Buffer buffer;
 
-  if (usage_ | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+  if (usage_ & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
     buffer.vk_device_address_ = 0;
 
   buffer.init(*device, vk_buffer);
@@ -247,8 +247,9 @@ AllocatedBuffer::Config::create(const core::Device &device) const {
   buffer.vma_allocator_ = device.allocator();
   buffer.vma_allocation_ = vma_allocation;
 
-  if (info.usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+  if (info.usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
     buffer.vk_device_address_ = 0;
+
   buffer.init(*device, vk_buffer);
 
   return Result<AllocatedBuffer>(std::move(buffer));

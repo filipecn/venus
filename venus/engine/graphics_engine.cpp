@@ -159,6 +159,42 @@ VeResult GraphicsEngine::Globals::cleanup() {
   return VeResult::noError();
 }
 
+GraphicsEngine::Config &GraphicsEngine::Config::setSynchronization2() {
+  device_features_.synchronization2_f.synchronization2 = true;
+
+  device_features_.v13_f.synchronization2 = true;
+  return *this;
+}
+
+GraphicsEngine::Config &GraphicsEngine::Config::setBindless() {
+  device_features_.f.shaderUniformBufferArrayDynamicIndexing = true;
+  device_features_.descriptor_indexing_f.descriptorBindingPartiallyBound = true;
+
+  device_features_.v12_f.bufferDeviceAddress = true;
+  device_features_.v12_f.descriptorIndexing = true;
+  device_features_.v12_f.descriptorBindingPartiallyBound = true;
+  device_features_.v12_f.descriptorBindingVariableDescriptorCount = true;
+  device_features_.v12_f.runtimeDescriptorArray = true;
+  device_features_.f2.features.shaderUniformBufferArrayDynamicIndexing = true;
+
+  device_extensions_.insert(
+      device_extensions_.end(),
+      {VK_KHR_MAINTENANCE_1_EXTENSION_NAME, VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
+       VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+       VK_KHR_DEVICE_GROUP_EXTENSION_NAME, VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+       VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME});
+
+  return *this;
+}
+
+GraphicsEngine::Config &GraphicsEngine::Config::setDynamicRendering() {
+  device_features_.v13_f.dynamicRendering = true;
+
+  device_extensions_.emplace_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+
+  return *this;
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsEngine, setDeviceFeatures,
                                      const core::vk::DeviceFeatures &,
                                      device_features_ = value);
@@ -181,15 +217,15 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
 
   HERMES_INFO("\n{}", venus::to_string(s_instance.instance_));
   // output surface
-  VkSurfaceKHR surface{VK_NULL_HANDLE};
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      surface, display->createSurface(*s_instance.instance_));
+      s_instance.surface_, display->createSurface(*s_instance.instance_));
 
   // graphics device
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       s_instance.gd_, engine::GraphicsDevice::Config()
-                          .setSurface(surface)
+                          .setSurface(*s_instance.surface_)
                           .setSurfaceExtent(display->resolution())
+                          .setFeatures(device_features_)
                           .addExtensions(device_extensions_)
                           .create(s_instance.instance_));
 
@@ -206,6 +242,7 @@ VeResult GraphicsEngine::startup(const GraphicsEngine::Config &config) {
 VeResult GraphicsEngine::shutdown() {
   VENUS_RETURN_BAD_RESULT(s_instance.globals_.cleanup());
   s_instance.gd_.destroy();
+  s_instance.surface_.destroy();
   s_instance.instance_.destroy();
   return VeResult::noError();
 }

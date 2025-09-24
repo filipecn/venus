@@ -164,6 +164,9 @@ public:
 
   /// GraphicsEngine configuration.
   struct Config {
+    Config &setSynchronization2();
+    Config &setBindless();
+    Config &setDynamicRendering();
     Config &setDeviceFeatures(const core::vk::DeviceFeatures &features);
     Config &setDeviceExtensions(const std::vector<std::string> &extensions);
 
@@ -175,7 +178,7 @@ public:
   };
 
   struct FrameData {
-    pipeline::DescriptorAllocator descriptors;
+    pipeline::DescriptorAllocator descriptor_allocator;
   };
 
   ~GraphicsEngine() = default;
@@ -192,8 +195,6 @@ public:
   HERMES_NODISCARD static Cache &cache();
   /// \return Graphics device.
   HERMES_NODISCARD static GraphicsDevice &device();
-  /// \return Data of the current frame.
-  HERMES_NODISCARD static FrameData &frameData();
 
 private:
   GraphicsEngine() noexcept = default;
@@ -212,9 +213,9 @@ private:
   core::Instance instance_;
   // graphics device
   GraphicsDevice gd_;
+  // output
+  io::SurfaceKHR surface_;
 
-  // frame data
-  std::vector<FrameData> frame_data_;
   // scene
   // graphics::scene::Camera camera_;
   // graphics::scene::Node scene_root_;

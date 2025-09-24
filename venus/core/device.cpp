@@ -122,9 +122,11 @@ Device::Config::create(const PhysicalDevice &physical_device) const {
   }
 
   auto features = features_;
+  features.f2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   features.v13_f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   features.v12_f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
+  features.v13_f.pNext = nullptr;
   features.v12_f.pNext = &features.v13_f;
   features.f2.pNext = &features.v12_f;
 
@@ -141,6 +143,7 @@ Device::Config::create(const PhysicalDevice &physical_device) const {
   }
 
   VkDeviceCreateInfo create_info{};
+  create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   create_info.pNext = &features.f2;
   create_info.flags = flags_;
   create_info.pQueueCreateInfos = queue_infos.data();

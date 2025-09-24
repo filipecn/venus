@@ -29,6 +29,7 @@
 
 #include <hermes/core/types.h>
 #include <venus/core/vk_api.h>
+#include <venus/io/surface.h>
 
 namespace venus::io {
 
@@ -46,7 +47,7 @@ public:
   /// Creates a vulkan surface object from a given instance handle.
   /// \note The caller is responsible for destroying the newly created object.
   ///       Unless the child class does it.
-  virtual Result<VkSurfaceKHR> createSurface(VkInstance vk_instance) const = 0;
+  virtual Result<SurfaceKHR> createSurface(VkInstance vk_instance) const = 0;
   /// Destroy this display resources.
   virtual VeResult destroy() = 0;
   /// \return true if the display is closing and must be destroyed.

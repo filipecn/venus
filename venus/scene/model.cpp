@@ -54,6 +54,7 @@ Result<Model> Model::Config::create() const {
   model.vk_index_buffer_ = vk_index_buffer_;
   model.shapes_ = shapes_;
   model.vertex_layout_ = vertex_layout_;
+  model.vk_address_ = vk_address_;
   return Result<Model>(std::move(model));
 }
 

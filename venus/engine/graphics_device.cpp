@@ -45,11 +45,16 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
     GraphicsDevice, addExtensions, const std::vector<std::string> &,
     extensions_.insert(extensions_.end(), value.begin(), value.end()))
 
+bool GraphicsDevice::Config::useDynamicRendering() const {
+  return features_.v13_f.dynamicRendering;
+}
+
 Result<GraphicsDevice>
 GraphicsDevice::Config::create(const core::Instance &instance) const {
   GraphicsDevice gd;
   gd.surface_extent_ = surface_extent_;
   gd.presentation_surface_ = surface_;
+  gd.using_dynamic_rendering_ = useDynamicRendering();
 
   // select device
 
@@ -87,14 +92,16 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
                    &gd.presentation_queue_);
 
   // swapchain
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(gd.swapchain_,
-                                           io::Swapchain::Config()
-                                               .setSurface(surface_)
-                                               .setQueueFamilyIndices(indices)
-                                               .setExtent(surface_extent_)
-                                               .create(gd.device_));
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      gd.swapchain_, io::Swapchain::Config()
+                         .setSurface(surface_)
+                         .setQueueFamilyIndices(indices)
+                         .setExtent(surface_extent_)
+                         .addUsageFlags(VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+                         .setPresentMode(VK_PRESENT_MODE_FIFO_KHR)
+                         .create(gd.device_));
   gd.surface_extent_ = gd.swapchain_.imageExtent();
-  HERMES_INFO("\n{}", venus::to_string(gd.swapchain_));
 
   // create frame data
   gd.swapchain_image_count_ = gd.swapchain_.imageCount();
@@ -106,15 +113,15 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
     VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
         gd.frames_[i].command_pool,
         pipeline::CommandPool::Config()
+            .addCreateFlags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
             .setQueueFamilyIndex(indices.graphics_queue_family_index)
             .create(*gd.device_));
 
     // Create Command Buffer
 
     VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-        gd.frames_[i].command_buffers,
-        gd.frames_[i].command_pool.allocate(gd.swapchain_.imageCount(),
-                                            VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+        gd.frames_[i].command_buffers, gd.frames_[i].command_pool.allocate(
+                                           1, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
     // Create Sync
 
@@ -127,63 +134,135 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
         core::Semaphore::Config().create(*gd.device_));
 
     VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-        gd.frames_[i].render_fence, core::Fence::Config().create(*gd.device_));
+        gd.frames_[i].render_fence,
+        core::Fence::Config()
+            .setCreateFlags(VK_FENCE_CREATE_SIGNALED_BIT)
+            .create(*gd.device_));
   }
 
-  // Create Renderpass
-
-  VkAttachmentDescription color_att{};
-  color_att.format = gd.swapchain_.colorFormat();
-  color_att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  color_att.flags = {};
-  color_att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  color_att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-  color_att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  color_att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  color_att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  color_att.samples = VK_SAMPLE_COUNT_1_BIT;
-
-  VkAttachmentDescription depth_att{};
-  depth_att.format = gd.swapchain_.depthBuffer().format();
-  depth_att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  depth_att.flags = {};
-  depth_att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depth_att.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-  depth_att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  depth_att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  depth_att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depth_att.samples = VK_SAMPLE_COUNT_1_BIT;
+  // Immediate submit data
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      gd.renderpass_,
-      pipeline::RenderPass::Config()
-          .addAttachment(color_att)
-          .addAttachment(depth_att)
-          .addSubpass(
-              pipeline::RenderPass::Subpass()
-                  .addColorAttachmentRef(
-                      0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-                  .addColorAttachmentRef(
-                      1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL))
+      gd.imm_submit_data_.command_pool,
+      pipeline::CommandPool::Config()
+          .setQueueFamilyIndex(indices.graphics_queue_family_index)
+          .addCreateFlags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
           .create(*gd.device_));
 
-  // framebuffers
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      gd.imm_submit_data_.command_buffers,
+      gd.imm_submit_data_.command_pool.allocate(
+          1, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
-  const auto &depth_buffer_view = gd.swapchain_.depthBufferView();
-  const auto &image_views = gd.swapchain_.imageViews();
-  gd.framebuffers_.reserve(image_views.size());
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      gd.imm_submit_data_.fence,
+      core::Fence::Config()
+          .setCreateFlags(VK_FENCE_CREATE_SIGNALED_BIT)
+          .create(*gd.device_));
 
-  for (const auto &image_view : image_views) {
-    pipeline::Framebuffer framebuffer;
+  // Create Renderpass
+  if (!useDynamicRendering()) {
+    VkAttachmentDescription color_att{};
+    color_att.format = gd.swapchain_.colorFormat();
+    color_att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_att.flags = {};
+    color_att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_att.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    color_att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    color_att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color_att.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    VkAttachmentDescription depth_att{};
+    depth_att.format = gd.swapchain_.depthBuffer().format();
+    depth_att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depth_att.flags = {};
+    depth_att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_att.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depth_att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth_att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth_att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depth_att.samples = VK_SAMPLE_COUNT_1_BIT;
+
     VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-        framebuffer, pipeline::Framebuffer::Config()
-                         .addAttachment(*image_view)
-                         .addAttachment(*depth_buffer_view)
-                         .setResolution(gd.swapchain_.imageExtent())
-                         .setLayers(1)
-                         .create(*gd.device_, *gd.renderpass_));
-    gd.framebuffers_.emplace_back(std::move(framebuffer));
+        gd.renderpass_,
+        pipeline::RenderPass::Config()
+            .addAttachment(color_att)
+            .addAttachment(depth_att)
+            .addSubpass(
+                pipeline::RenderPass::Subpass()
+                    .addColorAttachmentRef(
+                        0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+                    .addColorAttachmentRef(
+                        1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL))
+            .create(*gd.device_));
+
+    // framebuffers
+
+    const auto &depth_buffer_view = gd.swapchain_.depthBufferView();
+    const auto &image_views = gd.swapchain_.imageViews();
+    gd.framebuffers_.reserve(image_views.size());
+
+    for (const auto &image_view : image_views) {
+      pipeline::Framebuffer framebuffer;
+      VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+          framebuffer, pipeline::Framebuffer::Config()
+                           .addAttachment(*image_view)
+                           .addAttachment(*depth_buffer_view)
+                           .setResolution(gd.swapchain_.imageExtent())
+                           .setLayers(1)
+                           .create(*gd.device_, *gd.renderpass_));
+      gd.framebuffers_.emplace_back(std::move(framebuffer));
+    }
   }
+
+  // Output Resources
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      gd.output_.color,
+      mem::AllocatedImage::Config()
+          .setImageConfig(mem::Image::Config::defaults(gd.surface_extent_)
+                              .setFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
+                              .addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+                              .addUsage(VK_IMAGE_USAGE_STORAGE_BIT)
+                              .addUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
+          .setMemoryConfig(
+              mem::DeviceMemory::Config().setDeviceLocal().setUsage(
+                  VMA_MEMORY_USAGE_GPU_ONLY))
+          .create(*gd));
+
+  VkImageSubresourceRange subresource_range;
+  subresource_range.baseMipLevel = 0;
+  subresource_range.levelCount = 1;
+  subresource_range.baseArrayLayer = 0;
+  subresource_range.layerCount = 1;
+  subresource_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      gd.output_.color_view, mem::Image::View::Config()
+                                 .setFormat(gd.output_.color.format())
+                                 .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+                                 .setSubresourceRange(subresource_range)
+                                 .create(gd.output_.color));
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      gd.output_.depth,
+      mem::AllocatedImage::Config()
+          .setImageConfig(mem::Image::Config::forDepthBuffer(gd.surface_extent_)
+                              .setFormat(VK_FORMAT_D32_SFLOAT))
+          .setMemoryConfig(
+              mem::DeviceMemory::Config().setDeviceLocal().setUsage(
+                  VMA_MEMORY_USAGE_GPU_ONLY))
+          .create(*gd));
+
+  subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      gd.output_.depth_view, mem::Image::View::Config()
+                                 .setFormat(gd.output_.depth.format())
+                                 .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+                                 .setSubresourceRange(subresource_range)
+                                 .create(gd.output_.depth));
 
   return Result<GraphicsDevice>(std::move(gd));
 }
@@ -216,8 +295,15 @@ void GraphicsDevice::swap(GraphicsDevice &rhs) noexcept {
     VENUS_FIELD_SWAP_RHS(frames_[i].render_semaphore);
     VENUS_FIELD_SWAP_RHS(frames_[i].render_fence);
   }
+  VENUS_FIELD_SWAP_RHS(imm_submit_data_.command_pool);
+  VENUS_FIELD_SWAP_RHS(imm_submit_data_.command_buffers);
+  VENUS_FIELD_SWAP_RHS(imm_submit_data_.fence);
   VENUS_FIELD_SWAP_RHS(renderpass_);
   VENUS_FIELD_SWAP_RHS(framebuffers_);
+  VENUS_FIELD_SWAP_RHS(output_.color_view);
+  VENUS_FIELD_SWAP_RHS(output_.color);
+  VENUS_FIELD_SWAP_RHS(output_.depth_view);
+  VENUS_FIELD_SWAP_RHS(output_.depth);
 }
 
 VeResult GraphicsDevice::destroy() noexcept {
@@ -225,6 +311,13 @@ VeResult GraphicsDevice::destroy() noexcept {
   surface_extent_ = {};
   framebuffers_.clear();
   renderpass_.destroy();
+  output_.depth.destroy();
+  output_.depth_view.destroy();
+  output_.color.destroy();
+  output_.color_view.destroy();
+  imm_submit_data_.fence.destroy();
+  imm_submit_data_.command_buffers.clear();
+  imm_submit_data_.command_pool.destroy();
   for (u32 i = 0; i < VENUS_MAX_SWAPCHAIN_IMAGE_COUNT; ++i) {
     frames_[i].image_acquired_semaphore.destroy();
     frames_[i].render_semaphore.destroy();
@@ -243,39 +336,47 @@ const core::Device &GraphicsDevice::operator*() const { return device_; }
 
 const io::Swapchain &GraphicsDevice::swapchain() const { return swapchain_; }
 
-const pipeline::RenderPass &GraphicsDevice::renderpass() const {
-  return renderpass_;
-}
-
 const pipeline::CommandBuffer &GraphicsDevice::commandBuffer() const {
   return frameData().command_buffers[0];
 }
 
-const GraphicsDevice::FrameData &GraphicsDevice::frameData() const {
+u32 GraphicsDevice::currentTargetIndex() const {
+  return swapchain_image_index_;
+}
+
+const GraphicsDevice::Output &GraphicsDevice::output() const { return output_; }
+
+const pipeline::RenderPass &GraphicsDevice::renderpass() const {
+  return renderpass_;
+}
+
+const pipeline::Framebuffer &GraphicsDevice::framebuffer() const {
+  HERMES_ASSERT(!using_dynamic_rendering_);
+  HERMES_ASSERT(current_frame_ % swapchain_image_count_ < framebuffers_.size());
+  return framebuffers_[current_frame_ % swapchain_image_count_];
+}
+
+const GraphicsDevice::FrameResources &GraphicsDevice::frameData() const {
   return frames_[current_frame_ % swapchain_image_count_];
 }
 
 VeResult GraphicsDevice::prepare() {
   const auto &frame = frameData();
 
+  vkDeviceWaitIdle(*device_);
+
   VENUS_VK_RETURN_BAD_RESULT(frame.render_fence.wait());
 
-  // clear frame data
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      swapchain_image_index_,
+      swapchain_.nextImage(*frame.image_acquired_semaphore));
 
-  VkResult e = vkAcquireNextImageKHR(*device_, *swapchain_, 1000000000,
-                                     *frame.image_acquired_semaphore, nullptr,
-                                     &swapchain_image_index_);
-  if (e == VK_ERROR_OUT_OF_DATE_KHR) {
-    // resize_requested = true;
-    return VeResult::noError();
-  }
-
-  frame.render_fence.reset();
+  VENUS_VK_RETURN_BAD_RESULT(frame.render_fence.reset());
 
   return VeResult::noError();
 }
 
-VeResult GraphicsDevice::submit() {
+VeResult GraphicsDevice::submit() const {
   const auto &frame = frameData();
 
   // prepare the submission to the queue.
@@ -303,6 +404,7 @@ VeResult GraphicsDevice::finish() {
   //  as its necessary that drawing commands have finished before the image is
   //  displayed to the user
   auto wait_semaphores = *frame.render_semaphore;
+
   auto swapchain = *swapchain_;
 
   VkPresentInfoKHR present_info{};
@@ -332,38 +434,60 @@ VeResult GraphicsDevice::finish() {
   // increase the number of frames drawn
   current_frame_++;
 
+  vkQueueWaitIdle(graphics_queue_);
+
   return VeResult::noError();
 }
 
-VeResult GraphicsDevice::beginRecord(const VkCommandBufferUsageFlags &flags) {
+VeResult
+GraphicsDevice::beginRecord(const VkCommandBufferUsageFlags &flags) const {
   const auto &frame = frameData();
-
   VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].reset({}));
   VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].begin(flags));
-
   return VeResult::noError();
 }
 
-VeResult GraphicsDevice::endRecord() {
+VeResult GraphicsDevice::endRecord() const {
   const auto &frame = frameData();
   VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].end());
   return VeResult::noError();
 }
 
 void GraphicsDevice::record(
-    const std::function<void(const pipeline::CommandBuffer &)> &f) {
+    const std::function<void(const pipeline::CommandBuffer &)> &f) const {
   const auto &frame = frameData();
   f(frame.command_buffers[0]);
 }
 
 VeResult GraphicsDevice::submit(
-    const std::function<void(const pipeline::CommandBuffer &)> &f) {
+    const std::function<void(const pipeline::CommandBuffer &)> &f) const {
   const auto &frame = frameData();
   VENUS_RETURN_BAD_RESULT(
       beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
   f(frame.command_buffers[0]);
   VENUS_RETURN_BAD_RESULT(endRecord());
   VENUS_RETURN_BAD_RESULT(submit());
+  return VeResult::noError();
+}
+
+VeResult GraphicsDevice::immediateSubmit(
+    const std::function<void(const pipeline::CommandBuffer &)> &f) const {
+
+  VENUS_VK_RETURN_BAD_RESULT(imm_submit_data_.fence.reset());
+  const auto &cb = imm_submit_data_.command_buffers[0];
+
+  VENUS_RETURN_BAD_RESULT(cb.reset());
+  VENUS_RETURN_BAD_RESULT(
+      cb.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
+  f(cb);
+  VENUS_RETURN_BAD_RESULT(cb.end());
+
+  VENUS_VK_RETURN_BAD_RESULT(
+      pipeline::SubmitInfo2().addCommandBufferInfo(*cb).submit(
+          graphics_queue_, *imm_submit_data_.fence));
+
+  VENUS_VK_RETURN_BAD_RESULT(imm_submit_data_.fence.wait());
+
   return VeResult::noError();
 }
 

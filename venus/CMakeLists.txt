@@ -14,6 +14,7 @@ set(VENUS_HEADERS
 
   io/display.h
   io/glfw_display.h
+  io/surface.h
   io/swapchain.h
 
   mem/buffer.h
@@ -28,6 +29,7 @@ set(VENUS_HEADERS
   pipeline/renderpass.h
   pipeline/shader_module.h
  
+  scene/camera.h
   scene/material.h
   scene/model.h
   scene/scene_graph.h
@@ -54,6 +56,7 @@ set(VENUS_SOURCES
 
   io/display.cpp
   io/glfw_display.cpp
+  io/surface.cpp
   io/swapchain.cpp
 
   mem/buffer.cpp
@@ -68,6 +71,7 @@ set(VENUS_SOURCES
   pipeline/renderpass.cpp
   pipeline/shader_module.cpp
   
+  scene/camera.cpp
   scene/material.cpp
   scene/model.cpp
   scene/scene_graph.cpp

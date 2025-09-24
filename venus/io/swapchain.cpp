@@ -225,8 +225,8 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
       swapchain.depth_buffer_view_,
       mem::Image::View::Config()
           .setViewType(VK_IMAGE_VIEW_TYPE_2D)
-          .setFormat(surface_format.format)
-          .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
+          .setFormat(swapchain.depth_buffer_.format())
+          .setSubresourceRange({VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1})
           .create(swapchain.depth_buffer_));
 
   swapchain.color_format_ = surface_format.format;
@@ -284,12 +284,40 @@ VkFormat Swapchain::colorFormat() const { return color_format_; }
 
 const mem::Image &Swapchain::depthBuffer() const { return depth_buffer_; }
 
+const std::vector<mem::Image> &Swapchain::images() const { return images_; }
+
 const mem::Image::View &Swapchain::depthBufferView() const {
   return depth_buffer_view_;
 }
 
 const std::vector<mem::Image::View> &Swapchain::imageViews() const {
   return image_views_;
+}
+
+Result<u32> Swapchain::nextImage(VkSemaphore vk_semaphore, VkFence vk_fence) {
+
+  u32 image_index = 0;
+  VkResult e = vkAcquireNextImageKHR(vk_device_, vk_swapchain_, 1000000000,
+                                     vk_semaphore, vk_fence, &image_index);
+  if (e == VK_ERROR_OUT_OF_DATE_KHR) {
+    // when a swapchain is not valid/adequate anymore we need to recreate the
+    // swapchain with new parameters. For that, we need to destroy the old
+    // swapchain and the objects related to the swapchain, to recreate them
+    // later
+    HERMES_WARN("swapchain image out of date.");
+    // resize_requested = true;
+    return VeResult::noError();
+  }
+
+  if (e != VK_SUCCESS && e != VK_SUBOPTIMAL_KHR) {
+    HERMES_ERROR("error on getting next swapchain image!");
+    return VeResult::error();
+  }
+
+  if (image_index >= images_.size())
+    return VeResult::error();
+
+  return Result<u32>(image_index);
 }
 
 } // namespace venus::io

@@ -358,10 +358,11 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
 
       hermes::geo::point3 minpos = vertices[initial_vtx].position;
       hermes::geo::point3 maxpos = vertices[initial_vtx].position;
-      for (u32 i = initial_vtx; i < vertices.size(); i++) {
-        minpos = hermes::min(minpos, vertices[i].position);
-        maxpos = hermes::max(maxpos, vertices[i].position);
-      }
+      for (u32 i = initial_vtx; i < vertices.size(); i++)
+        for (u32 j = 0; j < 3; ++j) {
+          minpos[j] = std::min(minpos[j], vertices[i].position[j]);
+          maxpos[j] = std::max(maxpos[j], vertices[i].position[j]);
+        }
       surface.bounds.setCenter((maxpos + hermes::geo::vec3(minpos)) / 2.f);
       surface.bounds.setRadius(((maxpos - minpos) / 2.f).length());
 
@@ -370,7 +371,6 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
 
     Model::Storage<mem::AllocatedBuffer> storage;
 
-    HERMES_PING;
     VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
         storage.vertices,
         mem::AllocatedBuffer::Config()
@@ -388,6 +388,15 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
                     .enableShaderDeviceAddress())
             .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
             .create(*gd));
+
+    // copy data
+
+    VENUS_RETURN_BAD_RESULT(pipeline::BufferWritter()
+                                .addBuffer(*storage.vertices, vertices.data(),
+                                           sizeof(Vertex) * vertices.size())
+                                .addBuffer(*storage.indices, indices.data(),
+                                           sizeof(u32) * indices.size())
+                                .immediateSubmit(gd));
 
     Model model;
 
@@ -608,7 +617,6 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
                      auto tm = hermes::geo::Transform::translate(tl);
                      auto rm = hermes::geo::Transform(rot.matrix());
                      auto sm = hermes::geo::Transform::scale(sc.x, sc.y, sc.z);
-
                      new_node->setLocalTransform(tm * rm * sm);
                    }},
                node.transform);
@@ -642,9 +650,10 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
 GLTF_Node::~GLTF_Node() noexcept { destroy(); }
 
 void GLTF_Node::destroy() noexcept {
-  top_nodes_.clear();
   nodes_.clear();
+  top_nodes_.clear();
   meshes_.clear();
+  mesh_storage_.clear();
   materials_.clear();
   descriptor_allocator_.destroy();
   material_data_buffer_.destroy();

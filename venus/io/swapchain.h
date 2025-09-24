@@ -127,10 +127,15 @@ public:
   VkFormat colorFormat() const;
   /// \return Swapchain depth buffer.
   const mem::Image &depthBuffer() const;
+  /// \return Swapchain color buffer.
+  const std::vector<mem::Image> &images() const;
   /// \return Swapchain depth buffer view.
   const mem::Image::View &depthBufferView() const;
   /// \return Swapchain image views.
   const std::vector<mem::Image::View> &imageViews() const;
+  /// Acquire next swapchain image.
+  Result<u32> nextImage(VkSemaphore vk_semaphore,
+                        VkFence vk_fence = VK_NULL_HANDLE);
 
 private:
   VkSwapchainKHR vk_swapchain_{VK_NULL_HANDLE};

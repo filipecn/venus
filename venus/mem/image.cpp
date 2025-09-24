@@ -28,6 +28,72 @@
 
 #include <venus/utils/vk_debug.h>
 
+namespace venus {
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::View::Config)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageViewCreateFlags, info_.flags)
+HERMES_PUSH_DEBUG_VK_FIELD(info_.image);
+HERMES_PUSH_DEBUG_VK_STRING(VkImageViewType, info_.viewType)
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, info_.format);
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.r)
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.g)
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.b)
+HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.a)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageAspectFlags,
+                            info_.subresourceRange.aspectMask)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.baseMipLevel)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.levelCount)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.baseArrayLayer)
+HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.layerCount)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::View)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(vk_image_view_);
+HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::Handle)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(image);
+HERMES_PUSH_DEBUG_VK_FIELD(view);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::Config)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_STRING(VkFormatFeatureFlags, format_features_)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageAspectFlags, aspect_mask_)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageCreateFlags, info_.flags)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageType, info_.imageType)
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, info_.format)
+HERMES_PUSH_DEBUG_LINE("extent = {}x{}x{}\n", object.info_.extent.width,
+                       object.info_.extent.height, object.info_.extent.depth)
+HERMES_PUSH_DEBUG_FIELD(info_.mipLevels)
+HERMES_PUSH_DEBUG_FIELD(info_.arrayLayers)
+HERMES_PUSH_DEBUG_VK_STRING(VkSampleCountFlagBits, info_.samples)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageTiling, info_.tiling)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageUsageFlags, info_.usage)
+HERMES_PUSH_DEBUG_VK_STRING(VkSharingMode, info_.sharingMode)
+HERMES_PUSH_DEBUG_FIELD(info_.queueFamilyIndexCount)
+HERMES_PUSH_DEBUG_VK_STRING(VkImageLayout, info_.initialLayout)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(vk_image_);
+HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, vk_format_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedImage)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(vk_image_);
+HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
+HERMES_PUSH_DEBUG_VK_STRING(VkFormat, vk_format_);
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+
 namespace venus::mem {
 
 Image::Config Image::Config::defaults(const VkExtent2D &extent,
@@ -96,6 +162,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addFormatFeatures,
 
 VkImageCreateInfo Image::Config::createInfo() const {
   auto info = info_;
+  info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   info.pQueueFamilyIndices = queue_family_indices_.data();
   info.queueFamilyIndexCount = queue_family_indices_.size();
   return info;
@@ -276,54 +343,3 @@ void AllocatedImage::destroy() noexcept {
 }
 
 } // namespace venus::mem
-
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::View::Config)
-HERMES_PUSH_DEBUG_VK_STRING(VkImageViewCreateFlags, info_.flags)
-HERMES_PUSH_DEBUG_VK_FIELD(info_.image);
-HERMES_PUSH_DEBUG_VK_STRING(VkImageViewType, info_.viewType)
-HERMES_PUSH_DEBUG_VK_STRING(VkFormat, info_.format);
-HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.r)
-HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.g)
-HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.b)
-HERMES_PUSH_DEBUG_VK_STRING(VkComponentSwizzle, info_.components.a)
-HERMES_PUSH_DEBUG_VK_STRING(VkImageAspectFlags,
-                            info_.subresourceRange.aspectMask)
-HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.baseMipLevel)
-HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.levelCount)
-HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.baseArrayLayer)
-HERMES_PUSH_DEBUG_FIELD(info_.subresourceRange.layerCount)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::View)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_image_view_);
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::Handle)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(image);
-HERMES_PUSH_DEBUG_VK_FIELD(view);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Image)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_image_);
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
-HERMES_PUSH_DEBUG_VK_STRING(VkFormat, vk_format_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedImage)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_image_);
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
-HERMES_PUSH_DEBUG_VK_STRING(VkFormat, vk_format_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

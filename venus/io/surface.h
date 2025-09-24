@@ -20,60 +20,32 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   glfw_display.h
+/// \file   surface.h
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-06-07
-/// \brief  GLFW Display
+/// \brief  Surface KHR
 
 #pragma once
 
-#include <hermes/core/types.h>
-#include <venus/io/display.h>
-
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
+#include <venus/core/vk_api.h>
+#include <venus/utils/macros.h>
 
 namespace venus::io {
 
-class GLFW_Context {
+class SurfaceKHR {
 public:
-  ~GLFW_Context() noexcept;
-  GLFW_Context(const GLFW_Context &other) = delete;
-  GLFW_Context &operator=(const GLFW_Context &other) = delete;
+  SurfaceKHR(VkInstance vk_instance, VkSurfaceKHR vk_surface) noexcept;
 
-  static VkResult enter();
-  static void leave();
+  VENUS_DECLARE_RAII_FUNCTIONS(SurfaceKHR)
+
+  void destroy() noexcept;
+  void swap(SurfaceKHR &rhs);
+
+  VkSurfaceKHR operator*() const;
 
 private:
-  GLFW_Context() noexcept;
-
-  static GLFW_Context instance_;
-
-  bool initialized_{false};
-  u32 client_count_{0};
-};
-
-class GLFW_Window : public Display {
-public:
-  GLFW_Window() noexcept = default;
-  ~GLFW_Window() noexcept override;
-
-  // interface
-
-  HERMES_NODISCARD VeResult init(const char *name,
-                                 const VkExtent2D &extent) override;
-  /// Creates a vulkan surface object from a given instance handle.
-  /// \note The caller is responsible for destroying the newly created object.
-  Result<SurfaceKHR> createSurface(VkInstance vk_instance) const override;
-  /// Destroy this display resources.
-  VeResult destroy() override;
-  /// \return true if the display is closing and must be destroyed.
-  bool shouldClose() override;
-  /// Receive new input events.
-  void pollEvents() override;
-
-private:
-  GLFWwindow *window_{nullptr};
+  VkSurfaceKHR vk_surface_{VK_NULL_HANDLE};
+  VkInstance vk_instance_{VK_NULL_HANDLE};
 };
 
 } // namespace venus::io

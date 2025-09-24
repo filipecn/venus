@@ -503,24 +503,25 @@ std::string decodeVendorID(uint32_t id) {
 
 namespace venus {
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::PhysicalDevice)
-HERMES_PUSH_DEBUG_LINE("Name:           {}", object.vk_properties_.deviceName);
+HERMES_PUSH_DEBUG_LINE("Name:           {}\n",
+                       object.vk_properties_.deviceName);
 HERMES_PUSH_DEBUG_LINE(
-    "Type:           {}",
+    "Type:           {}\n",
     string_VkPhysicalDeviceType(object.vk_properties_.deviceType));
-HERMES_PUSH_DEBUG_LINE("API Version:    {}",
+HERMES_PUSH_DEBUG_LINE("API Version:    {}\n",
                        decodeAPIVersion(object.vk_properties_.apiVersion));
-HERMES_PUSH_DEBUG_LINE("Driver Version: {}",
+HERMES_PUSH_DEBUG_LINE("Driver Version: {}\n",
                        decodeDriverVersion(object.vk_properties_.driverVersion,
                                            object.vk_properties_.vendorID));
-HERMES_PUSH_DEBUG_LINE("Vendor ID:      {}",
+HERMES_PUSH_DEBUG_LINE("Vendor ID:      {}\n",
                        decodeVendorID(object.vk_properties_.vendorID));
-HERMES_PUSH_DEBUG_LINE("Device ID:      {}", object.vk_properties_.deviceID);
-HERMES_PUSH_DEBUG_LINE("#Family Queues: {}", object.vk_extensions_.size());
+HERMES_PUSH_DEBUG_LINE("Device ID:      {}\n", object.vk_properties_.deviceID);
+HERMES_PUSH_DEBUG_LINE("#Family Queues: {}\n", object.vk_extensions_.size());
 // HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(vk_queue_families_, vk_queue_family);
 // HERMES_PUSH_DEBUG_LINE("{}",
 // string_VkQueueFlags(vk_queue_family.queueFlags));
 // HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_LINE("#extensions:    {}", object.vk_extensions_.size());
+HERMES_PUSH_DEBUG_LINE("#extensions:    {}\n", object.vk_extensions_.size());
 // HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(vk_extensions_, extension);
 // HERMES_PUSH_DEBUG_VK_VARIABLE(extension.extensionName);
 // HERMES_PUSH_DEBUG_ARRAY_FIELD_END
@@ -528,9 +529,9 @@ HERMES_PUSH_DEBUG_VK_HANDLE(vk_physical_device_);
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::PhysicalDevices)
-HERMES_PUSH_DEBUG_LINE("#devices: {}", object.size());
+HERMES_PUSH_DEBUG_LINE("#devices: {}\n", object.size());
 for (const auto &physical_device : object) {
-  HERMES_PUSH_DEBUG_LINE("device[]: \n{}", venus::to_string(physical_device));
+  HERMES_PUSH_DEBUG_LINE("device[]: \n{}\n", venus::to_string(physical_device));
 }
 HERMES_TO_STRING_DEBUG_METHOD_END
 

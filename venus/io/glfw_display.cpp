@@ -98,11 +98,11 @@ VeResult GLFW_Window::destroy() {
   return VeResult::noError();
 }
 
-Result<VkSurfaceKHR> GLFW_Window::createSurface(VkInstance instance) const {
+Result<SurfaceKHR> GLFW_Window::createSurface(VkInstance instance) const {
   VkSurfaceKHR surface;
   VENUS_VK_RETURN_BAD_RESULT(
       glfwCreateWindowSurface(instance, window_, nullptr, &surface));
-  return Result<VkSurfaceKHR>(surface);
+  return Result<SurfaceKHR>(SurfaceKHR(instance, surface));
 }
 
 bool GLFW_Window::shouldClose() { return glfwWindowShouldClose(window_); }

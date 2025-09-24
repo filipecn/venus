@@ -67,7 +67,7 @@ public:
 
   HERMES_NODISCARD VkResult status() const;
   HERMES_NODISCARD VkResult wait() const;
-  void reset() const;
+  HERMES_NODISCARD VkResult reset() const;
 
 private:
   VkFence vk_fence_{VK_NULL_HANDLE};

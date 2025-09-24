@@ -27,9 +27,75 @@
 #include <venus/pipeline/command_buffer.h>
 
 #include <venus/core/sync.h>
+#include <venus/engine/graphics_device.h>
 #include <venus/utils/vk_debug.h>
 
 namespace venus::pipeline {
+
+CommandBuffer::RenderingInfo::Attachment::Attachment() noexcept {
+  info_.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+  info_.pNext = nullptr;
+}
+
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setImageView, VkImageView, imageView)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setImageLayout, VkImageLayout, imageLayout)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setResolveMode, VkResolveModeFlagBits,
+                                   resolveMode)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setResolveImageView, VkImageView,
+                                   resolveImageView)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setResolveImageLayout, VkImageLayout,
+                                   resolveImageLayout)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setLoadOp, VkAttachmentLoadOp, loadOp)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setStoreOp, VkAttachmentStoreOp, storeOp)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo::Attachment,
+                                   setClearValue, VkClearValue, clearValue)
+
+VkRenderingAttachmentInfo
+CommandBuffer::RenderingInfo::Attachment::operator*() const {
+  return info_;
+}
+
+CommandBuffer::RenderingInfo::RenderingInfo() noexcept {
+  info_.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+  info_.pNext = nullptr;
+}
+
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo, setFlags,
+                                   VkRenderingFlags, flags)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo, setRenderArea,
+                                   const VkRect2D &, renderArea)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo, setLayerCount,
+                                   u32, layerCount)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(CommandBuffer::RenderingInfo, setViewMask,
+                                   u32, viewMask)
+VENUS_DEFINE_SET_FIELD_METHOD(CommandBuffer::RenderingInfo, addColorAttachment,
+                              const CommandBuffer::RenderingInfo::Attachment &,
+                              color_attachments_.emplace_back(*value))
+VENUS_DEFINE_SET_FIELD_METHOD(CommandBuffer::RenderingInfo, setDepthAttachment,
+                              const CommandBuffer::RenderingInfo::Attachment &,
+                              depth_attachment_ = *value)
+VENUS_DEFINE_SET_FIELD_METHOD(CommandBuffer::RenderingInfo,
+                              setStencilAttachment,
+                              const CommandBuffer::RenderingInfo::Attachment &,
+                              stencil_attachment_ = *value)
+
+VkRenderingInfo CommandBuffer::RenderingInfo::operator*() const {
+  VkRenderingInfo info = info_;
+  info.colorAttachmentCount = color_attachments_.size();
+  info.pColorAttachments = color_attachments_.data();
+  info.pDepthAttachment =
+      depth_attachment_.has_value() ? &(*depth_attachment_) : nullptr;
+  info.pStencilAttachment =
+      stencil_attachment_.has_value() ? &(*stencil_attachment_) : nullptr;
+  return info;
+}
 
 CommandBuffer::RenderPassInfo::RenderPassInfo() noexcept {
   info_.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -61,7 +127,7 @@ CommandBuffer::RenderPassInfo::addClearColorValuef(f32 r, f32 g, f32 b, f32 a) {
 
 CommandBuffer::RenderPassInfo &
 CommandBuffer::RenderPassInfo::addClearColorValuei(i32 r, i32 g, i32 b, i32 a) {
-  VkClearValue v;
+  VkClearValue v{};
   v.color.int32[0] = r;
   v.color.int32[1] = g;
   v.color.int32[2] = b;
@@ -74,11 +140,11 @@ CommandBuffer::RenderPassInfo::addClearColorValuei(i32 r, i32 g, i32 b, i32 a) {
 
 CommandBuffer::RenderPassInfo &
 CommandBuffer::RenderPassInfo::addClearColorValueu(u32 r, u32 g, u32 b, u32 a) {
-  VkClearValue v;
+  VkClearValue v{};
   v.color.uint32[0] = r;
-  v.color.uint32[0] = g;
-  v.color.uint32[0] = b;
-  v.color.uint32[0] = a;
+  v.color.uint32[1] = g;
+  v.color.uint32[2] = b;
+  v.color.uint32[3] = a;
   clear_values_.emplace_back(v);
   info_.clearValueCount = clear_values_.size();
   info_.pClearValues = clear_values_.data();
@@ -88,7 +154,7 @@ CommandBuffer::RenderPassInfo::addClearColorValueu(u32 r, u32 g, u32 b, u32 a) {
 CommandBuffer::RenderPassInfo &
 CommandBuffer::RenderPassInfo::addClearDepthStencilValue(f32 depth,
                                                          u32 stencil) {
-  VkClearValue v;
+  VkClearValue v{};
   v.depthStencil.depth = depth;
   v.depthStencil.stencil = stencil;
   clear_values_.emplace_back(v);
@@ -97,8 +163,13 @@ CommandBuffer::RenderPassInfo::addClearDepthStencilValue(f32 depth,
   return *this;
 }
 
-VkRenderPassBeginInfo CommandBuffer::RenderPassInfo::info() const {
-  return info_;
+VkRenderPassBeginInfo
+CommandBuffer::RenderPassInfo::info(VkRenderPass vk_renderpass,
+                                    VkFramebuffer vk_framebuffer) const {
+  auto _info = info_;
+  _info.renderPass = vk_renderpass;
+  _info.framebuffer = vk_framebuffer;
+  return _info;
 }
 
 CommandBuffer::CommandBuffer(CommandBuffer &&rhs) noexcept {
@@ -130,8 +201,11 @@ void CommandBuffer::destroy() noexcept {
 VkCommandBuffer CommandBuffer::operator*() const { return vk_command_buffer_; }
 
 VeResult CommandBuffer::begin(VkCommandBufferUsageFlags flags) const {
-  VkCommandBufferBeginInfo info = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                                   nullptr, flags, nullptr};
+  VkCommandBufferBeginInfo info;
+  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  info.pNext = nullptr;
+  info.flags = flags;
+  info.pInheritanceInfo = nullptr;
   VENUS_VK_RETURN_BAD_RESULT(vkBeginCommandBuffer(vk_command_buffer_, &info));
   return VeResult::noError();
 }
@@ -215,7 +289,7 @@ void CommandBuffer::bind(const GraphicsPipeline &graphics_pipeline) const {
 void CommandBuffer::bind(VkPipelineBindPoint pipeline_bind_point,
                          VkPipelineLayout layout, u32 first_set,
                          const std::vector<VkDescriptorSet> &descriptor_sets,
-                         const std::vector<u32> &dynamic_offsets) {
+                         const std::vector<u32> &dynamic_offsets) const {
   vkCmdBindDescriptorSets(
       vk_command_buffer_, pipeline_bind_point, layout, first_set,
       descriptor_sets.size(), descriptor_sets.data(), dynamic_offsets.size(),
@@ -250,14 +324,21 @@ void CommandBuffer::pushConstants(VkPipelineLayout pipeline_layout,
                      size, values);
 }
 
-void CommandBuffer::beginRenderPass(const CommandBuffer::RenderPassInfo &info,
+void CommandBuffer::beginRenderPass(const VkRenderPassBeginInfo &info,
                                     VkSubpassContents contents) const {
-  VkRenderPassBeginInfo _info = info.info();
-  vkCmdBeginRenderPass(vk_command_buffer_, &_info, contents);
+  vkCmdBeginRenderPass(vk_command_buffer_, &info, contents);
 }
 
 void CommandBuffer::endRenderPass() const {
   vkCmdEndRenderPass(vk_command_buffer_);
+}
+
+void CommandBuffer::beginRendering(const VkRenderingInfo &info) const {
+  vkCmdBeginRendering(vk_command_buffer_, &info);
+}
+
+void CommandBuffer::endRendering() const {
+  vkCmdEndRendering(vk_command_buffer_);
 }
 
 void CommandBuffer::bindVertexBuffers(
@@ -301,7 +382,7 @@ void CommandBuffer::blit(VkImage src_image, VkImageLayout src_image_layout,
 }
 
 void CommandBuffer::setViewport(f32 width, f32 height, f32 min_depth,
-                                f32 max_depth) {
+                                f32 max_depth) const {
   VkViewport viewport{};
   viewport.width = width;
   viewport.height = height;
@@ -311,13 +392,54 @@ void CommandBuffer::setViewport(f32 width, f32 height, f32 min_depth,
 }
 
 void CommandBuffer::setScissor(i32 offset_x, i32 offset_y, u32 extent_width,
-                               u32 extent_height) {
+                               u32 extent_height) const {
   VkRect2D scissor_rect{};
   scissor_rect.offset.x = offset_x;
   scissor_rect.offset.y = offset_y;
   scissor_rect.extent.width = extent_width;
   scissor_rect.extent.height = extent_height;
   vkCmdSetScissor(vk_command_buffer_, 0, 1, &scissor_rect);
+}
+
+void CommandBuffer::transitionImage(VkImage vk_image,
+                                    VkImageLayout current_layout,
+                                    VkImageLayout new_layout) const {
+  VkImageMemoryBarrier2 image_barrier{};
+  image_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  image_barrier.pNext = nullptr;
+
+  image_barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+  image_barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+  image_barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+  image_barrier.dstAccessMask =
+      VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+
+  image_barrier.oldLayout = current_layout;
+  image_barrier.newLayout = new_layout;
+
+  VkImageAspectFlags aspect_mask =
+      (new_layout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+          ? VK_IMAGE_ASPECT_DEPTH_BIT
+          : VK_IMAGE_ASPECT_COLOR_BIT;
+
+  VkImageSubresourceRange sub_image{};
+  sub_image.aspectMask = aspect_mask;
+  sub_image.baseMipLevel = 0;
+  sub_image.levelCount = VK_REMAINING_MIP_LEVELS;
+  sub_image.baseArrayLayer = 0;
+  sub_image.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+  image_barrier.subresourceRange = sub_image;
+  image_barrier.image = vk_image;
+
+  VkDependencyInfo dep_info{};
+  dep_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  dep_info.pNext = nullptr;
+
+  dep_info.imageMemoryBarrierCount = 1;
+  dep_info.pImageMemoryBarriers = &image_barrier;
+
+  vkCmdPipelineBarrier2(vk_command_buffer_, &dep_info);
 }
 
 CommandPool::CommandPool(CommandPool &&rhs) noexcept { *this = std::move(rhs); }
@@ -537,6 +659,48 @@ VeResult BufferWritter::record(const core::Device &device,
     vertex_copy.size = sizes_[i];
     vkCmdCopyBuffer(cb, *staging, buffers_[i], 1, &vertex_copy);
   }
+
+  return VeResult::noError();
+}
+
+VeResult
+BufferWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
+  // compute total staging size
+  std::vector<u32> offsets(1, 0);
+  u32 staging_size = 0;
+  for (const auto &size : sizes_) {
+    offsets.emplace_back(staging_size + size);
+    staging_size += size;
+  }
+
+  mem::AllocatedBuffer staging;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      staging,
+      mem::AllocatedBuffer::Config()
+          .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
+          .setMemoryConfig(
+              mem::DeviceMemory::Config()
+                  .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
+                  .setUsage(VMA_MEMORY_USAGE_CPU_ONLY))
+          .create(*gd));
+
+  std::vector<VkBufferCopy> copies;
+  for (u32 i = 0; i < data_.size(); ++i) {
+    // transfer data to staging
+    VENUS_RETURN_BAD_RESULT(staging.copy(data_[i], sizes_[i], offsets[i]));
+  }
+
+  VENUS_RETURN_BAD_RESULT(
+      gd.immediateSubmit([&](const pipeline::CommandBuffer &cb) {
+        // record staging -> device transfer
+        for (u32 i = 0; i < data_.size(); ++i) {
+          VkBufferCopy vertex_copy{0};
+          vertex_copy.dstOffset = 0;
+          vertex_copy.srcOffset = offsets[i];
+          vertex_copy.size = sizes_[i];
+          vkCmdCopyBuffer(*cb, *staging, buffers_[i], 1, &vertex_copy);
+        }
+      }));
 
   return VeResult::noError();
 }

@@ -26,124 +26,219 @@
 
 #include <venus/app/display_app.h>
 #include <venus/engine/gltf_io.h>
-#include <venus/engine/graphics_device.h>
 #include <venus/engine/graphics_engine.h>
 #include <venus/io/glfw_display.h>
+#include <venus/scene/camera.h>
+
+venus::scene::GLTF_Node::Ptr node;
+venus::scene::Camera camera;
+venus::pipeline::DescriptorAllocator frame_descriptors;
 
 VeResult startup(venus::app::DisplayApp &app) {
 
-  venus::core::vk::DeviceFeatures device_features;
-  device_features.f.shaderUniformBufferArrayDynamicIndexing = true;
-  device_features.descriptor_indexing_f.descriptorBindingPartiallyBound = true;
-  device_features.synchronization2_f.synchronization2 = true;
-
-  device_features.v13_f.dynamicRendering = true;
-  device_features.v13_f.synchronization2 = true;
-  device_features.v12_f.bufferDeviceAddress = true;
-  device_features.v12_f.descriptorIndexing = true;
-  device_features.v12_f.descriptorBindingPartiallyBound = true;
-  device_features.v12_f.descriptorBindingVariableDescriptorCount = true;
-  device_features.v12_f.runtimeDescriptorArray = true;
-  device_features.f2.features.shaderUniformBufferArrayDynamicIndexing = true;
-
-  std::vector<std::string> device_extensions = {
-      VK_KHR_MAINTENANCE_1_EXTENSION_NAME,
-      VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
-      VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-      VK_KHR_DEVICE_GROUP_EXTENSION_NAME,
-      VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-      VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME};
-
   VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::Config()
-                              .setDeviceFeatures(device_features)
-                              .setDeviceExtensions(device_extensions)
+                              .setSynchronization2()
+                              .setDynamicRendering()
+                              .setBindless()
                               .init(app.display()));
 
   VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::startup());
 
-  venus::scene::GLTF_Node::Ptr node;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      frame_descriptors,
+      venus::pipeline::DescriptorAllocator::Config()
+          .setInitialSetCount(1)
+          .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.f)
+          .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3.f)
+          .create(**venus::engine::GraphicsEngine::device()));
+
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       node, venus::scene::GLTF_Node::from(
                 std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box.glb",
                 venus::engine::GraphicsEngine::device()));
 
+  camera = venus::scene::Camera::perspective();
+
   return VeResult::noError();
 }
 
-VeResult shutdown() { return venus::engine::GraphicsEngine::shutdown(); }
+VeResult shutdown() {
+  node->destroy();
+  frame_descriptors.destroy();
+  return venus::engine::GraphicsEngine::shutdown();
+}
+
+void draw(const venus::pipeline::CommandBuffer &cb,
+          const venus::scene::RenderObject &ro,
+          VkDescriptorSet scene_descriptor_set) {
+  static VkPipeline last_pipeline{nullptr};
+  static venus::scene::Material *last_material{nullptr};
+  static VkBuffer last_index_buffer{nullptr};
+  static VkBuffer last_vertex_buffer{nullptr};
+
+  if (last_material != ro.material->material) {
+    if (last_pipeline != *ro.material->material->pipeline().pipeline()) {
+      last_pipeline = *ro.material->material->pipeline().pipeline();
+      // bind pipeline
+      cb.bind(ro.material->material->pipeline().pipeline());
+      // bind global descriptor set
+      cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
+              *ro.material->material->pipeline().pipelineLayout(), 0,
+              {scene_descriptor_set});
+    }
+    // bind material descriptor set
+    cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
+            *ro.material->material->pipeline().pipelineLayout(), 1,
+            {*ro.material->descriptor_set});
+  }
+
+  if (ro.vertex_buffer && ro.vertex_buffer != last_vertex_buffer) {
+    last_vertex_buffer = ro.vertex_buffer;
+    cb.bindVertexBuffers(0, {ro.vertex_buffer}, {0});
+  }
+  if (ro.index_buffer && ro.index_buffer != last_index_buffer) {
+    last_index_buffer = ro.index_buffer;
+    cb.bindIndexBuffer(ro.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+  }
+
+  // compute push constants
+  venus::engine::GraphicsEngine::Globals::Types::DrawPushConstants
+      push_constants;
+  push_constants.world_matrix = ro.transform;
+  push_constants.vertex_buffer = ro.vertex_buffer_address;
+
+  cb.pushConstants(
+      *ro.material->material->pipeline().pipelineLayout(),
+      VK_SHADER_STAGE_VERTEX_BIT, 0,
+      sizeof(venus::engine::GraphicsEngine::Globals::Types::DrawPushConstants),
+      &push_constants);
+
+  HERMES_WARN("{}", venus::to_string(ro));
+  if (ro.index_count)
+    cb.drawIndexed(ro.index_count, 1, ro.first_index, 0, 0);
+  else
+    cb.draw(12 * 3, 1, 0, 0);
+}
 
 VeResult render(const venus::io::DisplayLoop::Iteration::Frame &frame) {
+  auto &gd = venus::engine::GraphicsEngine::device();
+
+  VENUS_RETURN_BAD_RESULT(gd.prepare());
+
+  // setup uniform buffer
+
+  venus::engine::GraphicsEngine::Globals::Types::SceneData scene_data;
+  scene_data.view = camera.viewTransform();
+  scene_data.proj = camera.projectionTransform();
+  scene_data.viewproj = camera.projectionTransform() * camera.viewTransform();
+
+  venus::mem::AllocatedBuffer scene_data_buffer;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      scene_data_buffer,
+      venus::mem::AllocatedBuffer::Config()
+          .setBufferConfig(venus::mem::Buffer::Config::forUniform(
+              sizeof(venus::engine::GraphicsEngine::Globals::Types::SceneData)))
+          .setMemoryConfig(venus::mem::DeviceMemory::Config().setHostVisible())
+          .create(*gd));
+
+  VENUS_RETURN_BAD_RESULT(
+      scene_data_buffer.copy(&scene_data, sizeof(scene_data)));
+
+  // setup descriptor set for scene data
+
+  venus::pipeline::DescriptorSet scene_descriptor_set;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      scene_descriptor_set,
+      frame_descriptors.allocate(venus::engine::GraphicsEngine::globals()
+                                     .descriptors.scene_data_layout));
+
+  venus::pipeline::DescriptorWriter()
+      .writeBuffer(
+          0, *scene_data_buffer,
+          sizeof(venus::engine::GraphicsEngine::Globals::Types::SceneData), 0,
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+      .update(scene_descriptor_set);
+
+  venus::scene::DrawContext ctx;
+  node->draw(hermes::geo::Transform(), ctx);
+
+  VENUS_RETURN_BAD_RESULT(
+      gd.beginRecord(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT));
+
+  auto &cb = gd.commandBuffer();
+
+  VkImage image = *gd.swapchain().images()[gd.currentTargetIndex()];
+  VkImageView image_view =
+      *gd.swapchain().imageViews()[gd.currentTargetIndex()];
+  VkImageView depth_view = *gd.swapchain().depthBufferView();
+
+  // clear screen
+
+  VkClearColorValue clearColor = {164.0f / 256.0f, 30.0f / 256.0f,
+                                  34.0f / 256.0f, 0.0f};
+  VkClearValue clearValue = {};
+  clearValue.color = clearColor;
+  VkImageSubresourceRange imageRange = {};
+  imageRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  imageRange.levelCount = 1;
+  imageRange.layerCount = 1;
+  std::vector<VkImageSubresourceRange> ranges;
+  ranges.emplace_back(imageRange);
+
+  cb.transitionImage(image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+  cb.clear(*venus::engine::GraphicsEngine::device().swapchain().images()[0],
+           VK_IMAGE_LAYOUT_GENERAL, ranges, clearColor);
+
+  cb.transitionImage(image, VK_IMAGE_LAYOUT_GENERAL,
+                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+  VkClearValue depth_clear;
+  depth_clear.depthStencil.depth = 0.f;
+  auto rendering_info =
+      venus::pipeline::CommandBuffer::RenderingInfo()
+          .setLayerCount(1)
+          .setRenderArea({VkOffset2D{0, 0}, gd.swapchain().imageExtent()})
+          .addColorAttachment(
+              venus::pipeline::CommandBuffer::RenderingInfo::Attachment()
+                  .setImageLayout(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL)
+                  .setImageView(image_view)
+                  .setStoreOp(VK_ATTACHMENT_STORE_OP_STORE)
+                  .setLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD))
+          .setDepthAttachment(
+              venus::pipeline::CommandBuffer::RenderingInfo::Attachment()
+                  .setImageLayout(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+                  .setImageView(depth_view)
+                  .setStoreOp(VK_ATTACHMENT_STORE_OP_STORE)
+                  .setLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR)
+                  .setClearValue(depth_clear));
+
+  cb.beginRendering(*rendering_info);
+
+  for (const auto &object : ctx.objects) {
+    draw(cb, object, *scene_descriptor_set);
+  }
+
+  cb.endRendering();
+
+  cb.transitionImage(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().endRecord());
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().submit());
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().finish());
   return VeResult::noError();
 }
 
 int main() {
-  using namespace venus::core;
-  using namespace venus::io;
-  using namespace venus::app;
-  VENUS_CHECK_VE_RESULT(vk::init());
+  VENUS_CHECK_VE_RESULT(venus::core::vk::init());
 
-  return DisplayApp::Config()
-      .setDisplay<GLFW_Window>("Hello Vulkan Display App", {1024, 1024})
+  return venus::app::DisplayApp::Config()
+      .setDisplay<venus::io::GLFW_Window>("Hello Vulkan Display App",
+                                          {1024, 1024})
       .setStartupFn(startup)
       .setShutdownFn(shutdown)
       .setRenderFn(render)
       .create()
       .run();
-
-  // Instance instance;
-  // venus::engine::GraphicsDevice gd;
-  // PhysicalDevices physical_devices;
-  // GLFW_Window window;
-  // VkSurfaceKHR surface;
-  // PhysicalDevice physical_device;
-  // vk::GraphicsQueueFamilyIndices indices;
-  //  instance
-  //  VENUS_ASSIGN_RESULT(instance, Instance::Config()
-  //                                   .setApiVersion(vk::Version(1, 4, 0))
-  //                                   .setName("hello_vulkan_app")
-  //                                   .addExtensions(getInstanceExtensions())
-  //                                   .enableDefaultDebugMessageSeverityFlags()
-  //                                   .enableDefaultDebugMessageTypeFlags()
-  //                                   .enableDebugUtilsExtension()
-  //                                   .create());
-  // HERMES_INFO("\n{}", venus::to_string(instance));
-
-  // window
-  // VENUS_CHECK_VE_RESULT(window.init("Hello Vulkan App", {1024, 1024}));
-  // VENUS_ASSIGN_RESULT(surface, window.createSurface(*instance));
-  // graphics device
-
-  // VENUS_ASSIGN_RESULT(gd, venus::engine::GraphicsDevice::Config()
-  //                             .setSurface(surface)
-  //                             .setSurfaceExtent(window.resolution())
-  //                             .addExtensions(device_extensions)
-  //                             .create(instance));
-
-  // return 0;
-
-  // VENUS_ASSIGN_RESULT(physical_devices, instance.physicalDevices());
-  // HERMES_INFO("\n{}", venus::to_string(physical_devices));
-  // VENUS_ASSIGN_RESULT(physical_device,
-  //                     physical_devices.select(
-  //                         PhysicalDevices::Selector().forGraphics(surface)));
-  // VENUS_ASSIGN_RESULT(
-  //     indices, physical_device.selectGraphicsQueueFamilyIndices(surface));
-  // HERMES_INFO("{}", venus::to_string(indices));
-
-  // Device device;
-  // VENUS_ASSIGN_RESULT(
-  //     device, Device::Config()
-  //                 .setFeatures(device_features)
-  //                 .addQueueFamily(indices.graphics_queue_family_index, {1.f})
-  //                 .addQueueFamily(indices.present_queue_family_index, {1.f})
-  //                 .addExtensions(device_extensions)
-  //                 .create(physical_device));
-
-  // Swapchain swapchain;
-  // VENUS_ASSIGN_RESULT(swapchain, Swapchain::Config()
-  //                                    .setSurface(surface)
-  //                                    .setQueueFamilyIndices(indices)
-  //                                    .setExtent(window.resolution())
-  //                                    .create(device));
-  // return 0;
 }

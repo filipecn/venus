@@ -81,7 +81,9 @@ VkResult Fence::wait() const {
   return vkWaitForFences(vk_device_, 1, &vk_fence_, VK_TRUE, UINT64_MAX);
 }
 
-void Fence::reset() const { vkResetFences(vk_device_, 1, &vk_fence_); }
+VkResult Fence::reset() const {
+  return vkResetFences(vk_device_, 1, &vk_fence_);
+}
 
 Semaphore::Config &
 Semaphore::Config::setCreateFlags(VkSemaphoreCreateFlags flags) {

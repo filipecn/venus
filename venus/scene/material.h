@@ -123,6 +123,7 @@ public:
   void swap(Material &rhs);
 
   const pipeline::DescriptorSet::Layout &descriptorSetLayout() const;
+  const Pipeline &pipeline() const;
 
 protected:
   Pipeline pipeline_;
