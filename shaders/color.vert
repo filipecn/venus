@@ -1,21 +1,30 @@
-#version 400
+#version 450
 
-#extension GL_ARB_separate_shader_objects : enable
-#extension GL_ARB_shading_language_420pack : enable
+#extension GL_EXT_debug_printf : enable
+//#extension GL_EXT_nonuniform_qualifier : require
 
-layout (std140, binding = 0) uniform buffer
+layout (set=0, binding = 0) uniform Buffer
 {
   mat4 mvp;
 } uniformBuffer;
 
-layout (location = 0) in vec4 pos;
-layout (location = 1) in vec4 inColor;
+layout (location = 0) in vec3 pos;
+// layout (location = 1) in vec4 inColor;
 
-layout (location = 0) out vec4 outColor;
-
+//layout (location = 0) out vec4 outColor;
 void main()
 {
-  outColor = inColor;
-  gl_Position = uniformBuffer.mvp * pos;
+
+  if(gl_VertexIndex == 0)
+    gl_Position = vec4(-1.0,-1.0,0.0,1.0);
+  if(gl_VertexIndex == 2)
+    gl_Position = vec4(1.0,1.0,0.0,1.0);
+  if(gl_VertexIndex == 1)
+    gl_Position = vec4(1.0,-1.0,0.0,1.0);
+float myfloat = 3.f;
+  debugPrintfEXT("My float is %f", myfloat);
+  
+  //gl_Position = uniformBuffer.mvp * vec4(pos,1.0);
+  gl_Position = vec4(pos,1.0);
 }
 

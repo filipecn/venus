@@ -420,8 +420,10 @@ VeResult GraphicsDevice::finish() {
   VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
   switch (result) {
   case VK_SUCCESS:
+    HERMES_INFO("vk::Queue::presentKHR returned vk::SUCCESS!");
     break;
   case VK_ERROR_OUT_OF_DATE_KHR:
+    HERMES_INFO("vk::Queue::presentKHR returned vk::OUT_OF_DATE_KHR!");
     // resize_requested = true;
     break;
   case VK_SUBOPTIMAL_KHR:

@@ -66,13 +66,118 @@ VkBuffer Model::indexBuffer() const { return vk_index_buffer_; }
 
 VkDeviceAddress Model::deviceAddress() const { return vk_address_; }
 
+AllocatedModel::Config AllocatedModel::Config::fromMesh(const Mesh &mesh) {
+  AllocatedModel::Config config;
+  config.mesh_ = mesh;
+  return config;
+}
+
+Result<AllocatedModel>
+AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
+  AllocatedModel model;
+
+  if (!mesh_.aos.size()) {
+    HERMES_ERROR("Failed to create empty allocated model.");
+    return VeResult::inputError();
+  }
+
+  auto vertex_buffer_size = mesh_.aos.dataSize();
+  auto index_buffer_size = sizeof(u32) * mesh_.indices.size();
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      model.storage_.vertices,
+      mem::AllocatedBuffer::Config()
+          .setBufferConfig(mem::Buffer::Config::forStorage(vertex_buffer_size)
+                               .addUsage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+                               .enableShaderDeviceAddress())
+          .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
+          .create(*gd));
+
+  if (index_buffer_size) {
+    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+        model.storage_.indices,
+        mem::AllocatedBuffer::Config()
+            .setBufferConfig(mem::Buffer::Config::forStorage(index_buffer_size)
+                                 .addUsage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+                                 .enableShaderDeviceAddress())
+            .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
+            .create(*gd));
+  }
+
+  // copy data
+
+  pipeline::BufferWritter buffer_writter;
+  buffer_writter.addBuffer(*model.storage_.vertices, *mesh_.aos.data(),
+                           vertex_buffer_size);
+  if (index_buffer_size) {
+    buffer_writter.addBuffer(*model.storage_.indices, mesh_.indices.data(),
+                             index_buffer_size);
+  }
+
+  VENUS_RETURN_BAD_RESULT(buffer_writter.immediateSubmit(gd));
+
+  model.mesh_ = mesh_;
+  model.vk_vertex_buffer_ = *model.storage_.vertices;
+  model.vk_index_buffer_ = *model.storage_.indices;
+  model.vk_address_ = model.storage_.vertices.deviceAddress();
+
+  return Result<AllocatedModel>(std::move(model));
+}
+
+AllocatedModel::AllocatedModel(AllocatedModel &&rhs) noexcept { swap(rhs); }
+
+AllocatedModel::~AllocatedModel() noexcept { destroy(); }
+
+AllocatedModel &AllocatedModel::operator=(AllocatedModel &&rhs) noexcept {
+  destroy();
+  swap(rhs);
+  return *this;
+}
+
+void AllocatedModel::destroy() noexcept {
+  storage_.vertices.destroy();
+  storage_.indices.destroy();
+  HERMES_CHECK_HE_RESULT(mesh_.aos.clear());
+  mesh_.indices.clear();
+  mesh_.layout.clear();
+}
+
+void AllocatedModel::swap(AllocatedModel &rhs) {
+  VENUS_SWAP_FIELD_WITH_RHS(storage_.vertices);
+  VENUS_SWAP_FIELD_WITH_RHS(storage_.indices);
+  VENUS_SWAP_FIELD_WITH_RHS(mesh_);
+  VENUS_SWAP_FIELD_WITH_RHS(shapes_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_vertex_buffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_index_buffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_address_);
+  VENUS_SWAP_FIELD_WITH_RHS(vertex_layout_);
+}
+
 } // namespace venus::scene
 
 namespace venus {
 
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model::Shape)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_FIELD(index_base)
+HERMES_PUSH_DEBUG_FIELD(index_count)
+HERMES_PUSH_DEBUG_HERMES_FIELD(bounds)
+HERMES_PUSH_DEBUG_LINE("material: 0x{:x}",
+                       object.material ? (uintptr_t)object.material.get() : 0)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model)
-HERMES_PUSH_DEBUG_VK_FIELD(vk_vertex_buffer_);
-HERMES_PUSH_DEBUG_VK_FIELD(vk_index_buffer_);
+HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_vertex_buffer_)
+HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_index_buffer_)
+HERMES_PUSH_DEBUG_FIELD(vk_address_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(vertex_layout_)
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(shapes_, shape)
+HERMES_PUSH_DEBUG_VENUS_FIELD(shapes_[i])
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::AllocatedModel)
+HERMES_PUSH_DEBUG_HERMES_FIELD(mesh_.aos)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 } // namespace venus

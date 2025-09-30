@@ -28,6 +28,16 @@
 
 #include <venus/utils/vk_debug.h>
 
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Sampler)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Texture)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+
 namespace venus::scene {
 
 VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Sampler, setFlags,

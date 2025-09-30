@@ -20,41 +20,27 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   materials.h
+/// \file   shapes.h
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-07-30
-/// \brief  Built-in venus materials.
 
-#include <hermes/numeric/matrix.h>
-#include <venus/engine/graphics_device.h>
-#include <venus/mem/image.h>
-#include <venus/pipeline/shader_module.h>
-#include <venus/scene/material.h>
+#include <venus/engine/shapes.h>
 
-#include <hermes/geometry/transform.h>
-#include <hermes/geometry/vector.h>
+namespace venus::scene::shapes {
 
-namespace venus::scene {
+Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
+                             const hermes::geo::point3 &b,
+                             const hermes::geo::point3 &c,
+                             shape_options options) {
+  Model::Mesh mesh;
+  mesh.aos.pushField<hermes::geo::point3>("position");
+  auto err = mesh.aos.resize(3);
+  mesh.aos.valueAt<hermes::geo::point3>(0, 0) = a;
+  mesh.aos.valueAt<hermes::geo::point3>(0, 1) = b;
+  mesh.aos.valueAt<hermes::geo::point3>(0, 2) = c;
+  // mesh.layout.pushComponent(mem::VertexLayout::ComponentType::Position,
+  //                           VK_FORMAT_R32G32B32_SFLOAT);
+  return Result<Model::Mesh>(std::move(mesh));
+}
 
-class Material_Color : public Material::Writer {
-public:
-  static Result<Material> material(const engine::GraphicsDevice &gd);
-
-  struct Data {
-    hermes::geo::Transform mvp;
-  };
-
-  struct Resources {
-    VkBuffer data_buffer;
-    u32 data_buffer_offset;
-  };
-
-  Result<Material::Instance>
-  write(pipeline::DescriptorAllocator &allocator,
-        VkDescriptorSetLayout vk_descriptor_set_layout) override;
-
-  Data data;
-  Resources resources;
-};
-
-} // namespace venus::scene
+} // namespace venus::scene::shapes

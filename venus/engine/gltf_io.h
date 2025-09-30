@@ -67,7 +67,8 @@ public:
   };
 
   Result<Material::Instance>
-  write(pipeline::DescriptorAllocator &allocator) override;
+  write(pipeline::DescriptorAllocator &allocator,
+        VkDescriptorSetLayout vk_descritor_set_layout) override;
 
   Data data;
   Resources resources;
@@ -110,6 +111,8 @@ private:
   pipeline::DescriptorAllocator descriptor_allocator_;
 
   mem::AllocatedBuffer material_data_buffer_;
+
+  VENUS_TO_STRING_FRIEND(GLTF_Node);
 };
 
 } // namespace venus::scene

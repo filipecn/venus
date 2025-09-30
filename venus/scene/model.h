@@ -27,11 +27,13 @@
 
 #pragma once
 
+#include <venus/engine/graphics_device.h>
 #include <venus/mem/buffer.h>
 #include <venus/mem/layout.h>
 #include <venus/scene/material.h>
 
 #include <hermes/geometry/bounds.h>
+#include <hermes/storage/aos.h>
 
 namespace venus::scene {
 
@@ -48,6 +50,12 @@ namespace venus::scene {
 class Model {
 public:
   using Ptr = std::shared_ptr<Model>;
+
+  struct Mesh {
+    mem::VertexLayout layout;
+    hermes::mem::AoS aos;
+    std::vector<u32> indices;
+  };
 
   template <typename BufferType> struct Storage {
     BufferType vertices;
@@ -89,19 +97,47 @@ public:
 
   /// \return Model shapes.
   HERMES_NODISCARD const std::vector<Shape> &shapes() const;
-
   VkBuffer vertexBuffer() const;
   VkBuffer indexBuffer() const;
   VkDeviceAddress deviceAddress() const;
 
-  VENUS_TO_STRING_FRIEND(Model);
-
-private:
+protected:
+  std::vector<Shape> shapes_;
   VkBuffer vk_vertex_buffer_{VK_NULL_HANDLE};
   VkBuffer vk_index_buffer_{VK_NULL_HANDLE};
   VkDeviceAddress vk_address_{0};
   mem::VertexLayout vertex_layout_;
-  std::vector<Shape> shapes_;
+
+  VENUS_TO_STRING_FRIEND(Model);
+};
+
+class AllocatedModel : public Model {
+public:
+  struct Config {
+
+    template <typename Func, typename... Args>
+    static Config fromShape(Func f, Args &&...args) {
+      Config config;
+      VENUS_ASSIGN_RESULT(config.mesh_, f(std::forward<Args>(args)...));
+      return config;
+    }
+    static Config fromMesh(const Mesh &mesh);
+    Result<AllocatedModel> create(const engine::GraphicsDevice &gd) const;
+
+  private:
+    Model::Mesh mesh_;
+  };
+
+  VENUS_DECLARE_RAII_FUNCTIONS(AllocatedModel);
+
+  void destroy() noexcept;
+  void swap(AllocatedModel &rhs);
+
+private:
+  Model::Storage<mem::AllocatedBuffer> storage_;
+  Model::Mesh mesh_;
+
+  VENUS_TO_STRING_FRIEND(AllocatedModel);
 };
 
 } // namespace venus::scene

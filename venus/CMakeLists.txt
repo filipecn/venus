@@ -11,6 +11,7 @@ set(VENUS_HEADERS
   engine/graphics_device.h
   engine/graphics_engine.h
   engine/materials.h
+  engine/shapes.h
 
   io/display.h
   io/glfw_display.h
@@ -53,6 +54,7 @@ set(VENUS_SOURCES
   engine/graphics_device.cpp
   engine/graphics_engine.cpp
   engine/materials.cpp
+  engine/shapes.cpp
 
   io/display.cpp
   io/glfw_display.cpp

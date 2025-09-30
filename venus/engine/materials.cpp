@@ -39,46 +39,58 @@ Result<Material> Material_Color::material(const engine::GraphicsDevice &gd) {
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT)
              .create(**gd));
-  auto vk_descriptor_set_layout = *l;
 
   auto &globals = engine::GraphicsEngine::globals();
 
-  Material m;
+  auto pipeline_layout_config =
+      pipeline::Pipeline::Layout::Config().addDescriptorSetLayout(*l);
 
+  auto pipeline_config =
+      pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
+          .setVertexInputState(mem::VertexLayout().pushComponent(
+              mem::VertexLayout::ComponentType::Position,
+              VK_FORMAT_R32G32B32A32_SFLOAT)
+                               //.pushComponent(
+                               //    mem::VertexLayout::ComponentType::Color,
+                               //    VK_FORMAT_R32G32B32A32_SFLOAT)
+                               )
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_VERTEX_BIT)
+                              .create(globals.shaders.vert_color))
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                              .create(globals.shaders.frag_color));
+
+  Material m;
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      m,
-      Material::Config()
-          .setDescriptorSetLayout(std::move(l))
-          .setMaterialPipelineConfig(
-              Material::Pipeline::Config()
-                  .setPipelineConfig(
-                      pipeline::GraphicsPipeline::Config::defaults(
-                          gd.swapchain().imageExtent())
-                          .setVertexInputState(
-                              mem::VertexLayout()
-                                  .pushComponent(mem::VertexLayout::
-                                                     ComponentType::Position,
-                                                 VK_FORMAT_R32G32B32A32_SFLOAT)
-                                  .pushComponent(
-                                      mem::VertexLayout::ComponentType::Color,
-                                      VK_FORMAT_R32G32B32A32_SFLOAT))
-                          .setColorAttachmentFormat(
-                              gd.swapchain().colorFormat())
-                          .setDepthFormat(gd.swapchain().depthBuffer().format())
-                          .addShaderStage(
-                              pipeline::Pipeline::ShaderStage()
-                                  .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                                  .create(globals.shaders.vert_color))
-                          .addShaderStage(
-                              pipeline::Pipeline::ShaderStage()
-                                  .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                                  .create(globals.shaders.frag_color)))
-                  .setPipelineLayoutConfig(
-                      pipeline::Pipeline::Layout::Config()
-                          .addDescriptorSetLayout(vk_descriptor_set_layout)))
-          .create(**gd, *gd.renderpass()));
+      m, Material::Config()
+             .setDescriptorSetLayout(std::move(l))
+             .setMaterialPipelineConfig(
+                 Material::Pipeline::Config()
+                     .setPipelineConfig(pipeline_config)
+                     .setPipelineLayoutConfig(pipeline_layout_config))
+             .create(**gd, *gd.renderpass()));
 
   return Result<Material>(std::move(m));
+}
+
+Result<Material::Instance>
+Material_Color::write(pipeline::DescriptorAllocator &allocator,
+                      VkDescriptorSetLayout vk_descriptor_set_layout) {
+  auto &globals = engine::GraphicsEngine::globals();
+
+  Material::Instance instance;
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      instance.descriptor_set, allocator.allocate(vk_descriptor_set_layout));
+  descriptor_writer_.clear();
+  descriptor_writer_.writeBuffer(
+      0, resources.data_buffer, sizeof(Material_Color::Data),
+      resources.data_buffer_offset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+  descriptor_writer_.update(instance.descriptor_set);
+  // instance.material = &globals.materials.gltf_metallic_roughness;
+
+  return Result<Material::Instance>(std::move(instance));
 }
 
 } // namespace venus::scene

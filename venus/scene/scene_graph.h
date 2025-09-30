@@ -123,6 +123,8 @@ protected:
   // geometry
   hermes::geo::Transform local_matrix_;
   hermes::geo::Transform world_matrix_;
+
+  VENUS_TO_STRING_FRIEND(Node);
 };
 
 // *****************************************************************************

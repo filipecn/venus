@@ -65,7 +65,7 @@ public:
 
     /// Types used throughout the application code.
     struct Types {
-      /// Push constants for shaders.
+      /// Common push constants for shaders.
       struct DrawPushConstants {
         hermes::geo::Transform world_matrix;
         VkDeviceAddress vertex_buffer;

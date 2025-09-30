@@ -99,7 +99,8 @@ TO_STR(Array)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::VertexLayout)
-HERMES_PUSH_DEBUG_VK_FIELD(stride_);
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(stride_)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(components_, component)
 HERMES_PUSH_DEBUG_LINE("{} {} {}", string_VkFormat(component.format),
                        component.offset, venus::to_string(component.type));

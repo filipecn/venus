@@ -35,7 +35,7 @@ HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline::ShaderStage)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_VK_STRING(VkShaderStageFlagBits, stages_);
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(specialization_map_entries_, entry)
-HERMES_PUSH_DEBUG_LINE("constantID {} offset {} size {}", entry.constantID,
+HERMES_PUSH_DEBUG_LINE("constantID {} offset {} size {}\n", entry.constantID,
                        entry.offset, entry.size)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_FIELD(specialization_data_size_)
@@ -46,22 +46,24 @@ HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline::Layout::Config)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_VK_STRING(VkPipelineLayoutCreateFlags, flags_);
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(ranges_, range)
-HERMES_PUSH_DEBUG_LINE("stageFlags: {} offset {} size {}",
+HERMES_PUSH_DEBUG_LINE("stageFlags: {} offset {} size {}\n",
                        string_VkShaderStageFlags(range.stageFlags),
                        range.offset, range.size)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(set_layouts_, set_layout)
-HERMES_PUSH_DEBUG_LINE("0x{:x}", (uintptr_t)set_layout);
+HERMES_PUSH_DEBUG_ADDRESS_FIELD(set_layouts_[i]);
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline::Layout)
+HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_VK_FIELD(vk_layout_);
 HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
 HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline)
+HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_VK_FIELD(vk_pipeline_);
 HERMES_PUSH_DEBUG_VK_FIELD(vk_pipeline_cache_);
 HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
@@ -71,12 +73,13 @@ HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
     venus::pipeline::GraphicsPipeline::VertexInput)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(binding_descriptions_, d)
-HERMES_PUSH_DEBUG_LINE("binding {} stride {} inputRage {}", d.binding, d.stride,
-                       string_VkVertexInputRate(d.inputRate))
+HERMES_PUSH_DEBUG_LINE("binding {} stride {} inputRage {}\n", d.binding,
+                       d.stride, string_VkVertexInputRate(d.inputRate))
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(attribute_descriptions_, a)
-HERMES_PUSH_DEBUG_LINE("location {} binding {} format {} offset {}", a.location,
-                       a.binding, string_VkFormat(a.format), a.offset)
+HERMES_PUSH_DEBUG_LINE("location {} binding {} format {} offset {}\n",
+                       a.location, a.binding, string_VkFormat(a.format),
+                       a.offset)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_TO_STRING_DEBUG_METHOD_END
 
@@ -105,7 +108,7 @@ HERMES_PUSH_DEBUG_FIELD(info_.pSampleMask)
 HERMES_PUSH_DEBUG_FIELD(info_.alphaToCoverageEnable)
 HERMES_PUSH_DEBUG_FIELD(info_.alphaToOneEnable)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(sample_masks_, s)
-HERMES_PUSH_DEBUG_LINE("{}", (uintptr_t)s);
+HERMES_PUSH_DEBUG_LINE("{} ", (uintptr_t)s);
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_TO_STRING_DEBUG_METHOD_END
 
@@ -116,20 +119,20 @@ HERMES_PUSH_DEBUG_FIELD(info_.logicOpEnable)
 HERMES_PUSH_DEBUG_VK_STRING(VkLogicOp, info_.logicOp)
 HERMES_PUSH_DEBUG_FIELD(info_.attachmentCount)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(color_blend_attachments_, a)
-HERMES_PUSH_DEBUG_LINE("[{}].blendEnable {}", i, a.blendEnable);
-HERMES_PUSH_DEBUG_LINE("[{}].srcColorBlendFactor {}", i,
+HERMES_PUSH_DEBUG_LINE("[{}].blendEnable         {}\n", i, a.blendEnable);
+HERMES_PUSH_DEBUG_LINE("[{}].srcColorBlendFactor {}\n", i,
                        string_VkBlendFactor(a.srcColorBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].dstColorBlendFactor {}", i,
+HERMES_PUSH_DEBUG_LINE("[{}].dstColorBlendFactor {}\n", i,
                        string_VkBlendFactor(a.dstColorBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].colorBlendOp)       {}", i,
+HERMES_PUSH_DEBUG_LINE("[{}].colorBlendOp        {}\n", i,
                        string_VkBlendOp(a.colorBlendOp))
-HERMES_PUSH_DEBUG_LINE("[{}].srcAlphaBlendFactor {}", i,
+HERMES_PUSH_DEBUG_LINE("[{}].srcAlphaBlendFactor {}\n", i,
                        string_VkBlendFactor(a.srcAlphaBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].dstAlphaBlendFactor {}", i,
+HERMES_PUSH_DEBUG_LINE("[{}].dstAlphaBlendFactor {}\n", i,
                        string_VkBlendFactor(a.dstAlphaBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].alphaBlendOp)       {}", i,
+HERMES_PUSH_DEBUG_LINE("[{}].alphaBlendOp        {}\n", i,
                        string_VkBlendOp(a.alphaBlendOp))
-HERMES_PUSH_DEBUG_LINE("[{}].colorWriteMask)     {}", i,
+HERMES_PUSH_DEBUG_LINE("[{}].colorWriteMask      {}\n", i,
                        string_VkColorComponentFlags(a.colorWriteMask))
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_TO_STRING_DEBUG_METHOD_END
@@ -143,7 +146,7 @@ HERMES_PUSH_DEBUG_VK_STRING(VkCompareOp, info_.depthCompareOp)
 HERMES_PUSH_DEBUG_FIELD(info_.depthBoundsTestEnable)
 HERMES_PUSH_DEBUG_FIELD(info_.stencilTestEnable)
 HERMES_PUSH_DEBUG_LINE("info_.front = failOp {} passOp {} compareOp {} "
-                       "compareMask {} writeMask {} reference {}",
+                       "compareMask {} writeMask {} reference {}\n",
                        string_VkStencilOp(object.info_.front.failOp),
                        string_VkStencilOp(object.info_.front.passOp),
                        string_VkStencilOp(object.info_.front.depthFailOp),
@@ -152,7 +155,7 @@ HERMES_PUSH_DEBUG_LINE("info_.front = failOp {} passOp {} compareOp {} "
                        object.info_.front.writeMask,
                        object.info_.front.reference)
 HERMES_PUSH_DEBUG_LINE("info_.back = failOp {} passOp {} compareOp {} "
-                       "compareMask {} writeMask {} reference {}",
+                       "compareMask {} writeMask {} reference {}\n",
                        string_VkStencilOp(object.info_.back.failOp),
                        string_VkStencilOp(object.info_.back.passOp),
                        string_VkStencilOp(object.info_.back.depthFailOp),
@@ -171,25 +174,25 @@ HERMES_PUSH_DEBUG_VENUS_FIELD(color_blend_)
 HERMES_PUSH_DEBUG_VENUS_FIELD(multisample_)
 HERMES_PUSH_DEBUG_VENUS_FIELD(depth_stencil_)
 HERMES_PUSH_DEBUG_LINE(
-    "input_assembly = topology {} restartEnable {}",
+    "input_assembly = topology {} restartEnable {}\n",
     string_VkPrimitiveTopology(object.input_assembly_.topology),
     object.input_assembly_.primitiveRestartEnable)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(viewports_, v)
-HERMES_PUSH_DEBUG_LINE("{} {} {} {} {} {}", v.x, v.y, v.width, v.height,
+HERMES_PUSH_DEBUG_LINE("{} {} {} {} {} {}\n", v.x, v.y, v.width, v.height,
                        v.minDepth, v.maxDepth)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(scissors_, s)
-HERMES_PUSH_DEBUG_LINE("{} {} {} {}", s.offset.x, s.offset.y, s.extent.width,
+HERMES_PUSH_DEBUG_LINE("{} {} {} {}\n", s.offset.x, s.offset.y, s.extent.width,
                        s.extent.height)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_LINE("viewport_ = viewports {} scissors {}",
+HERMES_PUSH_DEBUG_LINE("viewport_ = viewports {} scissors {}\n",
                        object.viewport_.viewportCount,
                        object.viewport_.scissorCount)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(color_attachment_formats_, f)
-HERMES_PUSH_DEBUG_LINE("{}", string_VkFormat(f))
+HERMES_PUSH_DEBUG_LINE("{}\n", string_VkFormat(f))
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(stages_, s)
-HERMES_PUSH_DEBUG_LINE("stage {} module 0x{:x}",
+HERMES_PUSH_DEBUG_LINE("stage {} module 0x{:x}\n",
                        string_VkShaderStageFlagBits(s.stage),
                        (uintptr_t)(s.module));
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
@@ -392,6 +395,7 @@ GraphicsPipeline::VertexInput GraphicsPipeline::VertexInput::fromVertexLayout(
 
 GraphicsPipeline::Rasterizer::Rasterizer() noexcept {
   info_.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+  info_.rasterizerDiscardEnable = VK_FALSE;
   info_.pNext = nullptr;
 }
 VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
@@ -606,6 +610,8 @@ GraphicsPipeline::Config::Config() noexcept {
 
   rendering_.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
   rendering_.pNext = nullptr;
+
+  depth_stencil_ = GraphicsPipeline::DepthStencil::none();
 }
 
 GraphicsPipeline::Config &GraphicsPipeline::Config::addShaderStage(
@@ -704,14 +710,8 @@ GraphicsPipeline::Config &GraphicsPipeline::Config::setViewportAndDynamicStates(
   scissor.extent = extent;
   viewports_.emplace_back(viewport);
   scissors_.emplace_back(scissor);
-  viewport_.pViewports = viewports_.data();
-  viewport_.viewportCount = viewports_.size();
-  viewport_.pScissors = scissors_.data();
-  viewport_.scissorCount = scissors_.size();
   dynamic_states_.emplace_back(VK_DYNAMIC_STATE_VIEWPORT);
   dynamic_states_.emplace_back(VK_DYNAMIC_STATE_SCISSOR);
-  dynamic_.pDynamicStates = dynamic_states_.data();
-  dynamic_.dynamicStateCount = dynamic_states_.size();
   return *this;
 }
 
@@ -725,7 +725,7 @@ GraphicsPipeline::Config::defaults(const VkExtent2D &viewport_extent) {
   // rasterization
   config.setRasterizationState(GraphicsPipeline::Rasterizer()
                                    .setPolygonMode(VK_POLYGON_MODE_FILL)
-                                   .setCullMode(VK_CULL_MODE_BACK_BIT)
+                                   .setCullMode(VK_CULL_MODE_NONE)
                                    .setFrontFace(VK_FRONT_FACE_CLOCKWISE)
                                    .setLineWidth(1.f));
   // color blending
@@ -733,11 +733,18 @@ GraphicsPipeline::Config::defaults(const VkExtent2D &viewport_extent) {
                            .setBlendingLogicOp(VK_LOGIC_OP_NO_OP)
                            .setBlendingConstants({1.f, 1.f, 1.f, 1.f}));
   // depth test
-  config.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
+  config.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
   // render area and dynamic state
   config.setViewportAndDynamicStates(viewport_extent);
 
   return config;
+}
+
+GraphicsPipeline::Config
+GraphicsPipeline::Config::forDynamicRendering(const io::Swapchain &swapchain) {
+  return defaults(swapchain.imageExtent())
+      .setColorAttachmentFormat(swapchain.colorFormat())
+      .setDepthFormat(swapchain.depthBuffer().format());
 }
 
 Result<GraphicsPipeline>
@@ -750,6 +757,20 @@ GraphicsPipeline::Config::create(VkDevice vk_device,
   auto multisample = multisample_.create();
   auto depth_stencil = depth_stencil_.create();
   auto color_blend = color_blend_.create();
+  auto rendering = rendering_;
+  auto dynamic = dynamic_;
+  auto viewport = viewport_;
+
+  rendering.colorAttachmentCount = color_attachment_formats_.size();
+  rendering.pColorAttachmentFormats = color_attachment_formats_.data();
+
+  dynamic.pDynamicStates = dynamic_states_.data();
+  dynamic.dynamicStateCount = dynamic_states_.size();
+
+  viewport.pViewports = viewports_.data();
+  viewport.viewportCount = viewports_.size();
+  viewport.pScissors = scissors_.data();
+  viewport.scissorCount = scissors_.size();
 
   VkGraphicsPipelineCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -761,9 +782,9 @@ GraphicsPipeline::Config::create(VkDevice vk_device,
   create_info.pRasterizationState = &rasterization;
   create_info.pMultisampleState = &multisample;
   create_info.pDepthStencilState = &depth_stencil;
-  create_info.pDynamicState = &dynamic_;
+  create_info.pDynamicState = &dynamic;
   create_info.pVertexInputState = &vertex_input;
-  create_info.pViewportState = &viewport_;
+  create_info.pViewportState = &viewport;
   create_info.pColorBlendState = &color_blend;
   create_info.pNext = &rendering_;
   create_info.layout = vk_pipeline_layout;

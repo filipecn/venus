@@ -66,12 +66,16 @@ struct Sampler {
 private:
   VkSampler vk_sampler_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
+
+  VENUS_TO_STRING_FRIEND(Sampler);
 };
 
 struct Texture {
   VkImageView image;
   Sampler sampler;
   VkImageLayout image_layout;
+
+  VENUS_TO_STRING_FRIEND(Texture);
 };
 
 } // namespace venus::scene

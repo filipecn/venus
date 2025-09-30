@@ -291,18 +291,41 @@ namespace venus {
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer::Config)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(size_)
+HERMES_PUSH_DEBUG_VK_STRING(VkBufferUsageFlags, usage_)
+HERMES_PUSH_DEBUG_VK_STRING(VkSharingMode, sharing_mode_)
+HERMES_PUSH_DEBUG_VK_STRING(VkBufferCreateFlags, flags_)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
+HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
+                                          ? object.vk_device_address_.value()
+                                          : 0)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer::Config)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(buffer_config_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(mem_config_)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer)
 HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
+HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
+                                          ? object.vk_device_address_.value()
+                                          : 0)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
 } // namespace venus

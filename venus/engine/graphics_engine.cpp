@@ -147,7 +147,7 @@ void GraphicsEngine::Globals::Defaults::clear() {}
 VeResult GraphicsEngine::Globals::init(GraphicsDevice &gd) {
   VENUS_RETURN_BAD_RESULT(descriptors.init(gd));
   VENUS_RETURN_BAD_RESULT(shaders.init(**gd));
-  VENUS_RETURN_BAD_RESULT(materials.init(gd));
+  // VENUS_RETURN_BAD_RESULT(materials.init(gd));
   return VeResult::noError();
 }
 
@@ -229,13 +229,14 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
                           .addExtensions(device_extensions_)
                           .create(s_instance.instance_));
 
-  // globals
-  VENUS_RETURN_BAD_RESULT(s_instance.globals_.init(s_instance.gd_));
-
   return VeResult::noError();
 }
 
 VeResult GraphicsEngine::startup(const GraphicsEngine::Config &config) {
+
+  // globals
+  VENUS_RETURN_BAD_RESULT(s_instance.globals_.init(s_instance.gd_));
+
   return VeResult::noError();
 }
 

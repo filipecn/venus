@@ -59,6 +59,38 @@ HERMES_PUSH_DEBUG_VK_FIELD(resources.data_buffer)
 HERMES_PUSH_DEBUG_FIELD(resources.data_buffer_offset)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::GLTF_Node)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(meshes_, name, mesh_ptr)
+HERMES_PUSH_DEBUG_LINE("mesh[{}]:\n\t{}\n", name, venus::to_string(*mesh_ptr))
+HERMES_PUSH_DEBUG_MAP_FIELD_END
+HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(mesh_storage_, name, s)
+HERMES_PUSH_DEBUG_LINE("mesh_storage[{}]:\n\t{}\n\t{}\n", name,
+                       venus::to_string(s.vertices),
+                       venus::to_string(s.indices))
+HERMES_PUSH_DEBUG_MAP_FIELD_END
+HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(nodes_, name, node)
+HERMES_PUSH_DEBUG_LINE("node[{}]: {:x}\n", name,
+                       (node ? (uintptr_t)node.get() : 0))
+HERMES_PUSH_DEBUG_MAP_FIELD_END
+HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(materials_, name, material)
+HERMES_PUSH_DEBUG_LINE("material[{}]: {:x}\n", name,
+                       (material ? (uintptr_t)material.get() : 0))
+HERMES_PUSH_DEBUG_MAP_FIELD_END
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(top_nodes_, node)
+HERMES_PUSH_DEBUG_LINE("top_node[{}]: {:x}\n", i,
+                       (node ? (uintptr_t)node.get() : 0))
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(samplers_, sampler)
+HERMES_PUSH_DEBUG_VENUS_FIELD(samplers_[i])
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(image_handles_, handle)
+HERMES_PUSH_DEBUG_VENUS_FIELD(image_handles_[i])
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_allocator_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(material_data_buffer_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
 } // namespace venus
 
 namespace venus::scene {
@@ -116,7 +148,8 @@ GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
 }
 
 Result<Material::Instance>
-GLTF_MetallicRoughness::write(pipeline::DescriptorAllocator &allocator) {
+GLTF_MetallicRoughness::write(pipeline::DescriptorAllocator &allocator,
+                              VkDescriptorSetLayout vk_descriptor_set_layout) {
   auto &globals = engine::GraphicsEngine::globals();
 
   Material::Instance instance;
@@ -376,6 +409,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
         mem::AllocatedBuffer::Config()
             .setBufferConfig(mem::Buffer::Config::forStorage(sizeof(Vertex) *
                                                              vertices.size())
+                                 .addUsage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
                                  .enableShaderDeviceAddress())
             .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
             .create(*gd));
@@ -385,6 +419,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
         mem::AllocatedBuffer::Config()
             .setBufferConfig(
                 mem::Buffer::Config::forStorage(sizeof(u32) * indices.size())
+                    .addUsage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
                     .enableShaderDeviceAddress())
             .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
             .create(*gd));
@@ -559,7 +594,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
       Material::Instance m_instance;
 
       VENUS_ASSIGN_RESULT_OR_RETURN_VOID(
-          m_instance, parameters.write(scene->descriptor_allocator_));
+          m_instance, parameters.write(scene->descriptor_allocator_, 0));
 
       materials[material_index] =
           scene->materials_[gltf_material.name.c_str()] =

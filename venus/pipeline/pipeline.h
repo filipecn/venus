@@ -28,6 +28,7 @@
 #pragma once
 
 #include <venus/core/device.h>
+#include <venus/io/swapchain.h>
 #include <venus/mem/layout.h>
 #include <venus/pipeline/shader_module.h>
 
@@ -263,6 +264,8 @@ public:
   struct Config : public Pipeline::Config {
 
     static Config defaults(const VkExtent2D &viewport_extent);
+
+    static Config forDynamicRendering(const io::Swapchain &swapchain);
 
     Config() noexcept;
 

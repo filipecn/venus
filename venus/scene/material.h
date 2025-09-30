@@ -58,7 +58,8 @@ public:
 
   struct Writer {
     virtual Result<Instance>
-    write(pipeline::DescriptorAllocator &allocator) = 0;
+    write(pipeline::DescriptorAllocator &allocator,
+          VkDescriptorSetLayout vk_descriptor_set_layout) = 0;
 
   protected:
     pipeline::DescriptorWriter descriptor_writer_;

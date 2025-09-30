@@ -203,6 +203,8 @@ public:
   private:
     Buffer::Config buffer_config_;
     DeviceMemory::Config mem_config_;
+
+    VENUS_TO_STRING_FRIEND(Config);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(AllocatedBuffer)
