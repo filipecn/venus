@@ -85,8 +85,12 @@ public:
     struct Shaders {
       pipeline::ShaderModule vert_mesh;
       pipeline::ShaderModule frag_mesh_pbr;
-      pipeline::ShaderModule vert_color;
-      pipeline::ShaderModule frag_color;
+
+      // utils
+
+      pipeline::ShaderModule vert_test;
+      pipeline::ShaderModule vert_bindless_test;
+      pipeline::ShaderModule frag_flat_color;
 
     private:
       friend struct Globals;
@@ -215,12 +219,6 @@ private:
   GraphicsDevice gd_;
   // output
   io::SurfaceKHR surface_;
-
-  // scene
-  // graphics::scene::Camera camera_;
-  // graphics::scene::Node scene_root_;
-
-  // materials
 };
 
 } // namespace venus::engine

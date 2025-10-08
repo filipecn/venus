@@ -66,9 +66,8 @@ public:
     u32 data_buffer_offset;
   };
 
-  Result<Material::Instance>
-  write(pipeline::DescriptorAllocator &allocator,
-        VkDescriptorSetLayout vk_descritor_set_layout) override;
+  Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
+                                   const Material *material) override;
 
   Data data;
   Resources resources;
@@ -76,9 +75,11 @@ public:
   VENUS_TO_STRING_FRIEND(GLTF_MetallicRoughness);
 };
 
+namespace graph {
+
 class GLTF_Node : public Node {
 public:
-  using Ptr = std::shared_ptr<GLTF_Node>;
+  using Ptr = hermes::Ref<GLTF_Node>;
 
   static Result<Ptr> from(const std::filesystem::path &path,
                           const engine::GraphicsDevice &gd);
@@ -87,8 +88,7 @@ public:
 
   void draw(const hermes::geo::Transform &top_matrix,
             DrawContext &ctx) override;
-
-  void destroy() noexcept;
+  void destroy() noexcept override;
 
 private:
   // named data
@@ -114,5 +114,7 @@ private:
 
   VENUS_TO_STRING_FRIEND(GLTF_Node);
 };
+
+} // namespace graph
 
 } // namespace venus::scene

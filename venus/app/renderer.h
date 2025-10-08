@@ -20,50 +20,26 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   materials.h
+/// \file   renderer.h
 /// \author FilipeCN (filipedecn@gmail.com)
-/// \date   2025-07-30
-/// \brief  Built-in venus materials.
+/// \date   2025-06-07
+/// \brief  App renderer.
 
-#include <hermes/numeric/matrix.h>
-#include <venus/engine/graphics_device.h>
-#include <venus/mem/image.h>
-#include <venus/pipeline/shader_module.h>
-#include <venus/scene/material.h>
+#pragma once
 
-#include <hermes/geometry/transform.h>
-#include <hermes/geometry/vector.h>
+#include <venus/scene/scene_graph.h>
 
-namespace venus::scene {
+namespace venus::app {
 
-class Material_Test : public Material::Writer {
+class Renderer {
 public:
-  static Result<Material> material(const engine::GraphicsDevice &gd);
+  Renderer() = default;
+  ~Renderer() noexcept;
 
-  struct Data {
-    hermes::math::mat4 projection;
-    hermes::math::mat4 view;
-  };
+  void destroy() noexcept;
 
-  struct Resources {
-    VkBuffer data_buffer;
-    u32 data_buffer_offset;
-  };
-
-  Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
-                                   const Material *material) override;
-
-  Data data;
-  Resources resources;
+  HERMES_NODISCARD VeResult begin();
+  HERMES_NODISCARD VeResult end();
 };
 
-class Material_BindlessTest : public Material_Test {
-public:
-  static Result<Material> material(const engine::GraphicsDevice &gd);
-
-  struct PushConstants {
-    VkDeviceAddress vertex_buffer;
-  };
-};
-
-} // namespace venus::scene
+} // namespace venus::app

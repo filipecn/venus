@@ -25,6 +25,8 @@
 /// \brief  Example on how to initialize venus.
 
 #include <venus/app/display_app.h>
+#include <venus/app/renderer.h>
+#include <venus/app/scene.h>
 #include <venus/engine/gltf_io.h>
 #include <venus/engine/graphics_engine.h>
 #include <venus/engine/materials.h>
@@ -32,11 +34,14 @@
 #include <venus/io/glfw_display.h>
 #include <venus/scene/camera.h>
 
-venus::scene::GLTF_Node::Ptr node;
+venus::scene::graph::GLTF_Node::Ptr node;
 venus::scene::Camera camera;
 venus::pipeline::DescriptorAllocator frame_descriptors;
 venus::scene::AllocatedModel triangle;
-venus::scene::Material m_color;
+venus::scene::Material m_test;
+venus::scene::Material m_bindless_test;
+
+venus::app::Scene scene;
 
 VeResult startup(venus::app::DisplayApp &app) {
 
@@ -64,21 +69,29 @@ VeResult startup(venus::app::DisplayApp &app) {
   // HERMES_WARN("{}", venus::to_string(*node));
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      m_color, venus::scene::Material_Color::material(
-                   venus::engine::GraphicsEngine::device()));
+      m_test, venus::scene::Material_Test::material(
+                  venus::engine::GraphicsEngine::device()));
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      m_bindless_test, venus::scene::Material_Test::material(
+                           venus::engine::GraphicsEngine::device()));
 
   // HERMES_WARN("{}", venus::to_string(m_color));
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       triangle,
       venus::scene::AllocatedModel::Config::fromShape(
-          venus::scene::shapes::triangle, hermes::geo::point3(-1, -1, 0),
-          hermes::geo::point3(1, -1, 0), hermes::geo::point3(1, 1, 0),
+          venus::scene::shapes::triangle, //
+                                          // hermes::geo::point3(0, 0, -11.f),
+          // hermes::geo::point3(11.f / 6.f, 0, -11.f),
+          // hermes::geo::point3(11.f / 6.f, 11.f, -11.f),
+          hermes::geo::point3(-2.f, 0.f, 0.f),
+          hermes::geo::point3(-2.f, 0.5f, 0.5f),
+          hermes::geo::point3(-2.f, 0.f, 0.5f),
           venus::scene::shape_option_bits::none)
           .create(venus::engine::GraphicsEngine::device()));
 
-  camera = venus::scene::Camera::perspective();
-  camera.setPosition({30.f, 0.f, -85.f});
+  camera = venus::scene::Camera::perspective(90).setPosition({1.f, 0.f, 0.f});
+  camera.projection()->setNear(1).setFar(11);
 
   // HERMES_WARN("{}", venus::to_string(triangle));
 
@@ -89,7 +102,8 @@ VeResult shutdown() {
   // node->destroy();
   triangle.destroy();
   frame_descriptors.destroy();
-  m_color.destroy();
+  m_test.destroy();
+  m_bindless_test.destroy();
   return venus::engine::GraphicsEngine::shutdown();
 }
 
@@ -158,28 +172,36 @@ VeResult render2(const venus::io::DisplayLoop::Iteration::Frame &frame) {
 
   VENUS_RETURN_BAD_RESULT(gd.prepare());
 
+  auto clip_size = gd.swapchain().imageExtent();
+  camera.resize(clip_size.width, clip_size.height);
   // write shader parameters (uniform buffer)
-  venus::scene::Material_Color parameters;
-  parameters.data.mvp = camera.projectionTransform() * camera.viewTransform();
+  venus::scene::Material_Test parameters;
+  parameters.data.projection =
+      hermes::math::transpose(camera.projectionTransform().matrix());
+  parameters.data.view =
+      hermes::math::transpose(camera.viewTransform().matrix());
+  HERMES_WARN("{}", venus::to_string(camera));
+  HERMES_WARN("\nP*V{}", hermes::to_string(camera.projectionTransform() *
+                                           camera.viewTransform()));
 
   venus::mem::AllocatedBuffer ub;
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       ub,
       venus::mem::AllocatedBuffer::Config()
           .setBufferConfig(venus::mem::Buffer::Config::forUniform(
-              sizeof(venus::scene::Material_Color::Data)))
+              sizeof(venus::scene::Material_Test::Data)))
           .setMemoryConfig(venus::mem::DeviceMemory::Config().setHostVisible())
           .create(*gd));
 
   VENUS_RETURN_BAD_RESULT(
-      ub.copy(&parameters.data, sizeof(venus::scene::Material_Color::Data)));
+      ub.copy(&parameters.data, sizeof(venus::scene::Material_Test::Data)));
 
   parameters.resources.data_buffer = *ub;
   parameters.resources.data_buffer_offset = 0;
 
   venus::scene::Material::Instance mat;
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      mat, parameters.write(frame_descriptors, *m_color.descriptorSetLayout()));
+      mat, parameters.write(frame_descriptors, &m_bindless_test));
 
   VENUS_RETURN_BAD_RESULT(
       gd.beginRecord(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT));
@@ -234,7 +256,7 @@ VeResult render2(const venus::io::DisplayLoop::Iteration::Frame &frame) {
   cb.beginRendering(*rendering_info);
 
   // bind pipeline
-  cb.bind(m_color.pipeline().pipeline());
+  cb.bind(m_bindless_test.pipeline().pipeline());
 
   auto extent =
       venus::engine::GraphicsEngine::device().swapchain().imageExtent();
@@ -243,10 +265,19 @@ VeResult render2(const venus::io::DisplayLoop::Iteration::Frame &frame) {
 
   cb.setScissor(0, 0, extent.width, extent.height);
   // bind global descriptor set
-  cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS, *m_color.pipeline().pipelineLayout(),
+  cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS, *m_test.pipeline().pipelineLayout(),
           0, {*mat.descriptor_set});
 
   cb.bindVertexBuffers(0, {triangle.vertexBuffer()}, {0});
+
+  venus::scene::Material_BindlessTest::PushConstants push_constants;
+  push_constants.vertex_buffer = triangle.deviceAddress();
+
+  cb.pushConstants(*m_bindless_test.pipeline().pipelineLayout(),
+                   VK_SHADER_STAGE_VERTEX_BIT, 0,
+                   sizeof(venus::scene::Material_BindlessTest::PushConstants),
+                   &push_constants);
+
   cb.draw(3, 1, 0, 0);
 
   cb.endRendering();
@@ -258,7 +289,7 @@ VeResult render2(const venus::io::DisplayLoop::Iteration::Frame &frame) {
   VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().submit());
   VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().finish());
   using namespace std::chrono_literals;
-  std::this_thread::sleep_for(1s);
+  std::this_thread::sleep_for(3s);
   return VeResult::noError();
 }
 
@@ -372,6 +403,27 @@ VeResult render(const venus::io::DisplayLoop::Iteration::Frame &frame) {
   return VeResult::noError();
 }
 
+VeResult render3(const venus::io::DisplayLoop::Iteration::Frame &frame) {
+  auto &gd = venus::engine::GraphicsEngine::device();
+  VENUS_RETURN_BAD_RESULT(gd.prepare());
+  VENUS_RETURN_BAD_RESULT(
+      gd.beginRecord(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT));
+  auto &cb = gd.commandBuffer();
+
+  venus::app::Renderer renderer;
+  VENUS_RETURN_BAD_RESULT(renderer.begin());
+  VENUS_RETURN_BAD_RESULT(renderer.end());
+
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().endRecord());
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().submit());
+  VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().finish());
+
+  using namespace std::chrono_literals;
+  std::this_thread::sleep_for(3s);
+
+  return VeResult::noError();
+}
+
 int main() {
   VENUS_CHECK_VE_RESULT(venus::core::vk::init());
 
@@ -380,7 +432,7 @@ int main() {
                                           {1024, 1024})
       .setStartupFn(startup)
       .setShutdownFn(shutdown)
-      .setRenderFn(render2)
+      .setRenderFn(render3)
       .create()
       .run();
 }

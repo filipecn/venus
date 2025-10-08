@@ -1,5 +1,7 @@
 set(VENUS_HEADERS
   app/display_app.h
+  app/renderer.h
+  app/scene.h
 
   core/device.h
   core/instance.h
@@ -43,6 +45,8 @@ set(VENUS_HEADERS
 )
 set(VENUS_SOURCES
   app/display_app.cpp
+  app/renderer.cpp
+  app/scene.cpp
   
   core/device.cpp
   core/instance.cpp
@@ -90,10 +94,8 @@ target_include_directories(
   venus PUBLIC "$<BUILD_INTERFACE:${VENUS_SOURCE_DIR}>"
                "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
 
-add_dependencies(venus venus_shaders)
+add_dependencies(venus venus_shaders hermes glfw VK)
 target_link_libraries(venus PUBLIC optimized hermes glfw VK)
-#debug
-#                   gcov)
 
 target_compile_definitions(venus PUBLIC VENUS_INCLUDE_TO_STRING)
 

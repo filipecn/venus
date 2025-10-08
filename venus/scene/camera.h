@@ -27,6 +27,8 @@
 
 #pragma once
 
+#include <venus/utils/debug.h>
+
 #include <hermes/geometry/bounds.h>
 #include <hermes/geometry/transform.h>
 
@@ -53,22 +55,39 @@ public:
     Projection() = default;
     virtual ~Projection() = default;
     // updates projection transform after changes
-    virtual void update() {};
+    virtual hermes::geo::Transform computeTransform() const {
+      HERMES_WARN("Calling base Camera::Projection::computeTransform()");
+      return transform_;
+    };
     HERMES_NODISCARD virtual Projection *copy() const {
       auto *c = new Projection();
       *c = *this;
       return c;
     }
+    Projection &setClipSize(const hermes::geo::vec2 &clip_size);
+    Projection &setAspectRatio(f32 aspect_ratio);
+    Projection &setNear(f32 near);
+    Projection &setFar(f32 far);
+    Projection &addOptions(hermes::geo::transform_options options);
+    const hermes::geo::Transform &inverse() const;
+    const hermes::geo::Transform &operator*() const;
 
-    float ratio{1.f};                 //!< film size ratio
-    float near{0.01f};                //!< near depth clip plane
-    float far{1000.f};                //!< far depth clip plane
-    hermes::geo::vec2 clip_size;      //!< window size (in pixels)
-    hermes::geo::Transform transform; //!< projection transform
-    hermes::geo::Transform inv_transform;
-    hermes::transform_options options{
+  protected:
+    f32 ratio_{1.f};              //!< film size ratio
+    f32 near_{0.01f};             //!< near depth clip plane
+    f32 far_{1000.f};             //!< far depth clip plane
+    hermes::geo::vec2 clip_size_; //!< window size (in pixels)
+    hermes::geo::transform_options options_{
         hermes::geo::transform_option_bits::left_handed}; //!< flags to choose
                                                           //!< handedness, etc.
+
+    // transforms are lazily updated based on the dirty flag
+
+    mutable bool needs_update_{true};          //!< dirty flag
+    mutable hermes::geo::Transform transform_; //!< projection transform
+    mutable hermes::geo::Transform inv_transform_;
+
+    VENUS_TO_STRING_FRIEND(Projection);
   };
 
   /// \param p projection type
@@ -78,11 +97,12 @@ public:
   /// \return MVP transform
   HERMES_NODISCARD virtual hermes::geo::Transform transform() const;
   /// \return camera projection const ptr
+  HERMES_NODISCARD Camera::Projection *projection();
   HERMES_NODISCARD const Camera::Projection *projection() const;
   /// \return projection transform
   HERMES_NODISCARD hermes::geo::Transform projectionTransform() const;
   /// \return model transform
-  HERMES_NODISCARD virtual hermes::mat3 normalMatrix() const;
+  HERMES_NODISCARD virtual hermes::math::mat3 normalMatrix() const;
   HERMES_NODISCARD virtual hermes::geo::Transform modelTransform() const;
   HERMES_NODISCARD virtual hermes::geo::Transform viewTransform() const;
   /// \return up vector
@@ -98,30 +118,35 @@ public:
     projection_ = std::make_shared<T>(std::forward<P>(params)...);
     return *this;
   }
-  virtual Camera &setUpVector(hermes::geo::vec3 u);
+  virtual Camera &setUpVector(const hermes::geo::vec3 &u);
   /// \param p target position
-  virtual Camera &setTargetPosition(hermes::geo::point3 p);
+  virtual Camera &setTargetPosition(const hermes::geo::point3 &p);
   /// \param p eye position
-  virtual Camera &setPosition(hermes::geo::point3 p);
+  virtual Camera &setPosition(const hermes::geo::point3 &p);
   /// \param z
-  virtual Camera &setZoom(float z);
+  virtual Camera &setZoom(f32 z);
 
   /// \param w width in pixels
   /// \param h height in pixels
-  virtual void resize(float w, float h);
-  virtual void update();
+  virtual void resize(f32 w, f32 h);
 
 protected:
-  hermes::geo::Transform view_, inv_view_;
-  hermes::geo::Transform model_, inv_model_;
+  virtual void update() const;
   // hermes::Frustum frustum;
-  hermes::mat3 normal_;
-  hermes::geo::vec3 up_;
+  mutable hermes::geo::vec3 up_{0, 1, 0};
   hermes::geo::point3 pos_;
   hermes::geo::point3 target_;
   std::shared_ptr<Camera::Projection> projection_;
-  float zoom_{1.};
-  bool needs_update_{true};
+  f32 zoom_{1.};
+
+  mutable bool needs_update_{true};
+  mutable hermes::math::mat3 normal_;
+  mutable hermes::geo::Transform view_;
+  mutable hermes::geo::Transform inv_view_;
+  mutable hermes::geo::Transform model_;
+  mutable hermes::geo::Transform inv_model_;
+
+  VENUS_TO_STRING_FRIEND(Camera);
 };
 
 class PerspectiveProjection : public Camera::Projection {
@@ -130,32 +155,39 @@ public:
   /// \param fov field of view angle (in degrees)
   /// \param options handedness, zero_to_one, flip_y, and other options
   explicit PerspectiveProjection(
-      float fov, hermes::transform_options options =
-                     hermes::geo::transform_option_bits::left_handed);
-  void update() override;
+      f32 fov_in_degrees, hermes::geo::transform_options options =
+                              hermes::geo::transform_option_bits::right_handed |
+                              hermes::geo::transform_option_bits::flip_y |
+                              hermes::geo::transform_option_bits::zero_to_one);
+  HERMES_NODISCARD hermes::geo::Transform computeTransform() const override;
   HERMES_NODISCARD Camera::Projection *copy() const override;
 
-  float fov{45.f}; //!< field of view angle in degrees
+private:
+  f32 fov_in_degrees_{45.f}; //!< field of view angle in degrees
+
+  VENUS_TO_STRING_FRIEND(PerspectiveProjection);
 };
 
 class OrthographicProjection : public Camera::Projection {
 public:
   OrthographicProjection();
-  OrthographicProjection(float left, float right, float bottom, float top,
-                         hermes::transform_options options =
+  OrthographicProjection(f32 left, f32 right, f32 bottom, f32 top,
+                         hermes::geo::transform_options options =
                              hermes::geo::transform_option_bits::left_handed);
   /// \param z
-  void zoom(float z);
+  void zoom(f32 z);
   /// \param left
   /// \param right
   /// \param bottom
   /// \param top
-  void set(float left, float right, float bottom, float top);
-  void update() override;
+  void set(f32 left, f32 right, f32 bottom, f32 top);
+  HERMES_NODISCARD hermes::geo::Transform computeTransform() const override;
   HERMES_NODISCARD Camera::Projection *copy() const override;
 
 private:
   hermes::geo::bounds::bbox2 region_;
+
+  VENUS_TO_STRING_FRIEND(OrthographicProjection);
 };
 
 } // namespace venus::scene

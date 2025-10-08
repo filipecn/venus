@@ -41,7 +41,7 @@ HERMES_PUSH_DEBUG_VK_FIELD(vertex_buffer)
 HERMES_PUSH_DEBUG_FIELD(vertex_buffer_address)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Node)
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::graph::Node)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_HERMES_FIELD(local_matrix_)
 HERMES_PUSH_DEBUG_HERMES_FIELD(world_matrix_)
@@ -52,7 +52,9 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 
 } // namespace venus
 
-namespace venus::scene {
+namespace venus::scene::graph {
+
+Node::~Node() noexcept { this->destroy(); }
 
 void Node::draw(const hermes::geo::Transform &top_matrix,
                 DrawContext &context) {
@@ -60,7 +62,13 @@ void Node::draw(const hermes::geo::Transform &top_matrix,
     child->draw(top_matrix, context);
 }
 
-std::weak_ptr<Node> Node::parent() { return parent_; }
+void Node::destroy() noexcept {
+  for (auto &child : children_)
+    child->destroy();
+  children_.clear();
+}
+
+Node::Ptr Node::parent() { return parent_; }
 
 void Node::setParent(Node::Ptr _parent) { parent_ = _parent; }
 
@@ -110,4 +118,27 @@ Model::Ptr ModelNode::model() { return model_; }
 
 void ModelNode::setModel(Model::Ptr model) { model_ = model; }
 
-} // namespace venus::scene
+LabeledGraph::~LabeledGraph() noexcept { destroy(); }
+
+void LabeledGraph::destroy() noexcept {
+  for (auto &node : nodes_)
+    node.second->destroy();
+  nodes_.clear();
+}
+
+LabeledGraph &LabeledGraph::add(const std::string &name, const Node::Ptr &node,
+                                const std::string &parent) {
+  nodes_.insert(std::make_pair(name, node));
+  if (parent.empty())
+    addChild(node);
+  else {
+    HERMES_ASSERT(nodes_.contains(parent));
+    nodes_[parent]->addChild(node);
+  }
+  return *this;
+}
+
+void LabeledGraph::draw(const hermes::geo::Transform &top_matrix,
+                        DrawContext &context) {}
+
+} // namespace venus::scene::graph

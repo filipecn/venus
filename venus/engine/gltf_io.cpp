@@ -59,7 +59,7 @@ HERMES_PUSH_DEBUG_VK_FIELD(resources.data_buffer)
 HERMES_PUSH_DEBUG_FIELD(resources.data_buffer_offset)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::GLTF_Node)
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::graph::GLTF_Node)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(meshes_, name, mesh_ptr)
 HERMES_PUSH_DEBUG_LINE("mesh[{}]:\n\t{}\n", name, venus::to_string(*mesh_ptr))
@@ -149,24 +149,25 @@ GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
 
 Result<Material::Instance>
 GLTF_MetallicRoughness::write(pipeline::DescriptorAllocator &allocator,
-                              VkDescriptorSetLayout vk_descriptor_set_layout) {
+                              const Material *material) {
   auto &globals = engine::GraphicsEngine::globals();
 
   Material::Instance instance;
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       instance.descriptor_set,
-      allocator.allocate(
-          *globals.materials.gltf_metallic_roughness.descriptorSetLayout()));
+      allocator.allocate(*material->descriptorSetLayout()));
   descriptor_writer_.clear();
   descriptor_writer_.writeBuffer(
       0, resources.data_buffer, sizeof(GLTF_MetallicRoughness::Data),
       resources.data_buffer_offset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   descriptor_writer_.update(instance.descriptor_set);
-  instance.material = &globals.materials.gltf_metallic_roughness;
+  instance.material = material;
 
   return Result<Material::Instance>(std::move(instance));
 }
+
+namespace graph {
 
 VkFilter extractFilter(fastgltf::Filter filter) {
   switch (filter) {
@@ -444,7 +445,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
 
     auto mesh_key = mesh.name.c_str();
 
-    meshes[mesh_key] = std::make_shared<Model>();
+    meshes[mesh_key] = Model::Ptr::shared();
     *meshes[mesh_key] = std::move(model);
 
     mesh_storage[mesh.name.c_str()] = std::move(storage);
@@ -515,7 +516,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
   }
 #endif
 
-  GLTF_Node::Ptr scene = std::make_shared<GLTF_Node>();
+  GLTF_Node::Ptr scene = GLTF_Node::Ptr::shared();
   /////////////////////////////////////////////////////////////////////////////
   // SAMPLERS
   /////////////////////////////////////////////////////////////////////////////
@@ -598,7 +599,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
 
       materials[material_index] =
           scene->materials_[gltf_material.name.c_str()] =
-              std::make_shared<Material::Instance>();
+              Material::Instance::Ptr::shared();
 
       *materials[material_index] = std::move(m_instance);
     }
@@ -618,17 +619,16 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
 
   std::vector<Node::Ptr> nodes;
   for (fastgltf::Node &node : asset->nodes) {
-    std::shared_ptr<Node> new_node;
+    auto new_node = Node::Ptr::shared();
 
     // find if the node has a mesh, and if it does hook it to the mesh pointer
     // and allocate it with the meshnode class
     if (node.meshIndex.has_value()) {
-      new_node = std::make_shared<ModelNode>();
+      new_node = ModelNode::Ptr::shared();
       static_cast<ModelNode *>(new_node.get())
           ->setModel(meshes[*node.meshIndex]);
-    } else {
-      new_node = std::make_shared<Node>();
     }
+
     nodes.push_back(new_node);
     scene->nodes_[node.name.c_str()];
     std::visit(fastgltf::visitor{
@@ -673,7 +673,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
 
   // find the top nodes, with no parents
   for (auto &node : nodes) {
-    if (node->parent().lock() == nullptr) {
+    if (!node->parent()) {
       scene->top_nodes_.push_back(node);
       node->updateTrasform(hermes::geo::Transform());
     }
@@ -702,5 +702,7 @@ void GLTF_Node::draw(const hermes::geo::Transform &top_matrix,
     n->draw(top_matrix, ctx);
   }
 }
+
+} // namespace graph
 
 } // namespace venus::scene

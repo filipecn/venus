@@ -30,7 +30,7 @@
 
 namespace venus::scene {
 
-Result<Material> Material_Color::material(const engine::GraphicsDevice &gd) {
+Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
   // descriptor set layouts
 
   pipeline::DescriptorSet::Layout l;
@@ -49,17 +49,17 @@ Result<Material> Material_Color::material(const engine::GraphicsDevice &gd) {
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
           .setVertexInputState(mem::VertexLayout().pushComponent(
               mem::VertexLayout::ComponentType::Position,
-              VK_FORMAT_R32G32B32A32_SFLOAT)
+              VK_FORMAT_R32G32B32_SFLOAT)
                                //.pushComponent(
                                //    mem::VertexLayout::ComponentType::Color,
                                //    VK_FORMAT_R32G32B32A32_SFLOAT)
                                )
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .create(globals.shaders.vert_color))
+                              .create(globals.shaders.vert_test))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .create(globals.shaders.frag_color));
+                              .create(globals.shaders.frag_flat_color));
 
   Material m;
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
@@ -75,22 +75,64 @@ Result<Material> Material_Color::material(const engine::GraphicsDevice &gd) {
 }
 
 Result<Material::Instance>
-Material_Color::write(pipeline::DescriptorAllocator &allocator,
-                      VkDescriptorSetLayout vk_descriptor_set_layout) {
+Material_Test::write(pipeline::DescriptorAllocator &allocator,
+                     const Material *material) {
   auto &globals = engine::GraphicsEngine::globals();
 
   Material::Instance instance;
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      instance.descriptor_set, allocator.allocate(vk_descriptor_set_layout));
+      instance.descriptor_set,
+      allocator.allocate(*material->descriptorSetLayout()));
   descriptor_writer_.clear();
   descriptor_writer_.writeBuffer(
-      0, resources.data_buffer, sizeof(Material_Color::Data),
+      0, resources.data_buffer, sizeof(Material_Test::Data),
       resources.data_buffer_offset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
   descriptor_writer_.update(instance.descriptor_set);
-  // instance.material = &globals.materials.gltf_metallic_roughness;
+  instance.material = material;
 
   return Result<Material::Instance>(std::move(instance));
+}
+
+Result<Material>
+Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
+  // descriptor set layouts
+
+  pipeline::DescriptorSet::Layout l;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      l, pipeline::DescriptorSet::Layout::Config()
+             .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
+                               VK_SHADER_STAGE_VERTEX_BIT)
+             .create(**gd));
+
+  auto &globals = engine::GraphicsEngine::globals();
+
+  auto pipeline_layout_config =
+      pipeline::Pipeline::Layout::Config()
+          .addDescriptorSetLayout(*l)
+          .addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, 0,
+                                sizeof(Material_BindlessTest::PushConstants));
+
+  auto pipeline_config =
+      pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_VERTEX_BIT)
+                              .create(globals.shaders.vert_bindless_test))
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                              .create(globals.shaders.frag_flat_color));
+
+  Material m;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      m, Material::Config()
+             .setDescriptorSetLayout(std::move(l))
+             .setMaterialPipelineConfig(
+                 Material::Pipeline::Config()
+                     .setPipelineConfig(pipeline_config)
+                     .setPipelineLayoutConfig(pipeline_layout_config))
+             .create(**gd, *gd.renderpass()));
+
+  return Result<Material>(std::move(m));
 }
 
 } // namespace venus::scene

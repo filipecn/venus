@@ -80,26 +80,36 @@ class Renderable {
                     DrawContext &context) = 0;
 };
 
+class Destroyable {
+  virtual void destroy() noexcept = 0;
+};
+
+namespace graph {
+
 // *****************************************************************************
 //                                                           Scene Graph Node
 // *****************************************************************************
 
 /// Scene graph node.
-class Node : public Renderable {
+class Node : public Renderable, public Destroyable {
 public:
-  using Ptr = std::shared_ptr<Node>;
+  using Ptr = hermes::Ref<Node>;
+
+  Node() noexcept = default;
+  virtual ~Node() noexcept;
 
   // Interface
 
   virtual void draw(const hermes::geo::Transform &top_matrix,
                     DrawContext &context) override;
+  virtual void destroy() noexcept override;
 
   // access
 
   /// \return Node local transform matrix.
   const hermes::geo::Transform &localTransform() const;
   /// \return This node parent.
-  std::weak_ptr<Node> parent();
+  Node::Ptr parent();
 
   // graph construction
 
@@ -118,7 +128,7 @@ public:
 
 protected:
   // graph
-  std::weak_ptr<Node> parent_;
+  Node::Ptr parent_;
   std::vector<Ptr> children_;
   // geometry
   hermes::geo::Transform local_matrix_;
@@ -135,10 +145,11 @@ protected:
 class ModelNode : public Node {
 public:
   ModelNode() = default;
+  virtual ~ModelNode() noexcept = default;
   ModelNode(Model::Ptr model);
 
-  virtual void draw(const hermes::geo::Transform &top_matrix,
-                    DrawContext &context) override;
+  void draw(const hermes::geo::Transform &top_matrix,
+            DrawContext &context) override;
 
   Model::Ptr model();
   void setModel(Model::Ptr model);
@@ -146,5 +157,30 @@ public:
 protected:
   Model::Ptr model_;
 };
+
+// *****************************************************************************
+//                                                                 Scene Graph
+// *****************************************************************************
+
+/// Contains the graph of the scene made of scene Node.
+class LabeledGraph : public Node {
+public:
+  LabeledGraph() noexcept = default;
+  virtual ~LabeledGraph() noexcept;
+
+  LabeledGraph &add(const std::string &name, const Node::Ptr &node,
+                    const std::string &parent = "");
+
+  void draw(const hermes::geo::Transform &top_matrix,
+            DrawContext &context) override;
+  void destroy() noexcept override;
+
+private:
+  std::unordered_map<std::string, Node::Ptr> nodes_;
+
+  VENUS_TO_STRING_FRIEND(LabeledGraph);
+};
+
+} // namespace graph
 
 } // namespace venus::scene

@@ -26,27 +26,88 @@
 
 #include <venus/scene/camera.h>
 
+#include <venus/utils/macros.h>
+
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::OrthographicProjection)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::PerspectiveProjection)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::Camera::Projection)
+// force update
+auto t = *object;
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_FIELD(ratio_)
+HERMES_PUSH_DEBUG_FIELD(near_)
+HERMES_PUSH_DEBUG_FIELD(far_)
+HERMES_PUSH_DEBUG_HERMES_FIELD(clip_size_)
+HERMES_PUSH_DEBUG_HERMES_FIELD(options_)
+HERMES_PUSH_DEBUG_HERMES_FIELD(transform_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::Camera)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_HERMES_FIELD(pos_)
+HERMES_PUSH_DEBUG_HERMES_FIELD(target_)
+HERMES_PUSH_DEBUG_HERMES_FIELD(up_)
+HERMES_PUSH_DEBUG_HERMES_FIELD(view_)
+HERMES_PUSH_DEBUG_LINE("{}", venus::to_string(*object.projection_))
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+
 namespace venus::scene {
 
 hermes::geo::Transform Camera::transform() const {
-  return projection_->transform * view_ * model_;
+  if (needs_update_)
+    update();
+  return **projection_ * view_ * model_;
+}
+
+Camera::Projection *Camera::projection() {
+  if (needs_update_)
+    update();
+  return projection_.get();
 }
 
 const Camera::Projection *Camera::projection() const {
+  if (needs_update_)
+    update();
   return projection_.get();
 }
 
 hermes::geo::Transform Camera::projectionTransform() const {
-  return projection_->transform;
+  if (needs_update_)
+    update();
+  return **projection_;
 }
 
-hermes::mat3 Camera::normalMatrix() const { return normal_; }
+hermes::math::mat3 Camera::normalMatrix() const {
+  if (needs_update_)
+    update();
+  return normal_;
+}
 
-hermes::geo::Transform Camera::modelTransform() const { return model_; }
+hermes::geo::Transform Camera::modelTransform() const {
+  if (needs_update_)
+    update();
+  return model_;
+}
 
-hermes::geo::Transform Camera::viewTransform() const { return view_; }
+hermes::geo::Transform Camera::viewTransform() const {
+  if (needs_update_)
+    update();
+  return view_;
+}
 
-hermes::geo::vec3 Camera::upVector() const { return up_; };
+hermes::geo::vec3 Camera::upVector() const {
+  if (needs_update_)
+    update();
+  return up_;
+};
 
 hermes::geo::vec3 Camera::rightVector() const {
   return hermes::geo::normalize(hermes::geo::cross(up_, target_ - pos_));
@@ -58,62 +119,82 @@ hermes::geo::point3 Camera::targetPosition() const { return target_; }
 
 hermes::geo::vec3 Camera::direction() const { return target_ - pos_; }
 
-Camera &Camera::setUpVector(hermes::geo::vec3 u) {
-  up_ = u;
-  update();
-  return *this;
-}
+VENUS_DEFINE_SET_FIELD_METHOD(Camera, setUpVector, const hermes::geo::vec3 &,
+                              (needs_update_ = true, up_ = value))
+VENUS_DEFINE_SET_FIELD_METHOD(Camera, setPosition, const hermes::geo::point3 &,
+                              (needs_update_ = true, pos_ = value))
+VENUS_DEFINE_SET_FIELD_METHOD(Camera, setTargetPosition,
+                              const hermes::geo::point3 &,
+                              (needs_update_ = true, target_ = value))
+VENUS_DEFINE_SET_FIELD_METHOD(Camera, setZoom, f32,
+                              (needs_update_ = true, zoom_ = value))
 
-Camera &Camera::setTargetPosition(hermes::geo::point3 p) {
-  target_ = p;
-  update();
-  return *this;
-}
-
-Camera &Camera::setPosition(hermes::geo::point3 p) {
-  pos_ = p;
-  update();
-  return *this;
-}
-
-Camera &Camera::setZoom(float z) {
-  zoom_ = z;
-  update();
-  return *this;
-}
-
-void Camera::resize(float w, float h) {
-  projection_->ratio = w / h;
-  projection_->clip_size = hermes::geo::vec2(zoom_, zoom_);
+void Camera::resize(f32 w, f32 h) {
+  auto aspect = w / h;
+  projection_->setAspectRatio(aspect);
+  auto clip_size = hermes::geo::vec2(zoom_, zoom_);
   if (w < h)
-    projection_->clip_size.y = projection_->clip_size.x / projection_->ratio;
+    clip_size.y = clip_size.x / aspect;
   else
-    projection_->clip_size.x = projection_->clip_size.y * projection_->ratio;
-  projection_->update();
-  update();
+    clip_size.x = clip_size.y * aspect;
+  projection_->setClipSize(clip_size);
+  needs_update_ = true;
 }
 
-void Camera::update() {
+void Camera::update() const {
   auto view_vector = hermes::geo::normalize(target_ - pos_);
-  if (hermes::math::check::is_zero(
+  if (hermes::numbers::cmp::is_zero(
           hermes::geo::cross(view_vector, up_).length2()))
     up_ = {view_vector.y, view_vector.x, view_vector.z};
-  view_ = hermes::geo::Transform::lookAt(pos_, target_, up_);
+  view_ = hermes::geo::Transform::lookAt(
+      pos_, target_, up_, hermes::geo::transform_option_bits::right_handed);
   inv_view_ = hermes::geo::inverse(view_);
   inv_model_ = hermes::geo::inverse(model_);
   normal_ = inverse((view_ * model_).upperLeftMatrix());
-  projection_->inv_transform = inverse(projection_->transform);
+  needs_update_ = false;
 }
 
-PerspectiveProjection::PerspectiveProjection(float fov,
-                                             hermes::transform_options options)
-    : fov(fov) {
-  this->options = options;
+VENUS_DEFINE_SET_FIELD_METHOD(Camera::Projection, setClipSize,
+                              const hermes::geo::vec2 &,
+                              (needs_update_ = true, clip_size_ = value))
+VENUS_DEFINE_SET_FIELD_METHOD(Camera::Projection, setAspectRatio, f32,
+                              (needs_update_ = true, ratio_ = value))
+VENUS_DEFINE_SET_FIELD_METHOD(Camera::Projection, setNear, f32,
+                              (needs_update_ = true, near_ = value))
+VENUS_DEFINE_SET_FIELD_METHOD(Camera::Projection, setFar, f32,
+                              (needs_update_ = true, far_ = value))
+VENUS_DEFINE_SET_FIELD_METHOD(Camera::Projection, addOptions,
+                              hermes::geo::transform_options,
+                              (needs_update_ = true, options_ |= value))
+
+const hermes::geo::Transform &Camera::Projection::inverse() const {
+  if (needs_update_) {
+    transform_ = computeTransform();
+    inv_transform_ = hermes::geo::inverse(transform_);
+    needs_update_ = false;
+  }
+  return inv_transform_;
 }
 
-void PerspectiveProjection::update() {
-  this->transform = hermes::geo::Transform::perspective(
-      fov, this->ratio, this->near, this->far, options);
+const hermes::geo::Transform &Camera::Projection::operator*() const {
+  if (needs_update_) {
+    transform_ = computeTransform();
+    inv_transform_ = hermes::geo::inverse(transform_);
+    needs_update_ = false;
+  }
+  return transform_;
+}
+
+PerspectiveProjection::PerspectiveProjection(
+    f32 fov, hermes::geo::transform_options options)
+    : fov_in_degrees_(fov) {
+  needs_update_ = true;
+  this->options_ = options;
+}
+
+hermes::geo::Transform PerspectiveProjection::computeTransform() const {
+  return hermes::geo::Transform::perspective(fov_in_degrees_, this->ratio_,
+                                             this->near_, this->far_, options_);
 }
 
 Camera::Projection *PerspectiveProjection::copy() const {
@@ -123,35 +204,35 @@ Camera::Projection *PerspectiveProjection::copy() const {
 }
 
 OrthographicProjection::OrthographicProjection() {
-  region_.lower.x = region_.lower.y = this->near = -1.f;
-  region_.upper.x = region_.upper.y = this->far = 1.f;
+  region_.lower.x = region_.lower.y = this->near_ = -1.f;
+  region_.upper.x = region_.upper.y = this->far_ = 1.f;
+  needs_update_ = true;
 }
 
 OrthographicProjection::OrthographicProjection(
-    float left, float right, float bottom, float top,
-    hermes::transform_options options) {
+    f32 left, f32 right, f32 bottom, f32 top,
+    hermes::geo::transform_options options) {
   HERMES_UNUSED_VARIABLE(options)
   set(left, right, bottom, top);
 }
 
-void OrthographicProjection::zoom(float z) {
+void OrthographicProjection::zoom(f32 z) {
   // region_ = hermes::geo::Transform2::scale({z, z})(region_);
-  update();
+  needs_update_ = true;
 }
 
-void OrthographicProjection::set(float left, float right, float bottom,
-                                 float top) {
+void OrthographicProjection::set(f32 left, f32 right, f32 bottom, f32 top) {
   region_.lower.x = left;
   region_.lower.y = bottom;
   region_.upper.x = right;
   region_.upper.y = top;
-  update();
+  needs_update_ = true;
 }
 
-void OrthographicProjection::update() {
-  this->transform = hermes::geo::Transform::ortho(
-      region_.lower.x, region_.upper.x, region_.lower.y, region_.upper.y,
-      this->near, this->far);
+hermes::geo::Transform OrthographicProjection::computeTransform() const {
+  return hermes::geo::Transform::ortho(region_.lower.x, region_.upper.x,
+                                       region_.lower.y, region_.upper.y,
+                                       this->near_, this->far_);
 }
 
 Camera::Projection *OrthographicProjection::copy() const {

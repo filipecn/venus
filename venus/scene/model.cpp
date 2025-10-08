@@ -109,6 +109,7 @@ AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
   pipeline::BufferWritter buffer_writter;
   buffer_writter.addBuffer(*model.storage_.vertices, *mesh_.aos.data(),
                            vertex_buffer_size);
+
   if (index_buffer_size) {
     buffer_writter.addBuffer(*model.storage_.indices, mesh_.indices.data(),
                              index_buffer_size);

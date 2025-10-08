@@ -49,7 +49,7 @@ namespace venus::scene {
 /// \note This does not the data (buffers).
 class Model {
 public:
-  using Ptr = std::shared_ptr<Model>;
+  using Ptr = hermes::Ref<Model>;
 
   struct Mesh {
     mem::VertexLayout layout;

@@ -30,6 +30,8 @@
 #include <venus/pipeline/descriptors.h>
 #include <venus/pipeline/pipeline.h>
 
+#include <hermes/core/ref.h>
+
 namespace venus::scene {
 
 // *****************************************************************************
@@ -42,10 +44,12 @@ namespace venus::scene {
 /// own ways.
 class Material {
 public:
-  struct Instance {
-    using Ptr = std::shared_ptr<Instance>;
+  using Ptr = hermes::Ref<Material>;
 
-    Material *material{nullptr};
+  struct Instance {
+    using Ptr = hermes::Ref<Instance>;
+
+    const Material *material{nullptr};
     pipeline::DescriptorSet descriptor_set;
 
     VENUS_DECLARE_RAII_FUNCTIONS(Instance)
@@ -57,9 +61,8 @@ public:
   };
 
   struct Writer {
-    virtual Result<Instance>
-    write(pipeline::DescriptorAllocator &allocator,
-          VkDescriptorSetLayout vk_descriptor_set_layout) = 0;
+    virtual Result<Instance> write(pipeline::DescriptorAllocator &allocator,
+                                   const Material *material) = 0;
 
   protected:
     pipeline::DescriptorWriter descriptor_writer_;

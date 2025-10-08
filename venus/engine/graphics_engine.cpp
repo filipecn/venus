@@ -57,43 +57,42 @@ GraphicsEngine GraphicsEngine::s_instance;
 
 VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
 
+#define CREATE_SHADER_MODULE(NAME, FILE)                                       \
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(                                    \
+      NAME, pipeline::ShaderModule::Config()                                   \
+                .setEntryFuncName("main")                                      \
+                .fromSpvFile(shaders_path / #FILE)                             \
+                .create(vk_device));
+
   // shaders
   std::filesystem::path shaders_path(VENUS_SHADERS_PATH);
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      vert_mesh, pipeline::ShaderModule::Config()
-                     .setEntryFuncName("main")
-                     .fromSpvFile(shaders_path / "mesh.vert.spv")
-                     .create(vk_device));
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      frag_mesh_pbr, pipeline::ShaderModule::Config()
-                         .setEntryFuncName("main")
-                         .fromSpvFile(shaders_path / "mesh_pbr.frag.spv")
-                         .create(vk_device));
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      vert_color, pipeline::ShaderModule::Config()
-                      .setEntryFuncName("main")
-                      .fromSpvFile(shaders_path / "color.vert.spv")
-                      .create(vk_device));
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      frag_color, pipeline::ShaderModule::Config()
-                      .setEntryFuncName("main")
-                      .fromSpvFile(shaders_path / "color.frag.spv")
-                      .create(vk_device));
+  CREATE_SHADER_MODULE(vert_mesh, mesh.vert.spv)
+  CREATE_SHADER_MODULE(frag_mesh_pbr, mesh_pbr.frag.spv)
+
+  CREATE_SHADER_MODULE(vert_test, test.vert.spv)
+  CREATE_SHADER_MODULE(vert_bindless_test, bindless_test.vert.spv)
+
+  CREATE_SHADER_MODULE(frag_flat_color, flat_color.frag.spv)
 
   return VeResult::noError();
+
+#undef CREATE_SHADER_MODULE
 }
 
 void GraphicsEngine::Globals::Shaders::clear() {
   vert_mesh.destroy();
   frag_mesh_pbr.destroy();
-  vert_color.destroy();
-  frag_color.destroy();
+
+  vert_test.destroy();
+  vert_bindless_test.destroy();
+
+  frag_flat_color.destroy();
 }
 
 VeResult GraphicsEngine::Globals::Materials::init(GraphicsDevice &gd) {
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(color,
-                                           scene::Material_Color::material(gd));
+                                           scene::Material_Test::material(gd));
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       gltf_metallic_roughness, scene::GLTF_MetallicRoughness::material(gd));
   return VeResult::noError();

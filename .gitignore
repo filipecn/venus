@@ -1,5 +1,7 @@
 compile_commands.json
 build
+build_debug
+build_release
 .cache
 .clangd
 .clang-tidy

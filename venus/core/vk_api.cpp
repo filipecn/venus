@@ -90,6 +90,8 @@ VkDeviceSize vk::formatSize(VkFormat format) {
   switch (format) {
   case VK_FORMAT_R32G32B32A32_SFLOAT:
     return 4 * sizeof(f32);
+  case VK_FORMAT_R32G32B32_SFLOAT:
+    return 3 * sizeof(f32);
   case VK_FORMAT_R32G32_SFLOAT:
     return 2 * sizeof(f32);
   default:
