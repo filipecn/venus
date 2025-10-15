@@ -71,13 +71,33 @@ public:
     VkMemoryRequirements requirements_{};
     VmaAllocationCreateInfo vma_allocation_{};
 
-    VENUS_TO_STRING_FRIEND(DeviceMemory::Config);
+    VENUS_to_string_FRIEND(DeviceMemory::Config);
+  };
+
+  class ScopedMap {
+  public:
+    ~ScopedMap() noexcept;
+
+    template<typename T>
+      T* get() {
+        return reinterpret_cast<T*>(mapped_);
+      }
+
+  private:
+    ScopedMap(DeviceMemory &memory, void *mapped) noexcept;
+
+    DeviceMemory &memory_;
+    void *mapped_{nullptr};
+
+    friend class DeviceMemory;
   };
 
   // raii
 
   VENUS_DECLARE_RAII_FUNCTIONS(DeviceMemory)
 
+  /// \return Scoped map object with access of this memory.
+  HERMES_NODISCARD Result<ScopedMap> scopedMap();
   /// \note Sometimes the driver may not immediately copy the data into the
   ///       buffer memory. It is also possible that writes to the buffer are not
   ///       visible in the mapped memory yet. There are two ways to deal with
@@ -91,14 +111,8 @@ public:
   ///       memory once might be a better choice.
   /// \note There can exist only one mapped instance at a time. Calling this
   ///       method with a current map will generate an error.
-  /// \param size_in_bytes [def=0]   Region size in bytes to be mapped. If 0
-  ///                                than the full available range is mapped.
-  /// \param offset        [def=0]   Mapped memory offset in bytes.
-  /// \param flags         [def={}]  Mapping flags.
-  /// \return pointer to mapped memory starting at offset.
-  HERMES_NODISCARD Result<void *> map(VkDeviceSize size_in_bytes = 0,
-                                      VkDeviceSize offset = 0,
-                                      VkMemoryMapFlags flags = {}) const;
+  /// \return pointer to mapped memory.
+  HERMES_NODISCARD Result<void *> map() const;
   /// \note Sometimes the driver may not immediately copy the data into the
   ///       buffer memory. It is also possible that writes to the buffer are not
   ///       visible in the mapped memory yet. There are two ways to deal with
@@ -117,10 +131,7 @@ public:
   /// \param offset        [def=0]   Mapped memory offset in bytes.
   /// \param flags         [def={}]  Mapping flags.
   /// \return access status.
-  HERMES_NODISCARD VeResult access(const std::function<void(void *)> &f,
-                                   VkDeviceSize size_in_bytes = 0,
-                                   VkDeviceSize offset = 0,
-                                   VkMemoryMapFlags flags = {}) const;
+  HERMES_NODISCARD VeResult access(const std::function<void(void *)> &f) const;
   /// Flush a memory range to make it visible to the device. (Required for
   /// non-coherent memory)
   ///\param size_in_bytes [def=VK_WHOLE_SIZE] Size of the memory range to flush.
@@ -165,7 +176,7 @@ private:
   Config config_;
 #endif
 
-  VENUS_TO_STRING_FRIEND(DeviceMemory);
+  VENUS_to_string_FRIEND(DeviceMemory);
 };
 
 } // namespace venus::mem

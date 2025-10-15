@@ -37,10 +37,6 @@
 
 namespace venus::scene {
 
-// *****************************************************************************
-//                                                                      Model
-// *****************************************************************************
-
 /// The model holds the device memory that contains vertex data and indices.
 /// A model may consist of multiple shapes, each representing a single mesh,
 /// all occupying arbitrary regions of the same buffer.
@@ -55,6 +51,8 @@ public:
     mem::VertexLayout layout;
     hermes::mem::AoS aos;
     std::vector<u32> indices;
+
+    hermes::geo::bounds::bsphere3 computeBounds() const;
   };
 
   template <typename BufferType> struct Storage {
@@ -63,13 +61,17 @@ public:
   };
 
   /// Model surface/piece that may be treated as a separate mesh.
+  /// \note The shape can be indexed or not. If index count is zero, then vertex
+  ///       count must be greater than zero. This determines how this shape
+  ///       will be rendered.
   struct Shape {
-    u32 index_base{0};  //< where this shape starts in the index buffer.
-    u32 index_count{0}; //< index count of this shape in the index buffer.
     hermes::geo::bounds::bsphere3 bounds;    //< spatial bounds of this shape.
     scene::Material::Instance::Ptr material; //< material for this shape.
+    u32 index_base{0};   //< where this shape starts in the index buffer.
+    u32 index_count{0};  //< index count of this shape in the index buffer.
+    u32 vertex_count{0}; //< if this contains an index buffer or not
 
-    VENUS_TO_STRING_FRIEND(Shape);
+    VENUS_to_string_FRIEND(Shape);
   };
 
   /// Builder for model.
@@ -97,6 +99,9 @@ public:
 
   /// \return Model shapes.
   HERMES_NODISCARD const std::vector<Shape> &shapes() const;
+  ///
+  VeResult setMaterial(u32 shape_index,
+                       const scene::Material::Instance::Ptr &material);
   VkBuffer vertexBuffer() const;
   VkBuffer indexBuffer() const;
   VkDeviceAddress deviceAddress() const;
@@ -108,24 +113,42 @@ protected:
   VkDeviceAddress vk_address_{0};
   mem::VertexLayout vertex_layout_;
 
-  VENUS_TO_STRING_FRIEND(Model);
+  VENUS_to_string_FRIEND(Model);
 };
 
 class AllocatedModel : public Model {
 public:
-  struct Config {
+  using Ptr = hermes::Ref<AllocatedModel>;
 
+  struct Config {
+    /// Sets the model mesh from the resulting mesh a given function and its
+    /// parameters.
+    /// \note The generator function must return a Result<Model::Mesh> object.
+    /// \tparam Func mesh generator function type
+    /// \tparam Args set of parameter types for the generator function
+    /// \param f mesh generator function
+    /// \param args parameters passed forward to the generator function
+    /// \return configuration containing the given mesh.
     template <typename Func, typename... Args>
     static Config fromShape(Func f, Args &&...args) {
       Config config;
       VENUS_ASSIGN_RESULT(config.mesh_, f(std::forward<Args>(args)...));
       return config;
     }
+    /// Sets the model from the given mesh.
+    /// \param mesh
     static Config fromMesh(const Mesh &mesh);
+    /// Sets material_instance for all shapes in this model.
+    /// \param material_instance
+    Config &setMaterial(const Material::Instance::Ptr material_instance);
+    /// Creates an allocated model from this configuration.
+    /// \note If no shapes are defined, a single shape encompassing the whole
+    ///       model is created.
     Result<AllocatedModel> create(const engine::GraphicsDevice &gd) const;
 
   private:
     Model::Mesh mesh_;
+    Material::Instance::Ptr material_instance_;
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(AllocatedModel);
@@ -137,7 +160,7 @@ private:
   Model::Storage<mem::AllocatedBuffer> storage_;
   Model::Mesh mesh_;
 
-  VENUS_TO_STRING_FRIEND(AllocatedModel);
+  VENUS_to_string_FRIEND(AllocatedModel);
 };
 
 } // namespace venus::scene

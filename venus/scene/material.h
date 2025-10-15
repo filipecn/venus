@@ -49,15 +49,30 @@ public:
   struct Instance {
     using Ptr = hermes::Ref<Instance>;
 
-    const Material *material{nullptr};
-    pipeline::DescriptorSet descriptor_set;
+    struct Config {
+      Config &setMaterial(const Material *material);
+      Result<Instance> create(pipeline::DescriptorAllocator &allocator) const;
+
+    private:
+      const Material *material_{nullptr};
+      VkDescriptorSetLayout vk_descriptor_set_layout_{VK_NULL_HANDLE};
+    };
 
     VENUS_DECLARE_RAII_FUNCTIONS(Instance)
 
     void swap(Instance &rhs);
     void destroy() noexcept;
 
-    VENUS_TO_STRING_FRIEND(Instance);
+    const Material *material() const;
+    const pipeline::DescriptorSet &descriptorSet() const;
+    const pipeline::GraphicsPipeline &pipeline() const;
+    const pipeline::Pipeline::Layout &pipelineLayout() const;
+
+  private:
+    const Material *material_{nullptr};
+    pipeline::DescriptorSet descriptor_set_;
+
+    VENUS_to_string_FRIEND(Instance);
   };
 
   struct Writer {
@@ -82,7 +97,7 @@ public:
       pipeline::GraphicsPipeline::Config pipeline_config_;
       pipeline::Pipeline::Layout::Config layout_config_;
 
-      VENUS_TO_STRING_FRIEND(Config);
+      VENUS_to_string_FRIEND(Config);
     };
 
     VENUS_DECLARE_RAII_FUNCTIONS(Pipeline)
@@ -91,9 +106,13 @@ public:
     void swap(Pipeline &rhs);
 
     /// \return The underlying pipeline object.
+    HERMES_NODISCARD const pipeline::GraphicsPipeline &operator*() const;
+    /// \return The underlying pipeline object.
     HERMES_NODISCARD const pipeline::GraphicsPipeline &pipeline() const;
     /// \return The underlying pipeline layout.
     HERMES_NODISCARD const pipeline::Pipeline::Layout &pipelineLayout() const;
+    /// \return The underlying pipeline vulkan object.
+    HERMES_NODISCARD VkPipeline vkPipeline() const;
 
   private:
     pipeline::GraphicsPipeline pipeline_;
@@ -103,7 +122,7 @@ public:
     Config config_;
 #endif
 
-    VENUS_TO_STRING_FRIEND(Pipeline);
+    VENUS_to_string_FRIEND(Pipeline);
   };
 
   struct Config {
@@ -118,7 +137,7 @@ public:
     mutable pipeline::DescriptorSet::Layout descriptor_set_layout_;
     Pipeline::Config pipeline_config_;
 
-    VENUS_TO_STRING_FRIEND(Config);
+    VENUS_to_string_FRIEND(Config);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Material)
@@ -137,7 +156,7 @@ protected:
   Config config_;
 #endif
 
-  VENUS_TO_STRING_FRIEND(Material);
+  VENUS_to_string_FRIEND(Material);
 };
 
 } // namespace venus::scene

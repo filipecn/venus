@@ -28,16 +28,21 @@
 #pragma once
 
 #include <cassert>
-#include <hermes/core/debug.h>
 #include <venus/utils/result.h>
+
+#include <hermes/core/debug.h>
 
 #ifdef VENUS_INCLUDE_TO_STRING
 
 namespace venus {
 HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
 } // namespace venus
-#define VENUS_TO_STRING_FRIEND(A)                                              \
+#define VENUS_to_string_FRIEND(A)                                              \
   friend std::string venus::to_string(const A &, u32)
+#define VENUS_VIRTUAL_toString_METHOD                                          \
+  virtual std::string toString(u32 tab_size = 0) const;
+#define VENUS_VIRTUAL_toString_METHOD_OVERRIDE                                 \
+  virtual std::string toString(u32 tab_size = 0) const override;
 
 #ifndef HERMES_PUSH_DEBUG_VENUS_FIELD
 #define HERMES_PUSH_DEBUG_VENUS_FIELD(F)                                       \
@@ -45,8 +50,14 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
                    venus::to_string(object.F));
 #endif
 
+#ifndef HERMES_PUSH_DEBUG_VENUS_PTR_FIELD
+#define HERMES_PUSH_DEBUG_VENUS_PTR_FIELD(F)                                   \
+  debug_fields.add(HERMES_DebugFields::Type::Inline, #F,                       \
+                   object.F ? venus::to_string(*object.F) : "NULL");
+#endif
+
 #else
-#define VENUS_TO_STRING_FRIEND
+#define VENUS_to_string_FRIEND
 #define HERMES_PUSH_DEBUG_VENUS_FIELD
 #endif
 
@@ -108,6 +119,33 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
     R = std::move(*_venus_result_);                                            \
   else {                                                                       \
     HERMES_ERROR("Error at: {} = {}", #R, #V);                                 \
+    HERMES_ERROR("  w/ err: {}", venus::to_string(_venus_result_.status()));   \
+    return _venus_result_.status();                                            \
+  }
+
+#endif
+
+#ifndef VENUS_DECLARE_OR_RETURN_BAD_RESULT
+#define VENUS_DECLARE_OR_RETURN_BAD_RESULT(TYPE, VAR, V)                       \
+  auto _venus_result_##VAR = V;                                                \
+  if (!_venus_result_##VAR) {                                                  \
+    HERMES_ERROR("Error at: {}::Ptr {} = {}", #TYPE, #VAR, #V);                \
+    HERMES_ERROR("  w/ err: {}",                                               \
+                 venus::to_string(_venus_result_##VAR.status()));              \
+    return _venus_result_##VAR.status();                                       \
+  }                                                                            \
+  TYPE VAR = std::move(*_venus_result_##VAR);
+
+#endif
+
+#ifndef VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT
+#define VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(TYPE, PTR,   \
+                                                                  V)           \
+  auto PTR = TYPE::Ptr::shared();                                              \
+  if (auto _venus_result_ = V) {                                               \
+    *PTR = std::move(*_venus_result_);                                         \
+  } else {                                                                     \
+    HERMES_ERROR("Error at: {}::Ptr {} = {}", #TYPE, #PTR, #V);                \
     HERMES_ERROR("  w/ err: {}", venus::to_string(_venus_result_.status()));   \
     return _venus_result_.status();                                            \
   }

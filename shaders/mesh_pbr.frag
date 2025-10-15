@@ -4,7 +4,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 #define USE_BINDLESS
-#include "input_structures.glsl"
+#include "base.glsl"
 
 
 layout (location = 0) in vec3 inNormal;

@@ -76,7 +76,7 @@ public:
     u32 patch_version_{0};
 
     /// \return A string in the format "<major version>.<minor version>"
-    VENUS_TO_STRING_FRIEND(vk::Version);
+    VENUS_to_string_FRIEND(vk::Version);
   };
 
   /// Initializes vulkan api

@@ -32,9 +32,12 @@ Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
                              const hermes::geo::point3 &b,
                              const hermes::geo::point3 &c,
                              shape_options options) {
+  HERMES_UNUSED_VARIABLE(options);
   Model::Mesh mesh;
   mesh.aos.pushField<hermes::geo::point3>("position");
   auto err = mesh.aos.resize(3);
+  if (err != HeError::NO_ERROR)
+    return VeResult::heError(err);
   mesh.aos.valueAt<hermes::geo::point3>(0, 0) = a;
   mesh.aos.valueAt<hermes::geo::point3>(0, 1) = b;
   mesh.aos.valueAt<hermes::geo::point3>(0, 2) = c;

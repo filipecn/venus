@@ -164,7 +164,15 @@ public:
   // ***************************************************************************
 
   /// Holds resources that may be created/shared by multiple objects.
-  struct Cache {};
+  struct Cache {
+    mem::AllocatedBufferPool &allocatedBuffers();
+
+    /// Release and clears all resources.
+    VeResult cleanup();
+
+  private:
+    mem::AllocatedBufferPool allocated_buffer_pool_;
+  };
 
   /// GraphicsEngine configuration.
   struct Config {
@@ -188,8 +196,7 @@ public:
   ~GraphicsEngine() = default;
 
   /// Initializes the engine.
-  /// \param config
-  HERMES_NODISCARD static VeResult startup(const Config &config = {});
+  HERMES_NODISCARD static VeResult startup();
   /// Cleanup all resources and destroy all objects.
   /// \note this should be called before closing the program.
   HERMES_NODISCARD static VeResult shutdown();

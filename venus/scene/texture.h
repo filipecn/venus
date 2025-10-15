@@ -67,7 +67,7 @@ private:
   VkSampler vk_sampler_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
 
-  VENUS_TO_STRING_FRIEND(Sampler);
+  VENUS_to_string_FRIEND(Sampler);
 };
 
 struct Texture {
@@ -75,7 +75,7 @@ struct Texture {
   Sampler sampler;
   VkImageLayout image_layout;
 
-  VENUS_TO_STRING_FRIEND(Texture);
+  VENUS_to_string_FRIEND(Texture);
 };
 
 } // namespace venus::scene

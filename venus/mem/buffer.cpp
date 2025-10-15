@@ -29,6 +29,58 @@
 
 #include <venus/utils/vk_debug.h>
 
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer::Config)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VK_FIELD(size_)
+HERMES_PUSH_DEBUG_VK_STRING(VkBufferUsageFlags, usage_)
+HERMES_PUSH_DEBUG_VK_STRING(VkSharingMode, sharing_mode_)
+HERMES_PUSH_DEBUG_VK_STRING(VkBufferCreateFlags, flags_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
+HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
+                                          ? object.vk_device_address_.value()
+                                          : 0)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer::Config)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(buffer_config_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(mem_config_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
+HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
+HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
+HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
+                                          ? object.vk_device_address_.value()
+                                          : 0)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(mem::AllocatedBufferPool)
+HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(buffers_, name, data)
+HERMES_PUSH_DEBUG_LINE("block offsets: {}\n",
+                       hermes::cstr::join(data.block_offsets, " "))
+HERMES_PUSH_DEBUG_LINE("occupancy: {}\n", data.size)
+HERMES_PUSH_DEBUG_LINE("buffer: {}\n", venus::to_string(data.buffer));
+HERMES_PUSH_DEBUG_MAP_FIELD_END
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+
 namespace venus::mem {
 
 Buffer::Config Buffer::Config::forStaging(const VkDeviceSize &size_in_bytes) {
@@ -223,6 +275,12 @@ void Buffer::init(VkDevice vk_device, VkBuffer vk_buffer) {
   }
 }
 
+AllocatedBuffer::Config AllocatedBuffer::Config::forUniform(u32 size_in_bytes) {
+  return AllocatedBuffer::Config()
+      .setBufferConfig(venus::mem::Buffer::Config::forUniform(size_in_bytes))
+      .setMemoryConfig(venus::mem::DeviceMemory::Config().setHostVisible());
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedBuffer, setBufferConfig,
                                      const Buffer::Config &,
                                      buffer_config_ = value)
@@ -285,47 +343,82 @@ void AllocatedBuffer::destroy() noexcept {
   vk_memory_requirements_ = {};
 }
 
+AllocatedBufferPool::~AllocatedBufferPool() noexcept { destroy(); }
+
+AllocatedBufferPool::AllocatedBufferPool(AllocatedBufferPool &&rhs) noexcept {
+  *this = std::move(rhs);
+}
+
+AllocatedBufferPool &
+AllocatedBufferPool::operator=(AllocatedBufferPool &&rhs) noexcept {
+  destroy();
+  swap(rhs);
+  return *this;
+}
+
+void AllocatedBufferPool::destroy() noexcept { buffers_.clear(); }
+
+void AllocatedBufferPool::swap(AllocatedBufferPool &rhs) {
+  VENUS_SWAP_FIELD_WITH_RHS(buffers_);
+}
+
+VeResult AllocatedBufferPool::copyBlock(const std::string &name,
+                                        u32 block_index, const void *data,
+                                        u32 size_in_bytes,
+                                        u32 offset_in_block) {
+  auto it = buffers_.find(name);
+  if (it == buffers_.end())
+    return VeResult::notFound();
+  if (it->second.block_offsets.size() <= block_index)
+    return VeResult::notFound();
+  auto offset = it->second.block_offsets[block_index] + offset_in_block;
+  if (offset + size_in_bytes > it->second.buffer.sizeInBytes())
+    return VeResult::outOfBounds();
+  VENUS_RETURN_BAD_RESULT(it->second.buffer.copy(data, size_in_bytes, offset));
+  return VeResult::noError();
+}
+
+void AllocatedBufferPool::removeBuffer(const std::string &name) {
+  buffers_.erase(name);
+}
+
+Result<VkBuffer>
+AllocatedBufferPool::operator[](const std::string &name) const {
+  auto it = buffers_.find(name);
+  if (it == buffers_.end())
+    return VeResult::notFound();
+  return *(it->second.buffer);
+}
+
+Result<u32> AllocatedBufferPool::allocate(const std::string &name,
+                                          u32 size_in_bytes, u32 count) {
+  auto it = buffers_.find(name);
+  if (it == buffers_.end())
+    return VeResult::notFound();
+
+  BufferData &data = it->second;
+
+  u32 offset = data.size;
+
+  if (data.buffer.sizeInBytes() < offset + count * size_in_bytes)
+    return VeResult::badAllocation();
+
+  for (u32 i = 0; i < count; ++i) {
+    data.block_offsets.emplace_back(data.size);
+    data.size += size_in_bytes;
+  }
+
+  return Result<u32>(offset);
+}
+
+Result<u32> AllocatedBufferPool::blockOffset(const std::string &name,
+                                             u32 block_index) const {
+  auto it = buffers_.find(name);
+  if (it == buffers_.end())
+    return VeResult::notFound();
+  if (it->second.block_offsets.size() <= block_index)
+    return VeResult::notFound();
+  return Result<u32>(it->second.block_offsets[block_index]);
+}
+
 } // namespace venus::mem
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(size_)
-HERMES_PUSH_DEBUG_VK_STRING(VkBufferUsageFlags, usage_)
-HERMES_PUSH_DEBUG_VK_STRING(VkSharingMode, sharing_mode_)
-HERMES_PUSH_DEBUG_VK_STRING(VkBufferCreateFlags, flags_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
-HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
-                                          ? object.vk_device_address_.value()
-                                          : 0)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(buffer_config_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(mem_config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
-HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
-                                          ? object.vk_device_address_.value()
-                                          : 0)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

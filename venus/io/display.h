@@ -98,7 +98,7 @@ public:
     bool is_end_{false};
     Frame frame_;
 
-    VENUS_TO_STRING_FRIEND(Iteration);
+    VENUS_to_string_FRIEND(Iteration);
   };
 
   Iteration begin();

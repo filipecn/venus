@@ -74,7 +74,7 @@ private:
   VkDevice vk_device_{VK_NULL_HANDLE};
   std::string name_;
 
-  VENUS_TO_STRING_FRIEND(ShaderModule);
+  VENUS_to_string_FRIEND(ShaderModule);
 };
 
 } // namespace venus::pipeline

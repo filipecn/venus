@@ -82,9 +82,11 @@ HERMES_PUSH_DEBUG_LINE("top_node[{}]: {:x}\n", i,
                        (node ? (uintptr_t)node.get() : 0))
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(samplers_, sampler)
+HERMES_UNUSED_VARIABLE(sampler);
 HERMES_PUSH_DEBUG_VENUS_FIELD(samplers_[i])
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(image_handles_, handle)
+HERMES_UNUSED_VARIABLE(handle);
 HERMES_PUSH_DEBUG_VENUS_FIELD(image_handles_[i])
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_allocator_)
@@ -97,9 +99,6 @@ namespace venus::scene {
 
 Result<Material>
 GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
-
-  // descriptor set layouts
-
   pipeline::DescriptorSet::Layout l;
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
       l, pipeline::DescriptorSet::Layout::Config()
@@ -107,41 +106,35 @@ GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
                                VK_SHADER_STAGE_VERTEX_BIT |
                                    VK_SHADER_STAGE_FRAGMENT_BIT)
              .create(**gd));
-  auto vk_descriptor_set_layout = *l;
 
   auto &globals = engine::GraphicsEngine::globals();
 
-  Material m;
+  auto pipeline_layout_config =
+      pipeline::Pipeline::Layout::Config()
+          .addDescriptorSetLayout(globals.descriptors.scene_data_layout)
+          .addDescriptorSetLayout(*l)
+          .addPushConstantRange(
+              VK_SHADER_STAGE_VERTEX_BIT, 0,
+              sizeof(
+                  engine::GraphicsEngine::Globals::Types::DrawPushConstants));
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      m,
+  auto pipeline_config =
+      pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_VERTEX_BIT)
+                              .create(globals.shaders.vert_mesh))
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                              .create(globals.shaders.frag_mesh_pbr));
+
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      Material, m,
       Material::Config()
           .setDescriptorSetLayout(std::move(l))
           .setMaterialPipelineConfig(
               Material::Pipeline::Config()
-                  .setPipelineConfig(
-                      pipeline::GraphicsPipeline::Config::defaults(
-                          gd.swapchain().imageExtent())
-                          .setColorAttachmentFormat(
-                              gd.swapchain().colorFormat())
-                          .setDepthFormat(gd.swapchain().depthBuffer().format())
-                          .addShaderStage(
-                              pipeline::Pipeline::ShaderStage()
-                                  .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                                  .create(globals.shaders.vert_mesh))
-                          .addShaderStage(
-                              pipeline::Pipeline::ShaderStage()
-                                  .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                                  .create(globals.shaders.frag_mesh_pbr)))
-                  .setPipelineLayoutConfig(
-                      pipeline::Pipeline::Layout::Config()
-                          .addDescriptorSetLayout(
-                              globals.descriptors.scene_data_layout)
-                          .addDescriptorSetLayout(vk_descriptor_set_layout)
-                          .addPushConstantRange(
-                              VK_SHADER_STAGE_VERTEX_BIT, 0,
-                              sizeof(engine::GraphicsEngine::Globals::Types::
-                                         DrawPushConstants))))
+                  .setPipelineConfig(pipeline_config)
+                  .setPipelineLayoutConfig(pipeline_layout_config))
           .create(**gd, *gd.renderpass()));
 
   return Result<Material>(std::move(m));
@@ -150,19 +143,19 @@ GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
 Result<Material::Instance>
 GLTF_MetallicRoughness::write(pipeline::DescriptorAllocator &allocator,
                               const Material *material) {
-  auto &globals = engine::GraphicsEngine::globals();
+  HERMES_ASSERT(material);
 
   Material::Instance instance;
 
   VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      instance.descriptor_set,
-      allocator.allocate(*material->descriptorSetLayout()));
+      instance,
+      Material::Instance::Config().setMaterial(material).create(allocator))
+
   descriptor_writer_.clear();
   descriptor_writer_.writeBuffer(
       0, resources.data_buffer, sizeof(GLTF_MetallicRoughness::Data),
       resources.data_buffer_offset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-  descriptor_writer_.update(instance.descriptor_set);
-  instance.material = material;
+  descriptor_writer_.update(instance.descriptorSet());
 
   return Result<Material::Instance>(std::move(instance));
 }
@@ -563,47 +556,44 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
   /////////////////////////////////////////////////////////////////////////////
   std::vector<Material::Instance::Ptr> materials(asset->materials.size());
 
-  VENUS_CHECK_VE_RESULT(scene->material_data_buffer_.access([&](void *d) {
-    GLTF_MetallicRoughness::Data *data =
-        reinterpret_cast<GLTF_MetallicRoughness::Data *>(d);
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(mem::DeviceMemory::ScopedMap, d,
+                                     scene->material_data_buffer_.scopedMap());
+
+  GLTF_MetallicRoughness::Data *data = d.get<GLTF_MetallicRoughness::Data>();
 #if __cplusplus >= 202302L
-    for (const auto &[material_index, gltf_material] :
-         std::views::enumerate(asset->materials)) {
+  for (const auto &[material_index, gltf_material] :
+       std::views::enumerate(asset->materials)) {
 #else
-    for (u32 index = 0; index < asset->materials.size(); ++index) {
-      const auto &material = asset->materials[index];
+  for (u32 index = 0; index < asset->materials.size(); ++index) {
+    const auto &material = asset->materials[index];
 #endif
-      // GLTF_Material::Ptr new_material = GLTF_Material::Ptr();
-      // scene->materials_[material.name.c_str()] = new_material;
+    // GLTF_Material::Ptr new_material = GLTF_Material::Ptr();
+    // scene->materials_[material.name.c_str()] = new_material;
 
-      // TODO: transparency support
-      // MaterialPass passType = MaterialPass::MainColor;
-      // if (mat.alphaMode == fastgltf::AlphaMode::Blend) {
-      //   passType = MaterialPass::Transparent;
-      // }
-      GLTF_MetallicRoughness parameters;
-      // constants (stored in the uniform buffer)
-      data[material_index] = parameters.data =
-          loadMaterialConstants(gltf_material);
-      // resources
-      parameters.resources =
-          loadMaterialResources(gltf_material, asset.get(), material_index,
-                                *scene->material_data_buffer_, scene->samplers_,
-                                scene->image_handles_);
-      // write material
+    // TODO: transparency support
+    // MaterialPass passType = MaterialPass::MainColor;
+    // if (mat.alphaMode == fastgltf::AlphaMode::Blend) {
+    //   passType = MaterialPass::Transparent;
+    // }
+    GLTF_MetallicRoughness parameters;
+    // constants (stored in the uniform buffer)
+    data[material_index] = parameters.data =
+        loadMaterialConstants(gltf_material);
+    // resources
+    parameters.resources = loadMaterialResources(
+        gltf_material, asset.get(), material_index,
+        *scene->material_data_buffer_, scene->samplers_, scene->image_handles_);
+    // write material
 
-      Material::Instance m_instance;
+    VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
+        Material::Instance, m_instance,
+        parameters.write(scene->descriptor_allocator_,
+                         &engine::GraphicsEngine::globals()
+                              .materials.gltf_metallic_roughness));
 
-      VENUS_ASSIGN_RESULT_OR_RETURN_VOID(
-          m_instance, parameters.write(scene->descriptor_allocator_, 0));
-
-      materials[material_index] =
-          scene->materials_[gltf_material.name.c_str()] =
-              Material::Instance::Ptr::shared();
-
-      *materials[material_index] = std::move(m_instance);
-    }
-  }));
+    materials[material_index] = scene->materials_[gltf_material.name.c_str()] =
+        m_instance;
+  }
 
   /////////////////////////////////////////////////////////////////////////////
   // MESHES
@@ -698,6 +688,8 @@ void GLTF_Node::destroy() noexcept {
 
 void GLTF_Node::draw(const hermes::geo::Transform &top_matrix,
                      DrawContext &ctx) {
+  if (!visible_)
+    return;
   for (auto &n : top_nodes_) {
     n->draw(top_matrix, ctx);
   }

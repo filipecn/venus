@@ -27,6 +27,8 @@
 
 #include <hermes/core/result.h>
 
+#pragma once
+
 #define VENUS_DEBUG
 
 #ifdef VENUS_INCLUDE_TO_STRING
@@ -56,6 +58,9 @@ struct VeResult {
   static VeResult notFound() {
     return {HeError::CUSTOM_ERROR, Type::NOT_FOUND};
   }
+  static VeResult outOfBounds() {
+    return {HeError::OUT_OF_BOUNDS, Type::NO_ERROR};
+  }
   static VeResult vkError() { return {HeError::CUSTOM_ERROR, Type::VK_ERROR}; }
   static VeResult error() { return {HeError::UNKNOWN_ERROR, Type::NO_ERROR}; }
   static VeResult extError() {
@@ -71,6 +76,7 @@ struct VeResult {
     return {HeError::BAD_ALLOCATION, Type::NO_ERROR};
   }
   static VeResult ioError() { return {HeError::CUSTOM_ERROR, Type::IO_ERROR}; }
+  static VeResult heError(HeError he) { return {he, Type::NO_ERROR}; }
 
   VeResult() = default;
   VeResult(Type type) : base_type(HeError::UNKNOWN_ERROR), type(type) {}

@@ -146,7 +146,7 @@ void GraphicsEngine::Globals::Defaults::clear() {}
 VeResult GraphicsEngine::Globals::init(GraphicsDevice &gd) {
   VENUS_RETURN_BAD_RESULT(descriptors.init(gd));
   VENUS_RETURN_BAD_RESULT(shaders.init(**gd));
-  // VENUS_RETURN_BAD_RESULT(materials.init(gd));
+  VENUS_RETURN_BAD_RESULT(materials.init(gd));
   return VeResult::noError();
 }
 
@@ -155,6 +155,15 @@ VeResult GraphicsEngine::Globals::cleanup() {
   materials.clear();
   descriptors.clear();
   defaults.clear();
+  return VeResult::noError();
+}
+
+mem::AllocatedBufferPool &GraphicsEngine::Cache::allocatedBuffers() {
+  return allocated_buffer_pool_;
+}
+
+VeResult GraphicsEngine::Cache::cleanup() {
+  allocated_buffer_pool_.destroy();
   return VeResult::noError();
 }
 
@@ -231,7 +240,7 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
   return VeResult::noError();
 }
 
-VeResult GraphicsEngine::startup(const GraphicsEngine::Config &config) {
+VeResult GraphicsEngine::startup() {
 
   // globals
   VENUS_RETURN_BAD_RESULT(s_instance.globals_.init(s_instance.gd_));
@@ -240,6 +249,7 @@ VeResult GraphicsEngine::startup(const GraphicsEngine::Config &config) {
 }
 
 VeResult GraphicsEngine::shutdown() {
+  VENUS_RETURN_BAD_RESULT(s_instance.cache_.cleanup());
   VENUS_RETURN_BAD_RESULT(s_instance.globals_.cleanup());
   s_instance.gd_.destroy();
   s_instance.surface_.destroy();

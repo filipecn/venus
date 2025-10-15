@@ -116,7 +116,7 @@ public:
     VkSharingMode sharing_mode_{VK_SHARING_MODE_EXCLUSIVE}; //< sharing mode
     VkBufferCreateFlags flags_{};
 
-    VENUS_TO_STRING_FRIEND(Buffer::Config);
+    VENUS_to_string_FRIEND(Buffer::Config);
   };
   /// Buffer views allow us to define how buffer's memory is accessed and
   /// interpreted. For example, we can choose to look at the buffer as a uniform
@@ -187,7 +187,7 @@ private:
   Config config_{};
 #endif
 
-  VENUS_TO_STRING_FRIEND(Buffer);
+  VENUS_to_string_FRIEND(Buffer);
 };
 
 /// \brief Holds a self-allocated vulkan buffer object.
@@ -195,6 +195,7 @@ private:
 class AllocatedBuffer : public Buffer, public DeviceMemory {
 public:
   struct Config {
+    static Config forUniform(u32 size_in_bytes);
     Config &setBufferConfig(const Buffer::Config &config);
     Config &setMemoryConfig(const DeviceMemory::Config &config);
 
@@ -204,7 +205,7 @@ public:
     Buffer::Config buffer_config_;
     DeviceMemory::Config mem_config_;
 
-    VENUS_TO_STRING_FRIEND(Config);
+    VENUS_to_string_FRIEND(Config);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(AllocatedBuffer)
@@ -215,7 +216,84 @@ public:
   void swap(AllocatedBuffer &rhs) noexcept;
 
 private:
-  VENUS_TO_STRING_FRIEND(AllocatedBuffer);
+  VENUS_to_string_FRIEND(AllocatedBuffer);
+};
+
+/// Allocated buffer pools hold multiple allocated buffers that can be labeled
+/// and accessed.
+/// They can be very handy for uniform buffers that can be share by multiple
+/// descriptor sets.
+class AllocatedBufferPool {
+public:
+  VENUS_DECLARE_RAII_FUNCTIONS(AllocatedBufferPool)
+
+  void destroy() noexcept;
+  void swap(AllocatedBufferPool &rhs);
+
+  /// Allocates a new buffer with label name.
+  /// \param name Buffer label.
+  /// \param config Allocated buffer config.
+  /// \return error.
+  template <class... P>
+  VeResult addBuffer(const std::string &name,
+                     const AllocatedBuffer::Config &config, P &&...params) {
+    BufferData data{};
+    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+        data.buffer, config.create(std::forward<P>(params)...));
+    buffers_[name] = std::move(data);
+    return VeResult::noError();
+  }
+  /// Copies data into buffer.
+  /// \param name Buffer key (label).
+  /// \param block_index index inside buffer.
+  /// \param data Data being copied.
+  /// \param size_in_bytes Size of the data being copied.
+  /// \param offset_in_block Offset in bytes (within block) of the copy.
+  /// \return error.
+  HERMES_NODISCARD VeResult copyBlock(const std::string &name, u32 block_index,
+                                      const void *data, u32 size_in_bytes,
+                                      u32 offset_in_block = 0);
+  /// Destroys buffer.
+  /// \param name Buffer key (label).
+  void removeBuffer(const std::string &name);
+  /// Gets buffer vulkan object.
+  /// \param name Buffer key (label).
+  /// \return Buffer or error.
+  HERMES_NODISCARD Result<VkBuffer> operator[](const std::string &name) const;
+  /// Appends count blocks in a buffer free space.
+  /// \param name Buffer key (label).
+  /// \param size_in_bytes Size of the block to be allocated.
+  /// \param count [def=1] Number of same-size blocks to be allocated
+  ///                      contiguously in the buffer.
+  /// \return The offset in the buffer of the first allocated block.
+  HERMES_NODISCARD Result<u32> allocate(const std::string &name,
+                                        u32 size_in_bytes, u32 count = 1);
+  /// Appends count blocks of sizeof(T) in a buffer free space.
+  /// \param name Buffer key (label).
+  /// \param count [def=1] Number of same-size blocks to be allocated
+  ///                      contiguously in the buffer.
+  /// \return The offset in the buffer of the first allocated block.
+  template <typename T>
+  HERMES_NODISCARD Result<u32> allocate(const std::string &name,
+                                        u32 count = 1) {
+    return allocate(name, sizeof(T), count);
+  }
+  /// Retrieves the offset of a given allocated block index.
+  /// \param name Buffer key (label).
+  /// \param block_index Block indices are 0-based sequential numbers.
+  HERMES_NODISCARD Result<u32> blockOffset(const std::string &name,
+                                           u32 block_index) const;
+
+private:
+  VENUS_to_string_FRIEND(AllocatedBufferPool);
+
+  struct BufferData {
+    AllocatedBuffer buffer;
+    std::vector<u32> block_offsets;
+    u32 size{0};
+  };
+
+  std::unordered_map<std::string, BufferData> buffers_;
 };
 
 } // namespace venus::mem

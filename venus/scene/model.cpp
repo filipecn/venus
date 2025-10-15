@@ -28,7 +28,41 @@
 #include <venus/utils/macros.h>
 #include <venus/utils/vk_debug.h>
 
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model::Shape)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_FIELD(index_base)
+HERMES_PUSH_DEBUG_FIELD(index_count)
+HERMES_PUSH_DEBUG_HERMES_FIELD(bounds)
+HERMES_PUSH_DEBUG_LINE("material: 0x{:x}",
+                       object.material ? (uintptr_t)object.material.get() : 0)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model)
+HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_vertex_buffer_)
+HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_index_buffer_)
+HERMES_PUSH_DEBUG_FIELD(vk_address_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(vertex_layout_)
+HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(shapes_, shape)
+HERMES_UNUSED_VARIABLE(shape);
+HERMES_PUSH_DEBUG_VENUS_FIELD(shapes_[i])
+HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::AllocatedModel)
+HERMES_PUSH_DEBUG_HERMES_FIELD(mesh_.aos)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+
 namespace venus::scene {
+
+hermes::geo::bounds::bsphere3 Model::Mesh::computeBounds() const {
+  hermes::geo::bounds::bsphere3 bounds;
+  return bounds;
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Model, addShape, const Model::Shape &,
                                      shapes_.emplace_back(value));
 
@@ -52,13 +86,22 @@ Result<Model> Model::Config::create() const {
   Model model;
   model.vk_vertex_buffer_ = vk_vertex_buffer_;
   model.vk_index_buffer_ = vk_index_buffer_;
-  model.shapes_ = shapes_;
   model.vertex_layout_ = vertex_layout_;
   model.vk_address_ = vk_address_;
+  model.shapes_ = shapes_;
   return Result<Model>(std::move(model));
 }
 
 const std::vector<Model::Shape> &Model::shapes() const { return shapes_; }
+
+VeResult Model::setMaterial(u32 shape_index,
+                            const scene::Material::Instance::Ptr &material) {
+  if (shapes_.size() <= shape_index) {
+    return VeResult::outOfBounds();
+  }
+  shapes_[shape_index].material = material;
+  return VeResult::noError();
+}
 
 VkBuffer Model::vertexBuffer() const { return vk_vertex_buffer_; }
 
@@ -122,6 +165,17 @@ AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
   model.vk_index_buffer_ = *model.storage_.indices;
   model.vk_address_ = model.storage_.vertices.deviceAddress();
 
+  // setup single shape for whole model
+
+  Model::Shape shape;
+  shape.bounds = model.mesh_.computeBounds();
+  shape.material = {};
+  shape.index_count = model.mesh_.indices.size();
+  shape.index_base = 0;
+  shape.vertex_count = model.mesh_.aos.size();
+
+  model.shapes_.emplace_back(shape);
+
   return Result<AllocatedModel>(std::move(model));
 }
 
@@ -155,30 +209,3 @@ void AllocatedModel::swap(AllocatedModel &rhs) {
 }
 
 } // namespace venus::scene
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model::Shape)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(index_base)
-HERMES_PUSH_DEBUG_FIELD(index_count)
-HERMES_PUSH_DEBUG_HERMES_FIELD(bounds)
-HERMES_PUSH_DEBUG_LINE("material: 0x{:x}",
-                       object.material ? (uintptr_t)object.material.get() : 0)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model)
-HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_vertex_buffer_)
-HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_index_buffer_)
-HERMES_PUSH_DEBUG_FIELD(vk_address_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(vertex_layout_)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(shapes_, shape)
-HERMES_PUSH_DEBUG_VENUS_FIELD(shapes_[i])
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::AllocatedModel)
-HERMES_PUSH_DEBUG_HERMES_FIELD(mesh_.aos)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

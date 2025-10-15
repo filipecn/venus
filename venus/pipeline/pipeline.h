@@ -78,7 +78,7 @@ public:
     std::size_t specialization_data_size_{0};
     const void *specialization_data_{nullptr};
 
-    VENUS_TO_STRING_FRIEND(ShaderStage);
+    VENUS_to_string_FRIEND(ShaderStage);
   };
   /// Pipeline layout.
   class Layout {
@@ -96,7 +96,7 @@ public:
       std::vector<VkPushConstantRange> ranges_;
       std::vector<VkDescriptorSetLayout> set_layouts_;
 
-      VENUS_TO_STRING_FRIEND(Config);
+      VENUS_to_string_FRIEND(Config);
     };
 
     VENUS_DECLARE_RAII_FUNCTIONS(Layout)
@@ -113,7 +113,7 @@ public:
     Config config_;
 #endif
 
-    VENUS_TO_STRING_FRIEND(Layout);
+    VENUS_to_string_FRIEND(Layout);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Pipeline);
@@ -135,7 +135,7 @@ protected:
   VkPipeline vk_pipeline_{VK_NULL_HANDLE};
   VkPipelineCache vk_pipeline_cache_{VK_NULL_HANDLE};
 
-  VENUS_TO_STRING_FRIEND(Pipeline);
+  VENUS_to_string_FRIEND(Pipeline);
 };
 
 /// Specialized pipeline for compute.
@@ -173,7 +173,7 @@ public:
     std::vector<VkVertexInputBindingDescription> binding_descriptions_;
     std::vector<VkVertexInputAttributeDescription> attribute_descriptions_;
 
-    VENUS_TO_STRING_FRIEND(VertexInput);
+    VENUS_to_string_FRIEND(VertexInput);
   };
   /// Builder for Rasterization state configuration.
   struct Rasterizer {
@@ -195,7 +195,7 @@ public:
   private:
     VkPipelineRasterizationStateCreateInfo info_{};
 
-    VENUS_TO_STRING_FRIEND(Rasterizer);
+    VENUS_to_string_FRIEND(Rasterizer);
   };
   /// Builder for Multisample state configuration.
   struct Multisample {
@@ -217,7 +217,7 @@ public:
     VkPipelineMultisampleStateCreateInfo info_{};
     std::vector<VkSampleMask> sample_masks_;
 
-    VENUS_TO_STRING_FRIEND(Multisample);
+    VENUS_to_string_FRIEND(Multisample);
   };
   /// Builder for Color Blend state configuration.
   struct ColorBlend {
@@ -239,7 +239,7 @@ public:
     VkPipelineColorBlendStateCreateInfo info_{};
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments_;
 
-    VENUS_TO_STRING_FRIEND(ColorBlend);
+    VENUS_to_string_FRIEND(ColorBlend);
   };
   /// Builder for Depth Stencil state configuration.
   struct DepthStencil {
@@ -257,7 +257,7 @@ public:
   private:
     VkPipelineDepthStencilStateCreateInfo info_{};
 
-    VENUS_TO_STRING_FRIEND(DepthStencil);
+    VENUS_to_string_FRIEND(DepthStencil);
   };
 
   /// Builder for GraphicsPipeline
@@ -358,7 +358,7 @@ public:
     std::vector<VkFormat> color_attachment_formats_{};
     VkPipelineRenderingCreateInfo rendering_{};
 
-    VENUS_TO_STRING_FRIEND(GraphicsPipeline::Config);
+    VENUS_to_string_FRIEND(GraphicsPipeline::Config);
   };
 
 private:
@@ -366,7 +366,7 @@ private:
   Config config_;
 #endif
 
-  VENUS_TO_STRING_FRIEND(GraphicsPipeline);
+  VENUS_to_string_FRIEND(GraphicsPipeline);
 };
 
 } // namespace venus::pipeline

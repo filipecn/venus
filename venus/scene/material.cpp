@@ -26,7 +26,58 @@
 
 #include <venus/scene/material.h>
 
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Pipeline::Config)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_config_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(layout_config_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Pipeline)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_layout_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Config)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_layout_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_config_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_)
+HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_layout_);
+HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Instance)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_PUSH_DEBUG_LINE("material: {}", venus::to_string(*object.material_))
+HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
 namespace venus::scene {
+
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Instance, setMaterial,
+                                     const Material *, material_ = value)
+
+Result<Material::Instance> Material::Instance::Config::create(
+    pipeline::DescriptorAllocator &allocator) const {
+  Material::Instance instance;
+
+  instance.material_ = material_;
+
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      instance.descriptor_set_,
+      allocator.allocate(*material_->descriptorSetLayout()));
+
+  return Result<Material::Instance>(std::move(instance));
+}
 
 Material::Instance::Instance(Material::Instance &&rhs) noexcept {
   *this = std::move(rhs);
@@ -42,13 +93,27 @@ Material::Instance::operator=(Material::Instance &&rhs) noexcept {
 Material::Instance::~Instance() noexcept { destroy(); }
 
 void Material::Instance::swap(Material::Instance &rhs) {
-  VENUS_SWAP_FIELD_WITH_RHS(material);
-  VENUS_SWAP_FIELD_WITH_RHS(descriptor_set);
+  VENUS_SWAP_FIELD_WITH_RHS(material_);
+  VENUS_SWAP_FIELD_WITH_RHS(descriptor_set_);
 }
 
 void Material::Instance::destroy() noexcept {
-  material = nullptr;
-  descriptor_set.destroy();
+  material_ = nullptr;
+  descriptor_set_.destroy();
+}
+
+const Material *Material::Instance::material() const { return material_; }
+
+const pipeline::GraphicsPipeline &Material::Instance::pipeline() const {
+  return material_->pipeline().pipeline();
+}
+
+const pipeline::Pipeline::Layout &Material::Instance::pipelineLayout() const {
+  return material_->pipeline().pipelineLayout();
+}
+
+const pipeline::DescriptorSet &Material::Instance::descriptorSet() const {
+  return descriptor_set_;
 }
 
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Pipeline, setPipelineConfig,
@@ -120,9 +185,15 @@ void Material::Pipeline::destroy() noexcept {
   pipeline_layout_.destroy();
 }
 
+const pipeline::GraphicsPipeline &Material::Pipeline::operator*() const {
+  return pipeline_;
+}
+
 const pipeline::GraphicsPipeline &Material::Pipeline::pipeline() const {
   return pipeline_;
 }
+
+VkPipeline Material::Pipeline::vkPipeline() const { return *pipeline_; }
 
 const pipeline::Pipeline::Layout &Material::Pipeline::pipelineLayout() const {
   return pipeline_layout_;
@@ -155,33 +226,3 @@ const pipeline::DescriptorSet::Layout &Material::descriptorSetLayout() const {
 const Material::Pipeline &Material::pipeline() const { return pipeline_; }
 
 } // namespace venus::scene
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Pipeline::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_config_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(layout_config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Pipeline)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_layout_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_layout_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_layout_);
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

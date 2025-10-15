@@ -102,4 +102,69 @@ VeResult Renderer::end() {
   return VeResult::noError();
 }
 
+void Renderer::draw(
+    const std::vector<scene::RenderObject> &render_objects,
+    const std::vector<VkDescriptorSet> &global_descriptor_sets_) {
+  for (const auto &object : render_objects) {
+    draw(object, global_descriptor_sets_);
+  }
+}
+
+void Renderer::draw(
+    const scene::RenderObject &ro,
+    const std::vector<VkDescriptorSet> &global_descriptor_sets) {
+  auto &gd = venus::engine::GraphicsEngine::device();
+  auto &cb = gd.commandBuffer();
+  if (last_material_ != ro.material_instance->material()) {
+    if (last_pipeline_ != *(ro.material_instance->pipeline())) {
+      last_pipeline_ = *(ro.material_instance->pipeline());
+      // bind pipeline
+      cb.bind(ro.material_instance->pipeline());
+
+      auto extent =
+          venus::engine::GraphicsEngine::device().swapchain().imageExtent();
+
+      cb.setViewport(extent.width, extent.height, 0.f, 1.f);
+
+      cb.setScissor(0, 0, extent.width, extent.height);
+
+      // bind global descriptor set
+      if (!global_descriptor_sets.empty())
+        cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
+                *ro.material_instance->pipelineLayout(), 0,
+                global_descriptor_sets);
+    }
+    // bind material descriptor set
+    cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
+            *ro.material_instance->pipelineLayout(),
+            global_descriptor_sets.size(),
+            {*ro.material_instance->descriptorSet()});
+  }
+
+  // if (ro.vertex_buffer && ro.vertex_buffer != last_vertex_buffer_) {
+  //   last_vertex_buffer_ = ro.vertex_buffer;
+  //   cb.bindVertexBuffers(0, {ro.vertex_buffer}, {0});
+  // }
+  if (ro.index_buffer && ro.index_buffer != last_index_buffer_) {
+    last_index_buffer_ = ro.index_buffer;
+    cb.bindIndexBuffer(ro.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+  }
+
+  // compute push constants
+  venus::engine::GraphicsEngine::Globals::Types::DrawPushConstants
+      push_constants;
+  push_constants.world_matrix = ro.transform;
+  push_constants.vertex_buffer = ro.vertex_buffer_address;
+
+  cb.pushConstants(
+      *ro.material_instance->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
+      sizeof(venus::engine::GraphicsEngine::Globals::Types::DrawPushConstants),
+      &push_constants);
+
+  if (ro.index_buffer != VK_NULL_HANDLE)
+    cb.drawIndexed(ro.count, 1, ro.first_index, 0, 0);
+  else
+    cb.draw(ro.count, 1, 0, 0);
+}
+
 } // namespace venus::app

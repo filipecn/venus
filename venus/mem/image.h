@@ -121,7 +121,7 @@ public:
     // memory
     DeviceMemory::Config memory_;
 
-    VENUS_TO_STRING_FRIEND(Image::Config);
+    VENUS_to_string_FRIEND(Image::Config);
   };
   /// Image views allow us to define how image's memory is accessed and
   /// interpreted. For example, we can choose to look at the buffer as a uniform
@@ -145,7 +145,7 @@ public:
     private:
       VkImageViewCreateInfo info_{};
 
-      VENUS_TO_STRING_FRIEND(Image::View::Config);
+      VENUS_to_string_FRIEND(Image::View::Config);
     };
 
     // raii
@@ -163,13 +163,13 @@ public:
     Config config_{};
 #endif
 
-    VENUS_TO_STRING_FRIEND(Image::View);
+    VENUS_to_string_FRIEND(Image::View);
   };
   /// Holds image object vk handles
   struct Handle {
     VkImage image;
     VkImageView view;
-    VENUS_TO_STRING_FRIEND(Image::Handle);
+    VENUS_to_string_FRIEND(Image::Handle);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Image);
@@ -195,7 +195,7 @@ private:
   Config config_;
 #endif
 
-  VENUS_TO_STRING_FRIEND(Image);
+  VENUS_to_string_FRIEND(Image);
 };
 
 /// \brief Holds a self-allocated vulkan image object.
@@ -221,7 +221,7 @@ public:
   void swap(AllocatedImage &rhs) noexcept;
 
 private:
-  VENUS_TO_STRING_FRIEND(AllocatedImage);
+  VENUS_to_string_FRIEND(AllocatedImage);
 };
 
 } // namespace venus::mem

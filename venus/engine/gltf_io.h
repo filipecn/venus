@@ -72,7 +72,7 @@ public:
   Data data;
   Resources resources;
 
-  VENUS_TO_STRING_FRIEND(GLTF_MetallicRoughness);
+  VENUS_to_string_FRIEND(GLTF_MetallicRoughness);
 };
 
 namespace graph {
@@ -112,7 +112,7 @@ private:
 
   mem::AllocatedBuffer material_data_buffer_;
 
-  VENUS_TO_STRING_FRIEND(GLTF_Node);
+  VENUS_to_string_FRIEND(GLTF_Node);
 };
 
 } // namespace graph

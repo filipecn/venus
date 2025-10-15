@@ -188,7 +188,7 @@ public:
   [[maybe_unused]] HERMES_NODISCARD VkSampleCountFlagBits
   maxUsableSampleCount(bool include_depth_buffer = true) const;
 
-  VENUS_TO_STRING_FRIEND(PhysicalDevice);
+  VENUS_to_string_FRIEND(PhysicalDevice);
 
 private:
   friend class PhysicalDevices;
@@ -209,7 +209,7 @@ private:
   VkPhysicalDeviceMemoryProperties vk_memory_properties_{};
   std::vector<VkQueueFamilyProperties> vk_queue_families_;
 
-  VENUS_TO_STRING_FRIEND(PhysicalDevice);
+  VENUS_to_string_FRIEND(PhysicalDevice);
 };
 
 /// Holds a list of physical devices that can be selected from.
@@ -245,7 +245,7 @@ public:
   Result<PhysicalDevice> select(const Selector &selector) const;
 
 private:
-  VENUS_TO_STRING_FRIEND(PhysicalDevices);
+  VENUS_to_string_FRIEND(PhysicalDevices);
 };
 
 } // namespace venus::core

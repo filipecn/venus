@@ -97,7 +97,7 @@ public:
     VkDebugUtilsMessageTypeFlagsEXT message_type_flags_;
 #endif
 
-    VENUS_TO_STRING_FRIEND(Instance::Config);
+    VENUS_to_string_FRIEND(Instance::Config);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Instance);
@@ -121,7 +121,7 @@ private:
   Config config_{};
 #endif
 
-  VENUS_TO_STRING_FRIEND(Instance);
+  VENUS_to_string_FRIEND(Instance);
 };
 
 } // namespace venus::core

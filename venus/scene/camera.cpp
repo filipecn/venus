@@ -39,6 +39,7 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::Camera::Projection)
 // force update
 auto t = *object;
+HERMES_UNUSED_VARIABLE(t);
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_FIELD(ratio_)
 HERMES_PUSH_DEBUG_FIELD(near_)
@@ -217,6 +218,8 @@ OrthographicProjection::OrthographicProjection(
 }
 
 void OrthographicProjection::zoom(f32 z) {
+  HERMES_UNUSED_VARIABLE(z);
+  HERMES_NOT_IMPLEMENTED;
   // region_ = hermes::geo::Transform2::scale({z, z})(region_);
   needs_update_ = true;
 }

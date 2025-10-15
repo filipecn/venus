@@ -97,7 +97,7 @@ public:
     VkDeviceCreateFlags flags_;
     VmaAllocatorCreateInfo allocator_info_;
 
-    VENUS_TO_STRING_FRIEND(Device::Config);
+    VENUS_to_string_FRIEND(Device::Config);
   };
 
   // raii
@@ -119,7 +119,7 @@ protected:
   VkDevice vk_device_{VK_NULL_HANDLE};
   PhysicalDevice physical_device_;
 
-  VENUS_TO_STRING_FRIEND(Device);
+  VENUS_to_string_FRIEND(Device);
 };
 
 } // namespace venus::core

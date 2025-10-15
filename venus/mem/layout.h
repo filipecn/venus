@@ -94,7 +94,7 @@ private:
   std::vector<Component> components_;
   VkDeviceSize stride_{0};
 
-  VENUS_TO_STRING_FRIEND(VertexLayout);
+  VENUS_to_string_FRIEND(VertexLayout);
 };
 
 } // namespace venus::mem

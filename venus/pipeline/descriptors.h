@@ -59,7 +59,7 @@ public:
     private:
       std::vector<VkDescriptorSetLayoutBinding> bindings_;
 
-      VENUS_TO_STRING_FRIEND(Config);
+      VENUS_to_string_FRIEND(Config);
     };
 
     // raii
@@ -79,7 +79,7 @@ public:
     Config config_;
 #endif
 
-    VENUS_TO_STRING_FRIEND(Layout);
+    VENUS_to_string_FRIEND(Layout);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(DescriptorSet)
@@ -97,7 +97,7 @@ private:
   VkDescriptorPool vk_descriptor_pool_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
 
-  VENUS_TO_STRING_FRIEND(DescriptorSet);
+  VENUS_to_string_FRIEND(DescriptorSet);
 };
 
 /// Manages the allocation of device memory for storing descriptor sets. The
@@ -131,7 +131,7 @@ public:
     u32 initial_set_count_{0};
     std::vector<PoolSizeRatio> ratios_;
 
-    VENUS_TO_STRING_FRIEND(DescriptorAllocator::Config);
+    VENUS_to_string_FRIEND(DescriptorAllocator::Config);
   };
 
   // raii
@@ -166,7 +166,7 @@ private:
   /// Pools capacity
   u32 sets_per_pool_{0};
 
-  VENUS_TO_STRING_FRIEND(DescriptorAllocator);
+  VENUS_to_string_FRIEND(DescriptorAllocator);
 };
 
 /// The descriptor writer updates data of allocated descriptors in device

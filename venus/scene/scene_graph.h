@@ -48,7 +48,7 @@ struct RenderObject {
 
   // mesh
 
-  u32 index_count{0};
+  u32 count{0}; //< index count or vertex count
   u32 first_index{0};
   VkBuffer index_buffer{VK_NULL_HANDLE};
   VkBuffer vertex_buffer{VK_NULL_HANDLE};
@@ -56,9 +56,9 @@ struct RenderObject {
 
   // shading
 
-  Material::Instance::Ptr material;
+  Material::Instance::Ptr material_instance;
 
-  VENUS_TO_STRING_FRIEND(RenderObject);
+  VENUS_to_string_FRIEND(RenderObject);
 };
 
 // *****************************************************************************
@@ -76,8 +76,14 @@ struct DrawContext {
 
 /// Interface for objects that can produce render objects.
 class Renderable {
+public:
   virtual void draw(const hermes::geo::Transform &top_matrix,
                     DrawContext &context) = 0;
+
+  void setVisible(bool visible);
+
+protected:
+  bool visible_{true};
 };
 
 class Destroyable {
@@ -134,7 +140,8 @@ protected:
   hermes::geo::Transform local_matrix_;
   hermes::geo::Transform world_matrix_;
 
-  VENUS_TO_STRING_FRIEND(Node);
+  VENUS_to_string_FRIEND(Node);
+  VENUS_VIRTUAL_toString_METHOD
 };
 
 // *****************************************************************************
@@ -144,18 +151,24 @@ protected:
 /// Specialized scene graph node containing a model that can be rendered.
 class ModelNode : public Node {
 public:
+  using Ptr = hermes::Ref<ModelNode>;
+
   ModelNode() = default;
   virtual ~ModelNode() noexcept = default;
   ModelNode(Model::Ptr model);
 
   void draw(const hermes::geo::Transform &top_matrix,
             DrawContext &context) override;
+  void destroy() noexcept override;
 
   Model::Ptr model();
   void setModel(Model::Ptr model);
 
 protected:
   Model::Ptr model_;
+
+  VENUS_to_string_FRIEND(ModelNode);
+  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
 };
 
 // *****************************************************************************
@@ -170,6 +183,25 @@ public:
 
   LabeledGraph &add(const std::string &name, const Node::Ptr &node,
                     const std::string &parent = "");
+  LabeledGraph &addModel(const std::string &name, const Model::Ptr &model,
+                         const std::string &parent = "");
+  template <typename NodeType = Node>
+  const NodeType *get(const std::string &name) const {
+    auto it = nodes_.find(name);
+    if (it == nodes_.end()) {
+      HERMES_WARN("Node {} not found in scene graph.", name);
+      return {};
+    }
+    return reinterpret_cast<const NodeType *>(it->second.get());
+  }
+  template <typename NodeType = Node> NodeType *get(const std::string &name) {
+    auto it = nodes_.find(name);
+    if (it == nodes_.end()) {
+      HERMES_WARN("Node {} not found in scene graph.", name);
+      return {};
+    }
+    return reinterpret_cast<NodeType *>(it->second.get());
+  }
 
   void draw(const hermes::geo::Transform &top_matrix,
             DrawContext &context) override;
@@ -178,7 +210,8 @@ public:
 private:
   std::unordered_map<std::string, Node::Ptr> nodes_;
 
-  VENUS_TO_STRING_FRIEND(LabeledGraph);
+  VENUS_to_string_FRIEND(LabeledGraph);
+  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
 };
 
 } // namespace graph

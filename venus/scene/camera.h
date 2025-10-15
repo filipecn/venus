@@ -87,7 +87,7 @@ public:
     mutable hermes::geo::Transform transform_; //!< projection transform
     mutable hermes::geo::Transform inv_transform_;
 
-    VENUS_TO_STRING_FRIEND(Projection);
+    VENUS_to_string_FRIEND(Projection);
   };
 
   /// \param p projection type
@@ -146,7 +146,7 @@ protected:
   mutable hermes::geo::Transform model_;
   mutable hermes::geo::Transform inv_model_;
 
-  VENUS_TO_STRING_FRIEND(Camera);
+  VENUS_to_string_FRIEND(Camera);
 };
 
 class PerspectiveProjection : public Camera::Projection {
@@ -165,7 +165,7 @@ public:
 private:
   f32 fov_in_degrees_{45.f}; //!< field of view angle in degrees
 
-  VENUS_TO_STRING_FRIEND(PerspectiveProjection);
+  VENUS_to_string_FRIEND(PerspectiveProjection);
 };
 
 class OrthographicProjection : public Camera::Projection {
@@ -187,7 +187,7 @@ public:
 private:
   hermes::geo::bounds::bbox2 region_;
 
-  VENUS_TO_STRING_FRIEND(OrthographicProjection);
+  VENUS_to_string_FRIEND(OrthographicProjection);
 };
 
 } // namespace venus::scene

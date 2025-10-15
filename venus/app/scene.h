@@ -43,9 +43,6 @@ public:
   scene::graph::LabeledGraph &graph();
   const scene::graph::LabeledGraph &graph() const;
 
-  scene::Camera &camera();
-  const scene::Camera &camera() const;
-
   Scene &addMaterial(const std::string &name,
                      const scene::Material::Ptr &material);
   template <typename MaterialType, class... Args>
@@ -61,11 +58,10 @@ public:
   const scene::Material *getMaterial(const std::string &name) const;
 
 private:
-  VENUS_TO_STRING_FRIEND(Scene);
+  VENUS_to_string_FRIEND(Scene);
 
   scene::graph::LabeledGraph graph_;
   std::unordered_map<std::string, scene::Material::Ptr> materials_;
-  scene::Camera camera_;
 };
 
 } // namespace venus::app

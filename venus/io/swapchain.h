@@ -107,7 +107,7 @@ public:
     u32 image_count_{3};
     VkSwapchainCreateFlagsKHR flags_{};
 
-    VENUS_TO_STRING_FRIEND(Swapchain::Config);
+    VENUS_to_string_FRIEND(Swapchain::Config);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Swapchain)
@@ -151,7 +151,7 @@ private:
   Config config_{};
 #endif
 
-  VENUS_TO_STRING_FRIEND(Swapchain);
+  VENUS_to_string_FRIEND(Swapchain);
 };
 
 } // namespace venus::io

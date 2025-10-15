@@ -51,6 +51,7 @@ HERMES_PUSH_DEBUG_LINE("stageFlags: {} offset {} size {}\n",
                        range.offset, range.size)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(set_layouts_, set_layout)
+HERMES_UNUSED_VARIABLE(set_layout);
 HERMES_PUSH_DEBUG_ADDRESS_FIELD(set_layouts_[i]);
 HERMES_PUSH_DEBUG_ARRAY_FIELD_END
 HERMES_TO_STRING_DEBUG_METHOD_END
@@ -547,6 +548,7 @@ GraphicsPipeline::ColorBlend::setBlendingConstants(
 VkPipelineColorBlendStateCreateInfo GraphicsPipeline::ColorBlend::create(
     VkPipelineColorBlendStateCreateFlags flags) const {
   auto info = info_;
+  info.flags = flags;
   info.attachmentCount = color_blend_attachments_.size();
   info.pAttachments = color_blend_attachments_.data();
   return info;
@@ -757,12 +759,8 @@ GraphicsPipeline::Config::create(VkDevice vk_device,
   auto multisample = multisample_.create();
   auto depth_stencil = depth_stencil_.create();
   auto color_blend = color_blend_.create();
-  auto rendering = rendering_;
   auto dynamic = dynamic_;
   auto viewport = viewport_;
-
-  rendering.colorAttachmentCount = color_attachment_formats_.size();
-  rendering.pColorAttachmentFormats = color_attachment_formats_.data();
 
   dynamic.pDynamicStates = dynamic_states_.data();
   dynamic.dynamicStateCount = dynamic_states_.size();

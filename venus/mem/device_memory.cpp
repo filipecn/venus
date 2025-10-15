@@ -106,6 +106,11 @@ Result<DeviceMemory> DeviceMemory::Config::create(const core::Device &device) {
   return Result<DeviceMemory>(std::move(device_memory));
 }
 
+DeviceMemory::ScopedMap::ScopedMap(DeviceMemory &memory, void *mapped) noexcept
+    : memory_(memory), mapped_(mapped) {}
+
+DeviceMemory::ScopedMap::~ScopedMap() noexcept { memory_.unmap(); }
+
 DeviceMemory::DeviceMemory(DeviceMemory &&rhs) noexcept {
   *this = std::move(rhs);
 }
@@ -118,12 +123,18 @@ DeviceMemory &DeviceMemory::operator=(DeviceMemory &&rhs) noexcept {
   return *this;
 }
 
-Result<void *> DeviceMemory::map(VkDeviceSize size, VkDeviceSize offset,
-                                 VkMemoryMapFlags flags) const {
+Result<DeviceMemory::ScopedMap> DeviceMemory::scopedMap() {
+  void *mapped;
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(mapped, map());
+  return Result<DeviceMemory::ScopedMap>(
+      DeviceMemory::ScopedMap(*this, mapped));
+}
+
+Result<void *> DeviceMemory::map() const {
   if (mapped_) {
-    HERMES_ERROR("Mapping an already mapped device memory. A device memory can "
-                 "only have one mapped memory at a time.");
-    return VeResult::badAllocation();
+    HERMES_WARN("Mapping an already mapped device memory. A device memory can "
+                "only have one mapped memory at a time.");
+    return Result<void *>(mapped_);
   }
   VENUS_VK_RETURN_BAD_RESULT(
       vmaMapMemory(vma_allocator_, vma_allocation_, &mapped_));
@@ -134,12 +145,9 @@ Result<void *> DeviceMemory::map(VkDeviceSize size, VkDeviceSize offset,
   return Result<void *>(mapped_);
 }
 
-VeResult DeviceMemory::access(const std::function<void(void *)> &f,
-                              VkDeviceSize size_in_bytes, VkDeviceSize offset,
-                              VkMemoryMapFlags flags) const {
+VeResult DeviceMemory::access(const std::function<void(void *)> &f) const {
   void *m = nullptr;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      m, this->map(size_in_bytes, offset, flags));
+  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(m, this->map());
   f(m);
   this->unmap();
   return VeResult::noError();
@@ -186,12 +194,18 @@ VeResult DeviceMemory::copy(const void *data, VkDeviceSize size_in_bytes,
     return VeResult::inputError();
   }
 
-  void *dst{nullptr};
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(dst,
-                                           map(size_in_bytes, offset, flags));
+  HERMES_UNUSED_VARIABLE(flags);
 
-  std::memcpy(dst, data, size_in_bytes);
-  unmap();
+  // void *dst{nullptr};
+  // VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(dst,
+  //                                         map(size_in_bytes, offset, flags));
+
+  // std::memcpy(dst, data, size_in_bytes);
+
+  VENUS_VK_RETURN_BAD_RESULT(vmaCopyMemoryToAllocation(
+      vma_allocator_, data, vma_allocation_, offset, size_in_bytes));
+
+  // unmap();
   return VeResult::noError();
 }
 

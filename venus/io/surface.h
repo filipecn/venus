@@ -44,8 +44,8 @@ public:
   VkSurfaceKHR operator*() const;
 
 private:
-  VkSurfaceKHR vk_surface_{VK_NULL_HANDLE};
   VkInstance vk_instance_{VK_NULL_HANDLE};
+  VkSurfaceKHR vk_surface_{VK_NULL_HANDLE};
 };
 
 } // namespace venus::io

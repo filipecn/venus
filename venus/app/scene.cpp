@@ -29,6 +29,7 @@
 
 namespace venus {
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(app::Scene)
+HERMES_PUSH_DEBUG_TITLE
 HERMES_TO_STRING_DEBUG_METHOD_END
 } // namespace venus
 
@@ -44,20 +45,16 @@ Scene &Scene::operator=(Scene &&rhs) noexcept {
   return *this;
 }
 
-void Scene::destroy() noexcept { graph_.destroy(); }
-
-void Scene::swap(Scene &rhs) {
-  VENUS_SWAP_FIELD_WITH_RHS(graph_);
-  VENUS_SWAP_FIELD_WITH_RHS(camera_);
+void Scene::destroy() noexcept {
+  graph_.destroy();
+  materials_.clear();
 }
+
+void Scene::swap(Scene &rhs) { VENUS_SWAP_FIELD_WITH_RHS(graph_); }
 
 scene::graph::LabeledGraph &Scene::graph() { return graph_; }
 
 const scene::graph::LabeledGraph &Scene::graph() const { return graph_; }
-
-scene::Camera &Scene::camera() { return camera_; }
-
-const scene::Camera &Scene::camera() const { return camera_; }
 
 Scene &Scene::addMaterial(const std::string &name,
                           const scene::Material::Ptr &material) {

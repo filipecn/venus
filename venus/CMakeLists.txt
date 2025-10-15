@@ -95,9 +95,14 @@ target_include_directories(
                "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
 
 add_dependencies(venus venus_shaders hermes glfw VK)
+
+target_include_directories( venus PUBLIC /home/filipecn/dev/venus/build_debug/_deps/hermes-src/)
+target_link_libraries(venus PUBLIC gcov /home/filipecn/dev/venus/build_debug/_deps/hermes-build/hermes/libhermes.a)
+
 target_link_libraries(venus PUBLIC optimized hermes glfw VK)
 
 target_compile_definitions(venus PUBLIC VENUS_INCLUDE_TO_STRING)
+target_compile_definitions(venus PUBLIC HERMES_INCLUDE_TO_STRING)
 
 set_target_properties(
   venus

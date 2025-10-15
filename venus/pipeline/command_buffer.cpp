@@ -653,7 +653,7 @@ VeResult BufferWritter::record(const core::Device &device,
 
   // record staging -> device transfer
   for (u32 i = 0; i < data_.size(); ++i) {
-    VkBufferCopy vertex_copy{0};
+    VkBufferCopy vertex_copy;
     vertex_copy.dstOffset = 0;
     vertex_copy.srcOffset = offsets[i];
     vertex_copy.size = sizes_[i];
@@ -694,7 +694,7 @@ BufferWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
       gd.immediateSubmit([&](const pipeline::CommandBuffer &cb) {
         // record staging -> device transfer
         for (u32 i = 0; i < data_.size(); ++i) {
-          VkBufferCopy vertex_copy{0};
+          VkBufferCopy vertex_copy;
           vertex_copy.dstOffset = 0;
           vertex_copy.srcOffset = offsets[i];
           vertex_copy.size = sizes_[i];

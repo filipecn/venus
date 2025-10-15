@@ -40,6 +40,26 @@ public:
 
   HERMES_NODISCARD VeResult begin();
   HERMES_NODISCARD VeResult end();
+
+  /// \param render_objects List of render objects to be rendered in sequence.
+  /// \param global_descriptor_sets Descriptor sets are bound at the beginning
+  ///                               of the set of descriptor sets accessed by
+  ///                               all render objects.
+  void draw(const std::vector<scene::RenderObject> &render_objects,
+            const std::vector<VkDescriptorSet> &global_descriptor_sets_ = {});
+  /// \param render_object
+  /// \param global_descriptor_sets Descriptor sets are bound at the beginning
+  ///                               of the set of descriptor sets accessed by
+  ///                               the render object shader.
+  void draw(const scene::RenderObject &render_object,
+            const std::vector<VkDescriptorSet> &global_descriptor_sets = {});
+
+private:
+  VkPipeline last_pipeline_{nullptr};
+  venus::scene::Material *last_material_{nullptr};
+  VkBuffer last_index_buffer_{nullptr};
+  VkBuffer last_vertex_buffer_{nullptr};
+  std::vector<pipeline::DescriptorSet> global_descriptor_sets_;
 };
 
 } // namespace venus::app
