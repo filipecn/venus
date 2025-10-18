@@ -92,8 +92,8 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
   }
 #endif
 
-#ifndef VENUS_ASSIGN_RESULT
-#define VENUS_ASSIGN_RESULT(R, V)                                              \
+#ifndef VENUS_ASSIGN
+#define VENUS_ASSIGN(R, V)                                                     \
   if (auto _venus_result_ = V)                                                 \
     R = std::move(*_venus_result_);                                            \
   else {                                                                       \
@@ -102,8 +102,8 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
   }
 #endif
 
-#ifndef VENUS_ASSIGN_RESULT_OR
-#define VENUS_ASSIGN_RESULT_OR(R, V, O)                                        \
+#ifndef VENUS_ASSIGN_OR
+#define VENUS_ASSIGN_OR(R, V, O)                                               \
   if (auto _venus_result_ = V)                                                 \
     R = std::move(*_venus_result_);                                            \
   else {                                                                       \
@@ -113,8 +113,8 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
   }
 #endif
 
-#ifndef VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT
-#define VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(R, V)                         \
+#ifndef VENUS_ASSIGN_OR_RETURN_BAD_RESULT
+#define VENUS_ASSIGN_OR_RETURN_BAD_RESULT(R, V)                                \
   if (auto _venus_result_ = V)                                                 \
     R = std::move(*_venus_result_);                                            \
   else {                                                                       \

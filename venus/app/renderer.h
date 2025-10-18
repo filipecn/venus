@@ -27,39 +27,47 @@
 
 #pragma once
 
+#include <venus/engine/graphics_engine.h>
 #include <venus/scene/scene_graph.h>
 
 namespace venus::app {
 
 class Renderer {
 public:
-  Renderer() = default;
-  ~Renderer() noexcept;
+  struct Config {
+    Result<Renderer> create() const;
+  };
+
+  VENUS_DECLARE_RAII_FUNCTIONS(Renderer)
 
   void destroy() noexcept;
+  void swap(Renderer &rhs);
 
   HERMES_NODISCARD VeResult begin();
+  /// Update global descriptor set data
+  HERMES_NODISCARD VeResult
+  update(const engine::GraphicsEngine::Globals::Types::SceneData &scene_data);
   HERMES_NODISCARD VeResult end();
 
   /// \param render_objects List of render objects to be rendered in sequence.
-  /// \param global_descriptor_sets Descriptor sets are bound at the beginning
-  ///                               of the set of descriptor sets accessed by
-  ///                               all render objects.
-  void draw(const std::vector<scene::RenderObject> &render_objects,
-            const std::vector<VkDescriptorSet> &global_descriptor_sets_ = {});
+  void draw(const std::vector<scene::RenderObject> &render_objects);
   /// \param render_object
-  /// \param global_descriptor_sets Descriptor sets are bound at the beginning
-  ///                               of the set of descriptor sets accessed by
-  ///                               the render object shader.
-  void draw(const scene::RenderObject &render_object,
-            const std::vector<VkDescriptorSet> &global_descriptor_sets = {});
+  void draw(const scene::RenderObject &render_object);
+
+  pipeline::DescriptorAllocator &descriptorAllocator();
 
 private:
   VkPipeline last_pipeline_{nullptr};
   venus::scene::Material *last_material_{nullptr};
   VkBuffer last_index_buffer_{nullptr};
   VkBuffer last_vertex_buffer_{nullptr};
-  std::vector<pipeline::DescriptorSet> global_descriptor_sets_;
+
+  // frame data
+  //
+  pipeline::DescriptorAllocator descriptor_allocator_;
+  /// The global descriptor set is bound at the beginning of the array of
+  /// descriptor sets accessed by all render objects.
+  pipeline::DescriptorSet global_descriptor_set_;
 };
 
 } // namespace venus::app

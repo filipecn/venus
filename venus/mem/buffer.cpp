@@ -70,7 +70,7 @@ HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
                                           : 0)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(mem::AllocatedBufferPool)
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(mem::BufferPool)
 HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(buffers_, name, data)
 HERMES_PUSH_DEBUG_LINE("block offsets: {}\n",
                        hermes::cstr::join(data.block_offsets, " "))
@@ -343,29 +343,23 @@ void AllocatedBuffer::destroy() noexcept {
   vk_memory_requirements_ = {};
 }
 
-AllocatedBufferPool::~AllocatedBufferPool() noexcept { destroy(); }
+BufferPool::~BufferPool() noexcept { destroy(); }
 
-AllocatedBufferPool::AllocatedBufferPool(AllocatedBufferPool &&rhs) noexcept {
-  *this = std::move(rhs);
-}
+BufferPool::BufferPool(BufferPool &&rhs) noexcept { *this = std::move(rhs); }
 
-AllocatedBufferPool &
-AllocatedBufferPool::operator=(AllocatedBufferPool &&rhs) noexcept {
+BufferPool &BufferPool::operator=(BufferPool &&rhs) noexcept {
   destroy();
   swap(rhs);
   return *this;
 }
 
-void AllocatedBufferPool::destroy() noexcept { buffers_.clear(); }
+void BufferPool::destroy() noexcept { buffers_.clear(); }
 
-void AllocatedBufferPool::swap(AllocatedBufferPool &rhs) {
-  VENUS_SWAP_FIELD_WITH_RHS(buffers_);
-}
+void BufferPool::swap(BufferPool &rhs) { VENUS_SWAP_FIELD_WITH_RHS(buffers_); }
 
-VeResult AllocatedBufferPool::copyBlock(const std::string &name,
-                                        u32 block_index, const void *data,
-                                        u32 size_in_bytes,
-                                        u32 offset_in_block) {
+VeResult BufferPool::copyBlock(const std::string &name, u32 block_index,
+                               const void *data, u32 size_in_bytes,
+                               u32 offset_in_block) {
   auto it = buffers_.find(name);
   if (it == buffers_.end())
     return VeResult::notFound();
@@ -378,20 +372,17 @@ VeResult AllocatedBufferPool::copyBlock(const std::string &name,
   return VeResult::noError();
 }
 
-void AllocatedBufferPool::removeBuffer(const std::string &name) {
-  buffers_.erase(name);
-}
+void BufferPool::removeBuffer(const std::string &name) { buffers_.erase(name); }
 
-Result<VkBuffer>
-AllocatedBufferPool::operator[](const std::string &name) const {
+Result<VkBuffer> BufferPool::operator[](const std::string &name) const {
   auto it = buffers_.find(name);
   if (it == buffers_.end())
     return VeResult::notFound();
   return *(it->second.buffer);
 }
 
-Result<u32> AllocatedBufferPool::allocate(const std::string &name,
-                                          u32 size_in_bytes, u32 count) {
+Result<u32> BufferPool::allocate(const std::string &name, u32 size_in_bytes,
+                                 u32 count) {
   auto it = buffers_.find(name);
   if (it == buffers_.end())
     return VeResult::notFound();
@@ -399,6 +390,10 @@ Result<u32> AllocatedBufferPool::allocate(const std::string &name,
   BufferData &data = it->second;
 
   u32 offset = data.size;
+
+  if (size_in_bytes == 0) {
+    size_in_bytes = data.buffer.sizeInBytes() - data.size;
+  }
 
   if (data.buffer.sizeInBytes() < offset + count * size_in_bytes)
     return VeResult::badAllocation();
@@ -411,8 +406,8 @@ Result<u32> AllocatedBufferPool::allocate(const std::string &name,
   return Result<u32>(offset);
 }
 
-Result<u32> AllocatedBufferPool::blockOffset(const std::string &name,
-                                             u32 block_index) const {
+Result<u32> BufferPool::blockOffset(const std::string &name,
+                                    u32 block_index) const {
   auto it = buffers_.find(name);
   if (it == buffers_.end())
     return VeResult::notFound();

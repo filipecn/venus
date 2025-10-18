@@ -32,7 +32,7 @@ namespace venus::scene {
 
 Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
   pipeline::DescriptorSet::Layout l;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       l, pipeline::DescriptorSet::Layout::Config()
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT)
@@ -41,7 +41,13 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
   auto &globals = engine::GraphicsEngine::globals();
 
   auto pipeline_layout_config =
-      pipeline::Pipeline::Layout::Config().addDescriptorSetLayout(*l);
+      pipeline::Pipeline::Layout::Config()
+          .addDescriptorSetLayout(globals.descriptors.scene_data_layout)
+          .addDescriptorSetLayout(*l)
+          .addPushConstantRange(
+              VK_SHADER_STAGE_VERTEX_BIT, 0,
+              sizeof(
+                  engine::GraphicsEngine::Globals::Types::DrawPushConstants));
 
   auto pipeline_config =
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
@@ -77,15 +83,15 @@ Material_Test::write(pipeline::DescriptorAllocator &allocator,
                      const Material *material) {
   Material::Instance instance;
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       instance,
       Material::Instance::Config().setMaterial(material).create(allocator))
 
-  descriptor_writer_.clear();
-  descriptor_writer_.writeBuffer(
-      0, resources.data_buffer, sizeof(Material_Test::Data),
-      resources.data_buffer_offset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-  descriptor_writer_.update(instance.descriptorSet());
+  // descriptor_writer_.clear();
+  // descriptor_writer_.writeBuffer(
+  //     0, resources.data_buffer, sizeof(Material_Test::Data),
+  //     resources.data_buffer_offset, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+  // descriptor_writer_.update(instance.descriptorSet());
 
   return Result<Material::Instance>(std::move(instance));
 }
@@ -93,7 +99,7 @@ Material_Test::write(pipeline::DescriptorAllocator &allocator,
 Result<Material>
 Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
   pipeline::DescriptorSet::Layout l;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       l, pipeline::DescriptorSet::Layout::Config()
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT)
@@ -103,12 +109,12 @@ Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
 
   auto pipeline_layout_config =
       pipeline::Pipeline::Layout::Config()
-          .addDescriptorSetLayout(*l)
+          .addDescriptorSetLayout(globals.descriptors.scene_data_layout)
+          //.addDescriptorSetLayout(*l)
           .addPushConstantRange(
               VK_SHADER_STAGE_VERTEX_BIT, 0,
               sizeof(
                   engine::GraphicsEngine::Globals::Types::DrawPushConstants));
-  // sizeof(Material_BindlessTest::PushConstants));
 
   auto pipeline_config =
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
@@ -120,9 +126,9 @@ Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
                               .create(globals.shaders.frag_flat_color));
 
   Material m;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       m, Material::Config()
-             .setDescriptorSetLayout(std::move(l))
+             //.setDescriptorSetLayout(std::move(l))
              .setMaterialPipelineConfig(
                  Material::Pipeline::Config()
                      .setPipelineConfig(pipeline_config)

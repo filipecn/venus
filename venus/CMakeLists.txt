@@ -89,14 +89,16 @@ add_library(venus STATIC ${VENUS_HEADERS} ${VENUS_SOURCES})
 target_compile_definitions(venus PRIVATE 
   VENUS_SHADERS_PATH="${VENUS_SOURCE_DIR}/shaders")
 
-# target_include_directories(venus_engine PRIVATE "${VENUS_SOURCE_DIR}/src")
 target_include_directories(
-  venus PUBLIC "$<BUILD_INTERFACE:${VENUS_SOURCE_DIR}>"
-               "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
+  venus PUBLIC "$<BUILD_INTERFACE:${VENUS_SOURCE_DIR};${STB_INCLUDE_DIR}>"
+  "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR};${STB_INCLUDE_DIR}>")
 
 add_dependencies(venus venus_shaders hermes glfw VK)
 
-target_include_directories( venus PUBLIC /home/filipecn/dev/venus/build_debug/_deps/hermes-src/)
+target_include_directories( venus PUBLIC 
+  /home/filipecn/dev/venus/build_debug/_deps/hermes-src/
+  ${STB_INCLUDE_DIR}
+)
 target_link_libraries(venus PUBLIC gcov /home/filipecn/dev/venus/build_debug/_deps/hermes-build/hermes/libhermes.a)
 
 target_link_libraries(venus PUBLIC optimized hermes glfw VK)

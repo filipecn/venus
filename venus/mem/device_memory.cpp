@@ -39,6 +39,11 @@
 
 namespace venus::mem {
 
+DeviceMemory::Config DeviceMemory::Config::forTexture() {
+  return DeviceMemory::Config().setDeviceLocal().setUsage(
+      VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, setAllocationFlags,
                                      VmaAllocationCreateFlags,
                                      vma_allocation_.flags |= value);
@@ -125,7 +130,7 @@ DeviceMemory &DeviceMemory::operator=(DeviceMemory &&rhs) noexcept {
 
 Result<DeviceMemory::ScopedMap> DeviceMemory::scopedMap() {
   void *mapped;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(mapped, map());
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(mapped, map());
   return Result<DeviceMemory::ScopedMap>(
       DeviceMemory::ScopedMap(*this, mapped));
 }
@@ -147,7 +152,7 @@ Result<void *> DeviceMemory::map() const {
 
 VeResult DeviceMemory::access(const std::function<void(void *)> &f) const {
   void *m = nullptr;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(m, this->map());
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(m, this->map());
   f(m);
   this->unmap();
   return VeResult::noError();
@@ -197,7 +202,7 @@ VeResult DeviceMemory::copy(const void *data, VkDeviceSize size_in_bytes,
   HERMES_UNUSED_VARIABLE(flags);
 
   // void *dst{nullptr};
-  // VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(dst,
+  // VENUS_ASSIGN_OR_RETURN_BAD_RESULT(dst,
   //                                         map(size_in_bytes, offset, flags));
 
   // std::memcpy(dst, data, size_in_bytes);

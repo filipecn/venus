@@ -28,14 +28,75 @@
 
 #include <venus/engine/graphics_engine.h>
 
+#define RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME "renderer_global_descriptor_data"
+
 namespace venus::app {
+
+Result<Renderer> Renderer::Config::create() const {
+  Renderer renderer;
+
+  auto &gd = engine::GraphicsEngine::device();
+  auto &cache = engine::GraphicsEngine::cache();
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      renderer.descriptor_allocator_,
+      pipeline::DescriptorAllocator::Config()
+          .setInitialSetCount(1)
+          .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.f)
+          .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3.f)
+          .create(**engine::GraphicsEngine::device()));
+
+  VENUS_RETURN_BAD_RESULT(cache.buffers().addBuffer(
+      RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME,
+      mem::AllocatedBuffer::Config::forUniform(
+          sizeof(engine::GraphicsEngine::Globals::Types::SceneData)),
+      *gd));
+
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      auto, buffer_index,
+      cache.buffers().allocate(RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME));
+  HERMES_UNUSED_VARIABLE(buffer_index);
+
+  return Result<Renderer>(std::move(renderer));
+}
+
+Renderer::Renderer(Renderer &&rhs) noexcept { *this = std::move(rhs); }
 
 Renderer::~Renderer() noexcept { destroy(); }
 
-void Renderer::destroy() noexcept {}
+Renderer &Renderer::operator=(Renderer &&rhs) noexcept {
+  destroy();
+  swap(rhs);
+  return *this;
+}
+
+void Renderer::destroy() noexcept {
+  last_pipeline_ = VK_NULL_HANDLE;
+  last_material_ = nullptr;
+  last_index_buffer_ = VK_NULL_HANDLE;
+  last_vertex_buffer_ = VK_NULL_HANDLE;
+  global_descriptor_set_.destroy();
+  descriptor_allocator_.destroy();
+}
+
+void Renderer::swap(Renderer &rhs) {
+  VENUS_SWAP_FIELD_WITH_RHS(last_pipeline_);
+  VENUS_SWAP_FIELD_WITH_RHS(last_material_);
+  VENUS_SWAP_FIELD_WITH_RHS(last_index_buffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(last_vertex_buffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(global_descriptor_set_);
+  VENUS_SWAP_FIELD_WITH_RHS(descriptor_allocator_);
+}
 
 VeResult Renderer::begin() {
-  auto &gd = venus::engine::GraphicsEngine::device();
+  // reset
+  last_pipeline_ = nullptr;
+  last_material_ = nullptr;
+  last_index_buffer_ = nullptr;
+  last_vertex_buffer_ = nullptr;
+  descriptor_allocator_.reset();
+
+  auto &gd = engine::GraphicsEngine::device();
   auto &cb = gd.commandBuffer();
 
   VkImage image = *gd.swapchain().images()[gd.currentTargetIndex()];
@@ -58,8 +119,7 @@ VeResult Renderer::begin() {
 
   cb.transitionImage(image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-  cb.clear(*venus::engine::GraphicsEngine::device().swapchain().images()[0],
-           VK_IMAGE_LAYOUT_GENERAL, ranges, clearColor);
+  cb.clear(image, VK_IMAGE_LAYOUT_GENERAL, ranges, clearColor);
 
   cb.transitionImage(image, VK_IMAGE_LAYOUT_GENERAL,
                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -67,17 +127,17 @@ VeResult Renderer::begin() {
   VkClearValue depth_clear;
   depth_clear.depthStencil.depth = 0.f;
   auto rendering_info =
-      venus::pipeline::CommandBuffer::RenderingInfo()
+      pipeline::CommandBuffer::RenderingInfo()
           .setLayerCount(1)
           .setRenderArea({VkOffset2D{0, 0}, gd.swapchain().imageExtent()})
           .addColorAttachment(
-              venus::pipeline::CommandBuffer::RenderingInfo::Attachment()
+              pipeline::CommandBuffer::RenderingInfo::Attachment()
                   .setImageLayout(VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL)
                   .setImageView(image_view)
                   .setStoreOp(VK_ATTACHMENT_STORE_OP_STORE)
                   .setLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD))
           .setDepthAttachment(
-              venus::pipeline::CommandBuffer::RenderingInfo::Attachment()
+              pipeline::CommandBuffer::RenderingInfo::Attachment()
                   .setImageLayout(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
                   .setImageView(depth_view)
                   .setStoreOp(VK_ATTACHMENT_STORE_OP_STORE)
@@ -89,8 +149,47 @@ VeResult Renderer::begin() {
   return VeResult::noError();
 }
 
+VeResult Renderer::update(
+    const engine::GraphicsEngine::Globals::Types::SceneData &scene_data) {
+
+  auto &cache = engine::GraphicsEngine::cache();
+
+  VENUS_RETURN_BAD_RESULT(
+      cache.buffers().copyBlock(RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME, 0,
+                                &scene_data, sizeof(scene_data)));
+
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      VkBuffer, vk_global_data_buffer,
+      cache.buffers()[RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME]);
+
+  VkDescriptorSetVariableDescriptorCountAllocateInfo alloc_array_info{};
+  alloc_array_info.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+  alloc_array_info.pNext = nullptr;
+
+  u32 descriptor_counts = cache.textures().size();
+  alloc_array_info.pDescriptorCounts = &descriptor_counts;
+  alloc_array_info.descriptorSetCount = 1;
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      global_descriptor_set_,
+      descriptor_allocator_.allocate(
+          engine::GraphicsEngine::globals().descriptors.scene_data_layout,
+          &alloc_array_info));
+
+  pipeline::DescriptorWriter()
+      .writeBuffer(0, vk_global_data_buffer,
+                   sizeof(engine::GraphicsEngine::Globals::Types::SceneData), 0,
+                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+      .writeImages(1, *cache.textures(),
+                   VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+      .update(global_descriptor_set_);
+
+  return VeResult::noError();
+}
+
 VeResult Renderer::end() {
-  auto &gd = venus::engine::GraphicsEngine::device();
+  auto &gd = engine::GraphicsEngine::device();
   auto &cb = gd.commandBuffer();
 
   cb.endRendering();
@@ -102,18 +201,15 @@ VeResult Renderer::end() {
   return VeResult::noError();
 }
 
-void Renderer::draw(
-    const std::vector<scene::RenderObject> &render_objects,
-    const std::vector<VkDescriptorSet> &global_descriptor_sets_) {
+void Renderer::draw(const std::vector<scene::RenderObject> &render_objects) {
   for (const auto &object : render_objects) {
-    draw(object, global_descriptor_sets_);
+    draw(object);
   }
 }
 
-void Renderer::draw(
-    const scene::RenderObject &ro,
-    const std::vector<VkDescriptorSet> &global_descriptor_sets) {
-  auto &gd = venus::engine::GraphicsEngine::device();
+void Renderer::draw(const scene::RenderObject &ro) {
+  auto &gd = engine::GraphicsEngine::device();
+  HERMES_PING;
   auto &cb = gd.commandBuffer();
   if (last_material_ != ro.material_instance->material()) {
     if (last_pipeline_ != *(ro.material_instance->pipeline())) {
@@ -121,50 +217,53 @@ void Renderer::draw(
       // bind pipeline
       cb.bind(ro.material_instance->pipeline());
 
-      auto extent =
-          venus::engine::GraphicsEngine::device().swapchain().imageExtent();
+      auto extent = engine::GraphicsEngine::device().swapchain().imageExtent();
 
       cb.setViewport(extent.width, extent.height, 0.f, 1.f);
 
       cb.setScissor(0, 0, extent.width, extent.height);
 
       // bind global descriptor set
-      if (!global_descriptor_sets.empty())
-        cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                *ro.material_instance->pipelineLayout(), 0,
-                global_descriptor_sets);
+      cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
+              *ro.material_instance->pipelineLayout(), 0,
+              {*global_descriptor_set_});
     }
     // bind material descriptor set
-    cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
-            *ro.material_instance->pipelineLayout(),
-            global_descriptor_sets.size(),
-            {*ro.material_instance->descriptorSet()});
+    if (ro.material_instance->descriptorSet())
+      cb.bind(VK_PIPELINE_BIND_POINT_GRAPHICS,
+              *ro.material_instance->pipelineLayout(),
+              1, // 0 - global descriptor set at the begining
+              {*ro.material_instance->descriptorSet()});
   }
 
   // if (ro.vertex_buffer && ro.vertex_buffer != last_vertex_buffer_) {
   //   last_vertex_buffer_ = ro.vertex_buffer;
   //   cb.bindVertexBuffers(0, {ro.vertex_buffer}, {0});
   // }
+
   if (ro.index_buffer && ro.index_buffer != last_index_buffer_) {
     last_index_buffer_ = ro.index_buffer;
     cb.bindIndexBuffer(ro.index_buffer, 0, VK_INDEX_TYPE_UINT32);
   }
 
   // compute push constants
-  venus::engine::GraphicsEngine::Globals::Types::DrawPushConstants
-      push_constants;
+  engine::GraphicsEngine::Globals::Types::DrawPushConstants push_constants;
   push_constants.world_matrix = ro.transform;
   push_constants.vertex_buffer = ro.vertex_buffer_address;
 
   cb.pushConstants(
       *ro.material_instance->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
-      sizeof(venus::engine::GraphicsEngine::Globals::Types::DrawPushConstants),
+      sizeof(engine::GraphicsEngine::Globals::Types::DrawPushConstants),
       &push_constants);
 
   if (ro.index_buffer != VK_NULL_HANDLE)
     cb.drawIndexed(ro.count, 1, ro.first_index, 0, 0);
   else
     cb.draw(ro.count, 1, 0, 0);
+}
+
+pipeline::DescriptorAllocator &Renderer::descriptorAllocator() {
+  return descriptor_allocator_;
 }
 
 } // namespace venus::app

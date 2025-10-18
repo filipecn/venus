@@ -132,7 +132,7 @@ public:
     template <typename Func, typename... Args>
     static Config fromShape(Func f, Args &&...args) {
       Config config;
-      VENUS_ASSIGN_RESULT(config.mesh_, f(std::forward<Args>(args)...));
+      VENUS_ASSIGN(config.mesh_, f(std::forward<Args>(args)...));
       return config;
     }
     /// Sets the model from the given mesh.

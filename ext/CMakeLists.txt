@@ -6,6 +6,7 @@ include(volk)
 include(hermes)
 include(glslang)
 include(fastgltf)
+include(stb)
 
 if (BUILD_TESTS)  
   include(catch2)

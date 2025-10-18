@@ -99,7 +99,7 @@ Result<std::vector<std::uint32_t>> readFile(const std::string &filename) {
 
 ShaderModule::Config &
 ShaderModule::Config::fromSpvFile(const std::filesystem::path &path_to_spv) {
-  VENUS_ASSIGN_RESULT(spirv_, readFile(path_to_spv));
+  VENUS_ASSIGN(spirv_, readFile(path_to_spv));
   return *this;
 }
 

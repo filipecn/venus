@@ -94,6 +94,10 @@ void DescriptorSet::Layout::destroy() noexcept {
   vk_layout_ = VK_NULL_HANDLE;
 }
 
+DescriptorSet::Layout::operator bool() const {
+  return vk_layout_ != VK_NULL_HANDLE;
+}
+
 VkDescriptorSetLayout DescriptorSet::Layout::operator*() const {
   return vk_layout_;
 }
@@ -117,6 +121,10 @@ void DescriptorSet::swap(DescriptorSet &rhs) noexcept {
 }
 
 void DescriptorSet::destroy() noexcept {}
+
+DescriptorSet::operator bool() const {
+  return vk_descriptor_set_ != VK_NULL_HANDLE;
+}
 
 VkDescriptorSet DescriptorSet::operator*() const { return vk_descriptor_set_; }
 
@@ -149,8 +157,8 @@ DescriptorAllocator::Config::create(VkDevice vk_device) const {
 
   VkDescriptorPool new_pool{VK_NULL_HANDLE};
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      new_pool, da.create(initial_set_count_, da.ratios_));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(new_pool,
+                                    da.create(initial_set_count_, da.ratios_));
 
   da.ready_pools_.emplace_back(std::move(new_pool));
 
@@ -233,8 +241,8 @@ Result<VkDescriptorPool> DescriptorAllocator::create(
 Result<VkDescriptorPool> DescriptorAllocator::get() {
   VkDescriptorPool new_pool{VK_NULL_HANDLE};
   if (ready_pools_.empty()) {
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(new_pool,
-                                             create(sets_per_pool_, ratios_));
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(new_pool,
+                                      create(sets_per_pool_, ratios_));
     sets_per_pool_ = std::min(static_cast<u32>(sets_per_pool_ * 1.5), 4092u);
   } else {
     new_pool = std::move(ready_pools_.back());
@@ -244,15 +252,15 @@ Result<VkDescriptorPool> DescriptorAllocator::get() {
 }
 
 Result<DescriptorSet>
-DescriptorAllocator::allocate(VkDescriptorSetLayout vk_layout) {
+DescriptorAllocator::allocate(VkDescriptorSetLayout vk_layout, void *next) {
   DescriptorSet descriptor_set;
   descriptor_set.vk_device_ = vk_device_;
 
   VkDescriptorPool pool{VK_NULL_HANDLE};
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(pool, get());
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(pool, get());
   VkDescriptorSetAllocateInfo info;
   info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  info.pNext = nullptr;
+  info.pNext = next;
   info.descriptorSetCount = 1;
   info.pSetLayouts = &vk_layout;
   info.descriptorPool = pool;
@@ -273,7 +281,7 @@ DescriptorAllocator::allocate(VkDescriptorSetLayout vk_layout) {
     break;
   default:
     full_pools_.emplace_back(std::move(pool));
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(pool, get());
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(pool, get());
     VENUS_VK_RETURN_BAD_RESULT(vkAllocateDescriptorSets(
         vk_device_, &info, &descriptor_set.vk_descriptor_set_));
     ready_pools_.emplace_back(std::move(pool));
@@ -312,6 +320,22 @@ DescriptorWriter &DescriptorWriter::writeImage(i32 binding, VkImageView image,
   write.pImageInfo = &image_infos_.back();
   write.descriptorType = type;
   write.descriptorCount = 1;
+  write.dstBinding = binding;
+  writes_.push_back(write);
+  return *this;
+}
+
+DescriptorWriter &DescriptorWriter::writeImages(
+    i32 binding, const std::vector<VkDescriptorImageInfo> &images_info,
+    VkDescriptorType type) {
+  if (images_info.empty())
+    return *this;
+  VkWriteDescriptorSet write{};
+  write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  write.pNext = nullptr;
+  write.pImageInfo = images_info.data();
+  write.descriptorType = type;
+  write.descriptorCount = images_info.size();
   write.dstBinding = binding;
   writes_.push_back(write);
   return *this;

@@ -92,17 +92,21 @@ HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
 HERMES_PUSH_DEBUG_VK_STRING(VkFormat, vk_format_);
 HERMES_TO_STRING_DEBUG_METHOD_END
 
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::ImagePool)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_TO_STRING_DEBUG_METHOD_END
+
 } // namespace venus
 
 namespace venus::mem {
 
-Image::Config Image::Config::defaults(const VkExtent2D &extent,
+Image::Config Image::Config::defaults(const VkExtent3D &extent,
                                       VkFormat format) {
   return Image::Config()
       .addCreateFlags({})
       .setImageType(VK_IMAGE_TYPE_2D)
       .setFormat(format)
-      .setExtent(VkExtent3D(extent.width, extent.height, 1))
+      .setExtent(extent)
       .setMipLevels(1)
       .setArrayLayers(1)
       .setSamples(VK_SAMPLE_COUNT_1_BIT)
@@ -111,6 +115,12 @@ Image::Config Image::Config::defaults(const VkExtent2D &extent,
       .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
       .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
       .addAspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+Image::Config Image::Config::defaults(const VkExtent2D &extent,
+                                      VkFormat format) {
+  return Image::Config::defaults(VkExtent3D(extent.width, extent.height, 1),
+                                 format);
 }
 
 Image::Config Image::Config::forDepthBuffer(const VkExtent2D &extent,
@@ -251,6 +261,8 @@ void Image::View::destroy() noexcept {
 
 VkImageView Image::View::operator*() const { return vk_image_view_; }
 
+Image::View::operator bool() const { return vk_image_view_ != VK_NULL_HANDLE; }
+
 Image::Image(Image &&rhs) noexcept { *this = std::move(rhs); }
 
 Image::~Image() noexcept { destroy(); }
@@ -280,6 +292,8 @@ void Image::destroy() noexcept {
 }
 
 VkImage Image::operator*() const { return vk_image_; }
+
+Image::operator bool() const { return vk_image_ != VK_NULL_HANDLE; }
 
 VkFormat Image::format() const { return vk_format_; }
 
@@ -340,6 +354,47 @@ void AllocatedImage::destroy() noexcept {
   vma_allocation_ = VK_NULL_HANDLE;
   vk_device_ = VK_NULL_HANDLE;
   vk_image_ = VK_NULL_HANDLE;
+}
+
+ImagePool::ImagePool(ImagePool &&rhs) noexcept { *this = std::move(rhs); }
+
+ImagePool::~ImagePool() noexcept { destroy(); }
+
+ImagePool &ImagePool::operator=(ImagePool &&rhs) noexcept {
+  destroy();
+  swap(rhs);
+  return *this;
+}
+
+void ImagePool::destroy() noexcept {
+  for (auto &item : images_) {
+    item.second.view.destroy();
+    item.second.image.destroy();
+  }
+  images_.clear();
+}
+
+void ImagePool::swap(ImagePool &rhs) { VENUS_SWAP_FIELD_WITH_RHS(images_); }
+
+VeResult ImagePool::addImageView(const std::string &image_name,
+                                 const Image::View::Config &image_view_config) {
+  auto it = images_.find(image_name);
+  if (it == images_.end()) {
+    HERMES_ERROR("An image view can only be added to an ImagePool for an "
+                 "existent image in the pool. Image with name <{}> not found.",
+                 image_name);
+    return VeResult::notFound();
+  }
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(it->second.view,
+                                    image_view_config.create(it->second.image));
+  return VeResult::noError();
+}
+
+Result<VkImage> ImagePool::operator[](const std::string &name) const {
+  auto it = images_.find(name);
+  if (it == images_.end())
+    return VeResult::notFound();
+  return *(it->second.image);
 }
 
 } // namespace venus::mem

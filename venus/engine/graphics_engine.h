@@ -134,10 +134,11 @@ public:
 
     private:
       friend struct Globals;
-      VeResult init(engine::GraphicsDevice &graphics_device);
+      VeResult init(engine::GraphicsDevice &gd);
       void clear();
 
-      mem::Image error_image_;
+      mem::AllocatedImage error_image_;
+      mem::Image::View error_image_view_;
       scene::Sampler linear_sampler_;
       scene::Sampler nearest_sampler_;
     };
@@ -165,13 +166,17 @@ public:
 
   /// Holds resources that may be created/shared by multiple objects.
   struct Cache {
-    mem::AllocatedBufferPool &allocatedBuffers();
+    mem::BufferPool &buffers();
+    mem::ImagePool &images();
+    scene::TextureCache &textures();
 
     /// Release and clears all resources.
     VeResult cleanup();
 
   private:
-    mem::AllocatedBufferPool allocated_buffer_pool_;
+    mem::BufferPool buffers_;
+    mem::ImagePool images_;
+    scene::TextureCache textures_;
   };
 
   /// GraphicsEngine configuration.

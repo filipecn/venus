@@ -52,7 +52,10 @@ public:
   struct Data {
     hermes::geo::vec4 color_factors;
     hermes::geo::vec4 metal_rough_factors;
-    hermes::geo::vec4 extra[14];
+    u32 color_tex_id;
+    u32 metal_rough_tex_id;
+    u32 pad[2];
+    hermes::geo::vec4 extra[13];
   };
 
   static_assert(sizeof(Data) == 256);
@@ -81,6 +84,11 @@ class GLTF_Node : public Node {
 public:
   using Ptr = hermes::Ref<GLTF_Node>;
 
+  struct ImageData {
+    mem::AllocatedImage image;
+    mem::Image::View view;
+  };
+
   static Result<Ptr> from(const std::filesystem::path &path,
                           const engine::GraphicsDevice &gd);
 
@@ -93,7 +101,7 @@ public:
 private:
   // named data
 
-  // std::unordered_map<std::string, Image> images_;
+  std::unordered_map<std::string, ImageData> images_;
   std::unordered_map<std::string, Model::Ptr> meshes_;
   std::unordered_map<std::string, Model::Storage<mem::AllocatedBuffer>>
       mesh_storage_;

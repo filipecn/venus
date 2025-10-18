@@ -59,22 +59,22 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
   // select device
 
   core::PhysicalDevices physical_devices;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(physical_devices,
-                                           instance.physicalDevices());
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(physical_devices,
+                                    instance.physicalDevices());
   core::PhysicalDevice physical_device;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       physical_device,
       physical_devices.select(
           core::PhysicalDevices::Selector().forGraphics(surface_)));
   HERMES_INFO("\n{}", venus::to_string(physical_devices));
 
   core::vk::GraphicsQueueFamilyIndices indices;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       indices, physical_device.selectGraphicsQueueFamilyIndices(surface_));
 
   // create logical device
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.device_,
       core::Device::Config()
           .setFeatures(features_)
@@ -92,7 +92,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
                    &gd.presentation_queue_);
 
   // swapchain
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.swapchain_, io::Swapchain::Config()
                          .setSurface(surface_)
                          .setQueueFamilyIndices(indices)
@@ -110,7 +110,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
 
     // Create Command Pool
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.frames_[i].command_pool,
         pipeline::CommandPool::Config()
             .addCreateFlags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
@@ -119,21 +119,21 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
 
     // Create Command Buffer
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-        gd.frames_[i].command_buffers, gd.frames_[i].command_pool.allocate(
-                                           1, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(gd.frames_[i].command_buffers,
+                                      gd.frames_[i].command_pool.allocate(
+                                          1, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
     // Create Sync
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.frames_[i].image_acquired_semaphore,
         core::Semaphore::Config().create(*gd.device_));
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.frames_[i].render_semaphore,
         core::Semaphore::Config().create(*gd.device_));
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.frames_[i].render_fence,
         core::Fence::Config()
             .setCreateFlags(VK_FENCE_CREATE_SIGNALED_BIT)
@@ -142,19 +142,18 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
 
   // Immediate submit data
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.imm_submit_data_.command_pool,
       pipeline::CommandPool::Config()
           .setQueueFamilyIndex(indices.graphics_queue_family_index)
           .addCreateFlags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
           .create(*gd.device_));
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      gd.imm_submit_data_.command_buffers,
-      gd.imm_submit_data_.command_pool.allocate(
-          1, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(gd.imm_submit_data_.command_buffers,
+                                    gd.imm_submit_data_.command_pool.allocate(
+                                        1, VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.imm_submit_data_.fence,
       core::Fence::Config()
           .setCreateFlags(VK_FENCE_CREATE_SIGNALED_BIT)
@@ -184,7 +183,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
     depth_att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depth_att.samples = VK_SAMPLE_COUNT_1_BIT;
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.renderpass_,
         pipeline::RenderPass::Config()
             .addAttachment(color_att)
@@ -205,7 +204,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
 
     for (const auto &image_view : image_views) {
       pipeline::Framebuffer framebuffer;
-      VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+      VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
           framebuffer, pipeline::Framebuffer::Config()
                            .addAttachment(*image_view)
                            .addAttachment(*depth_buffer_view)
@@ -218,7 +217,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
 
   // Output Resources
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.output_.color,
       mem::AllocatedImage::Config()
           .setImageConfig(mem::Image::Config::defaults(gd.surface_extent_)
@@ -238,14 +237,14 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
   subresource_range.layerCount = 1;
   subresource_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      gd.output_.color_view, mem::Image::View::Config()
-                                 .setFormat(gd.output_.color.format())
-                                 .setViewType(VK_IMAGE_VIEW_TYPE_2D)
-                                 .setSubresourceRange(subresource_range)
-                                 .create(gd.output_.color));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(gd.output_.color_view,
+                                    mem::Image::View::Config()
+                                        .setFormat(gd.output_.color.format())
+                                        .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+                                        .setSubresourceRange(subresource_range)
+                                        .create(gd.output_.color));
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.output_.depth,
       mem::AllocatedImage::Config()
           .setImageConfig(mem::Image::Config::forDepthBuffer(gd.surface_extent_)
@@ -257,12 +256,12 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
 
   subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      gd.output_.depth_view, mem::Image::View::Config()
-                                 .setFormat(gd.output_.depth.format())
-                                 .setViewType(VK_IMAGE_VIEW_TYPE_2D)
-                                 .setSubresourceRange(subresource_range)
-                                 .create(gd.output_.depth));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(gd.output_.depth_view,
+                                    mem::Image::View::Config()
+                                        .setFormat(gd.output_.depth.format())
+                                        .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+                                        .setSubresourceRange(subresource_range)
+                                        .create(gd.output_.depth));
 
   return Result<GraphicsDevice>(std::move(gd));
 }
@@ -367,7 +366,7 @@ VeResult GraphicsDevice::prepare() {
 
   VENUS_VK_RETURN_BAD_RESULT(frame.render_fence.wait());
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       swapchain_image_index_,
       swapchain_.nextImage(*frame.image_acquired_semaphore));
 
@@ -433,10 +432,8 @@ VeResult GraphicsDevice::finish() {
     HERMES_ASSERT(false); // an unexpected result is returned !
   }
 
-  // increase the number of frames drawn
+  // increase the number of frames displayed
   current_frame_++;
-
-  vkQueueWaitIdle(graphics_queue_);
 
   return VeResult::noError();
 }

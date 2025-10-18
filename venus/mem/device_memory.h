@@ -37,6 +37,10 @@ class DeviceMemory {
 public:
   /// Builder for device memory.
   struct Config {
+    /// This sets:
+    ///  - device local
+    ///  - gpu usage only
+    static Config forTexture();
     /// \param flags allocation flags (vma)
     Config &setAllocationFlags(VmaAllocationCreateFlags flags);
     /// \param usage memory usage (vma)
@@ -78,10 +82,7 @@ public:
   public:
     ~ScopedMap() noexcept;
 
-    template<typename T>
-      T* get() {
-        return reinterpret_cast<T*>(mapped_);
-      }
+    template <typename T> T *get() { return reinterpret_cast<T *>(mapped_); }
 
   private:
     ScopedMap(DeviceMemory &memory, void *mapped) noexcept;

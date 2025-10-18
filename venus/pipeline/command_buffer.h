@@ -403,4 +403,23 @@ private:
   std::vector<VkBuffer> buffers_;
 };
 
+/// \brief Helper class to copy data into images from a single source.
+/// The ImageWritter utilizes a staging buffer that concentrates the
+/// data that is distributed into different destination images.
+struct ImageWritter {
+  ImageWritter &addImage(VkImage image, const void *data,
+                         const VkExtent2D &size);
+  ImageWritter &addImage(VkImage image, const void *data,
+                         const VkExtent3D &size);
+  VeResult immediateSubmit(const engine::GraphicsDevice &gd) const;
+
+private:
+  VeResult generateMipmaps(const pipeline::CommandBuffer &cb, VkImage image,
+                           VkExtent2D size) const;
+
+  std::vector<const void *> data_;
+  std::vector<VkExtent3D> sizes_;
+  std::vector<VkImage> images_;
+};
+
 } // namespace venus::pipeline

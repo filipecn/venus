@@ -63,7 +63,7 @@ DisplayApp DisplayApp::Config::create() const {
 i32 DisplayApp::run() {
   if (startup_callback_)
     startup_callback_(*this);
-  for (auto it : io::DisplayLoop(*window_).setDurationInFrames(1)) {
+  for (auto it : io::DisplayLoop(*window_).setDurationInFrames(10)) {
     HERMES_INFO("{}", venus::to_string(it));
     if (render_callback_)
       render_callback_(it.frame());

@@ -72,9 +72,12 @@ Result<Material::Instance> Material::Instance::Config::create(
 
   instance.material_ = material_;
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      instance.descriptor_set_,
-      allocator.allocate(*material_->descriptorSetLayout()));
+  // materials may have no descriptor layout at all
+  if (material_->descriptorSetLayout()) {
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+        instance.descriptor_set_,
+        allocator.allocate(*material_->descriptorSetLayout()));
+  }
 
   return Result<Material::Instance>(std::move(instance));
 }
@@ -129,10 +132,10 @@ Material::Pipeline::Config::create(VkDevice vk_device,
                                    VkRenderPass vk_renderpass) const {
   Material::Pipeline p;
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(p.pipeline_layout_,
-                                           layout_config_.create(vk_device));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(p.pipeline_layout_,
+                                    layout_config_.create(vk_device));
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       p.pipeline_,
       pipeline_config_.create(vk_device, *p.pipeline_layout_, vk_renderpass));
 
@@ -155,7 +158,7 @@ Result<Material> Material::Config::create(VkDevice vk_device,
 
   Material material;
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       material.pipeline_, pipeline_config_.create(vk_device, vk_renderpass));
   material.descriptor_set_layout_ = std::move(descriptor_set_layout_);
 

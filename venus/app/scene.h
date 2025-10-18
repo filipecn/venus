@@ -49,7 +49,7 @@ public:
   HERMES_NODISCARD VeResult addNewMaterial(const std::string &name,
                                            Args &&...args) {
     scene::Material m;
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         m, MaterialType::material(std::forward<Args>(args)...));
     addMaterial(name, scene::Material::Ptr::shared(std::move(m)));
     return VeResult::noError();

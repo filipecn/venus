@@ -93,7 +93,7 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
   // 1. Get available presentation modes
   // ***************************************************************************
   VkPresentModeKHR present_mode;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       present_mode,
       device.physical().selectPresentationMode(surface_, present_mode_));
 
@@ -101,7 +101,7 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
   // 2. Get available surface formats
   // ***************************************************************************
   VkSurfaceFormatKHR surface_format;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       surface_format, device.physical().selectFormatOfSwapchainImages(
                           surface_, surface_format_));
 
@@ -109,7 +109,7 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
   // 3. Get available swapchain image count
   // ***************************************************************************
   VkSurfaceCapabilitiesKHR surface_capabilities;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       surface_capabilities, device.physical().surfaceCapabilities(surface_));
 
   if (surface_capabilities.currentExtent.width ==
@@ -194,17 +194,17 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
       *device, &create_info, nullptr, &swapchain.vk_swapchain_));
 
   std::vector<VkImage> images;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       images, core::vk::acquireSwapchainImages(*device, *swapchain));
 
   for (auto vk_image : images) {
     mem::Image image;
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-        image, mem::Image::Config()
-                   .setFormat(surface_format.format)
-                   .create(*device, vk_image));
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(image,
+                                      mem::Image::Config()
+                                          .setFormat(surface_format.format)
+                                          .create(*device, vk_image));
     mem::Image::View view;
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         view, mem::Image::View::Config()
                   .setViewType(VK_IMAGE_VIEW_TYPE_2D)
                   .setFormat(surface_format.format)
@@ -215,13 +215,13 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
     swapchain.image_views_.emplace_back(std::move(view));
   }
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       swapchain.depth_buffer_,
       mem::AllocatedImage::Config()
           .setImageConfig(mem::Image::Config::forDepthBuffer(extent))
           .create(device));
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       swapchain.depth_buffer_view_,
       mem::Image::View::Config()
           .setViewType(VK_IMAGE_VIEW_TYPE_2D)

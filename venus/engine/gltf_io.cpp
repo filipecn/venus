@@ -45,6 +45,9 @@
 #pragma GCC diagnostic pop
 #endif
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 namespace venus {
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::GLTF_MetallicRoughness)
@@ -100,7 +103,7 @@ namespace venus::scene {
 Result<Material>
 GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
   pipeline::DescriptorSet::Layout l;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       l, pipeline::DescriptorSet::Layout::Config()
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT |
@@ -147,7 +150,7 @@ GLTF_MetallicRoughness::write(pipeline::DescriptorAllocator &allocator,
 
   Material::Instance instance;
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       instance,
       Material::Instance::Config().setMaterial(material).create(allocator))
 
@@ -198,30 +201,120 @@ std::vector<Sampler> loadSamplers(const fastgltf::Asset &asset,
   for (const auto &sampler : asset.samplers) {
     Sampler s;
 
-    VENUS_ASSIGN_RESULT(
-        s, Sampler::Config::defaults()
-               .setMaxLod(VK_LOD_CLAMP_NONE)
-               .setMinLod(0)
-               .setMagFilter(extractFilter(
-                   sampler.magFilter.value_or(fastgltf::Filter::Nearest)))
-               .setMinFilter(extractFilter(
-                   sampler.minFilter.value_or(fastgltf::Filter::Nearest)))
-               .setMipmapMode(extractMipMapMode(
-                   sampler.minFilter.value_or(fastgltf::Filter::Nearest)))
-               .create(vk_device));
+    VENUS_ASSIGN(s,
+                 Sampler::Config::defaults()
+                     .setMaxLod(VK_LOD_CLAMP_NONE)
+                     .setMinLod(0)
+                     .setMagFilter(extractFilter(
+                         sampler.magFilter.value_or(fastgltf::Filter::Nearest)))
+                     .setMinFilter(extractFilter(
+                         sampler.minFilter.value_or(fastgltf::Filter::Nearest)))
+                     .setMipmapMode(extractMipMapMode(
+                         sampler.minFilter.value_or(fastgltf::Filter::Nearest)))
+                     .create(vk_device));
     samplers.emplace_back(std::move(s));
   }
   return samplers;
 }
 
-mem::Image loadImage(VkDevice vk_device, fastgltf::Image &i) {
-  HERMES_UNUSED_VARIABLE(vk_device);
-  HERMES_UNUSED_VARIABLE(i);
-  return {};
+GLTF_Node::ImageData loadImage(const engine::GraphicsDevice &gd,
+                               fastgltf::Image &i, fastgltf::Asset &asset) {
+
+  GLTF_Node::ImageData image_data;
+
+  i32 width, height, n_channels;
+
+  auto createImageAndFreeData = [&](u8 *data) {
+    if (!data)
+      return;
+
+    VkExtent3D size;
+    size.width = width;
+    size.height = height;
+    size.depth = 1;
+
+    auto image_r =
+        mem::AllocatedImage::Config()
+            .setImageConfig(mem::Image::Config::defaults(size).addUsage(
+                VK_IMAGE_USAGE_TRANSFER_DST_BIT))
+            .setMemoryConfig(mem::DeviceMemory::Config::forTexture())
+            .create(*gd);
+
+    if (image_r) {
+
+      auto err = pipeline::ImageWritter()
+                     .addImage(**image_r, data, size)
+                     .immediateSubmit(gd);
+
+      if (err == VeResult::noError())
+        image_data.image = std::move(*image_r);
+    }
+
+    stbi_image_free(data);
+  };
+
+  std::visit(
+      fastgltf::visitor{
+          [](auto &arg) { HERMES_UNUSED_VARIABLE(arg); },
+          [&](fastgltf::sources::URI &file_path) {
+            // We don't support offsets with stbi.
+            assert(file_path.fileByteOffset == 0);
+            // We're only capable of loading local files.
+            assert(file_path.uri.isLocalPath());
+
+            const std::string path(file_path.uri.path().begin(),
+                                   file_path.uri.path().end());
+            createImageAndFreeData(
+                stbi_load(path.c_str(), &width, &height, &n_channels, 4));
+          },
+          [&](fastgltf::sources::Vector &vector) {
+            createImageAndFreeData(stbi_load_from_memory(
+                reinterpret_cast<const u8 *>(vector.bytes.data()),
+                static_cast<int>(vector.bytes.size()), &width, &height,
+                &n_channels, 4));
+          },
+          [&](fastgltf::sources::BufferView &view) {
+            auto &buffer_view = asset.bufferViews[view.bufferViewIndex];
+            auto &buffer = asset.buffers[buffer_view.bufferIndex];
+
+            std::visit(
+                fastgltf::visitor{
+                    // We only care about VectorWithMime here, because we
+                    // specify LoadExternalBuffers, meaning all buffers
+                    // are already loaded into a vector.
+                    [](auto &arg) { HERMES_UNUSED_VARIABLE(arg); },
+                    [&](fastgltf::sources::Array &vector) {
+                      createImageAndFreeData(stbi_load_from_memory(
+                          reinterpret_cast<const u8 *>(vector.bytes.data() +
+                                                       buffer_view.byteOffset),
+                          static_cast<int>(buffer_view.byteLength), &width,
+                          &height, &n_channels, 4));
+                    }},
+                buffer.data);
+          },
+      },
+      i.data);
+
+  if (image_data.image) {
+    auto view_r =
+        mem::Image::View::Config()
+            .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+            .setFormat(image_data.image.format())
+            .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
+            .create(image_data.image);
+    if (view_r) {
+      image_data.view = std::move(*view_r);
+    }
+  }
+
+  return image_data;
 }
 
 GLTF_MetallicRoughness::Data
-loadMaterialConstants(fastgltf::Material &material) {
+loadMaterialData(fastgltf::Material &material,
+                 const GLTF_MetallicRoughness::Resources &resources) {
+  auto &cache = engine::GraphicsEngine::cache();
+
   GLTF_MetallicRoughness::Data constants;
   constants.color_factors.x = material.pbrData.baseColorFactor[0];
   constants.color_factors.y = material.pbrData.baseColorFactor[1];
@@ -229,17 +322,10 @@ loadMaterialConstants(fastgltf::Material &material) {
   constants.color_factors.w = material.pbrData.baseColorFactor[3];
   constants.metal_rough_factors.x = material.pbrData.metallicFactor;
   constants.metal_rough_factors.y = material.pbrData.roughnessFactor;
-  // TODO
-  // constants.colorTexID = engine->texCache
-  //                           .AddTexture(materialResources.colorImage.imageView,
-  //                                       materialResources.colorSampler)
-  //                           .Index;
-  // constants.metalRoughTexID =
-  //    engine->texCache
-  //        .AddTexture(materialResources.metalRoughImage.imageView,
-  //                    materialResources.metalRoughSampler)
-  //        .Index;
-
+  constants.color_tex_id =
+      cache.textures().add(resources.color_image.view, resources.color_sampler);
+  constants.metal_rough_tex_id = cache.textures().add(
+      resources.metal_rough_image.view, resources.metal_rough_sampler);
   return constants;
 }
 
@@ -398,7 +484,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
 
     Model::Storage<mem::AllocatedBuffer> storage;
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         storage.vertices,
         mem::AllocatedBuffer::Config()
             .setBufferConfig(mem::Buffer::Config::forStorage(sizeof(Vertex) *
@@ -408,7 +494,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
             .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
             .create(*gd));
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         storage.indices,
         mem::AllocatedBuffer::Config()
             .setBufferConfig(
@@ -429,7 +515,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
 
     Model model;
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         model,
         model_config
             .setVertices(*storage.vertices, storage.vertices.deviceAddress())
@@ -519,10 +605,18 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
   // IMAGES
   /////////////////////////////////////////////////////////////////////////////
 
-  for (auto &image : asset->images) {
-    HERMES_UNUSED_VARIABLE(image);
-    scene->image_handles_.push_back(
-        engine::GraphicsEngine::globals().defaults.error_image);
+  for (auto &gltf_image : asset->images) {
+    auto data = loadImage(gd, gltf_image, asset.get());
+    if ((bool)data.image && (bool)data.view) {
+      mem::Image::Handle handle;
+      handle.image = *data.image;
+      handle.view = *data.view;
+      scene->images_[gltf_image.name.c_str()] = std::move(data);
+      scene->image_handles_.push_back(handle);
+    } else {
+      scene->image_handles_.push_back(
+          engine::GraphicsEngine::globals().defaults.error_image);
+    }
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -531,7 +625,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
   // replicate it as many materials we read
   /////////////////////////////////////////////////////////////////////////////
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       scene->material_data_buffer_,
       mem::AllocatedBuffer::Config()
           .setBufferConfig(mem::Buffer::Config::forUniform(
@@ -542,7 +636,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
           .create(*gd));
 
   // we can estimate the descriptors we will need accurately
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       scene->descriptor_allocator_,
       pipeline::DescriptorAllocator::Config()
           .setInitialSetCount(asset->materials.size())
@@ -564,8 +658,9 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
   for (const auto &[material_index, gltf_material] :
        std::views::enumerate(asset->materials)) {
 #else
-  for (u32 index = 0; index < asset->materials.size(); ++index) {
-    const auto &material = asset->materials[index];
+  for (u32 material_index = 0; material_index < asset->materials.size();
+       ++material_index) {
+    const auto &gltf_material = asset->materials[material_index];
 #endif
     // GLTF_Material::Ptr new_material = GLTF_Material::Ptr();
     // scene->materials_[material.name.c_str()] = new_material;
@@ -576,15 +671,15 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
     //   passType = MaterialPass::Transparent;
     // }
     GLTF_MetallicRoughness parameters;
-    // constants (stored in the uniform buffer)
-    data[material_index] = parameters.data =
-        loadMaterialConstants(gltf_material);
     // resources
     parameters.resources = loadMaterialResources(
         gltf_material, asset.get(), material_index,
         *scene->material_data_buffer_, scene->samplers_, scene->image_handles_);
-    // write material
+    // constants (stored in the uniform buffer)
+    data[material_index] = parameters.data =
+        loadMaterialData(gltf_material, parameters.resources);
 
+    // write material
     VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
         Material::Instance, m_instance,
         parameters.write(scene->descriptor_allocator_,
@@ -683,6 +778,11 @@ void GLTF_Node::destroy() noexcept {
   descriptor_allocator_.destroy();
   material_data_buffer_.destroy();
   image_handles_.clear();
+  for (auto &item : images_) {
+    item.second.view.destroy();
+    item.second.image.destroy();
+  }
+  images_.clear();
   samplers_.clear();
 }
 

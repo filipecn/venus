@@ -539,7 +539,7 @@ VeResult CommandPool::imadiateSubmit(
     u32 queue_family_index, VkQueue queue,
     const std::function<void(CommandBuffer &)> &record_callback) {
   CommandPool short_living_command_pool;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       short_living_command_pool,
       CommandPool::Config()
           .addCreateFlags(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)
@@ -547,7 +547,7 @@ VeResult CommandPool::imadiateSubmit(
           .create(vk_device_));
 
   CommandBuffer short_living_command_buffer;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       short_living_command_buffer,
       short_living_command_pool.allocate(VK_COMMAND_BUFFER_LEVEL_PRIMARY));
 
@@ -557,8 +557,8 @@ VeResult CommandPool::imadiateSubmit(
   VENUS_RETURN_BAD_RESULT(short_living_command_buffer.end());
 
   core::Fence submit_fence;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      submit_fence, core::Fence::Config().create(vk_device_));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(submit_fence,
+                                    core::Fence::Config().create(vk_device_));
   short_living_command_buffer.submit(queue, *submit_fence);
   VENUS_VK_RETURN_BAD_RESULT(submit_fence.wait());
   return VeResult::noError();
@@ -635,7 +635,7 @@ VeResult BufferWritter::record(const core::Device &device,
   }
 
   mem::AllocatedBuffer staging;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       staging,
       mem::AllocatedBuffer::Config()
           .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
@@ -674,7 +674,7 @@ BufferWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
   }
 
   mem::AllocatedBuffer staging;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       staging,
       mem::AllocatedBuffer::Config()
           .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
@@ -701,6 +701,166 @@ BufferWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
           vkCmdCopyBuffer(*cb, *staging, buffers_[i], 1, &vertex_copy);
         }
       }));
+
+  return VeResult::noError();
+}
+
+ImageWritter &ImageWritter::addImage(VkImage image, const void *data,
+                                     const VkExtent3D &size) {
+  data_.emplace_back(data);
+  sizes_.emplace_back(size);
+  images_.emplace_back(image);
+  return *this;
+}
+
+ImageWritter &ImageWritter::addImage(VkImage image, const void *data,
+                                     const VkExtent2D &size) {
+  return addImage(image, data, VkExtent3D(size.width, size.height, 1));
+}
+
+VeResult ImageWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
+  // compute total staging size
+  std::vector<u32> offsets(1, 0);
+  u32 staging_size = 0;
+  for (const auto &size : sizes_) {
+    auto flat_size = size.width * size.height * size.depth * 4;
+    offsets.emplace_back(staging_size + flat_size);
+    staging_size += flat_size;
+  }
+
+  mem::AllocatedBuffer staging;
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      staging,
+      mem::AllocatedBuffer::Config()
+          .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
+          .setMemoryConfig(
+              mem::DeviceMemory::Config()
+                  .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
+                  .setUsage(VMA_MEMORY_USAGE_CPU_TO_GPU))
+          .create(*gd));
+
+  std::vector<VkBufferCopy> copies;
+  for (u32 i = 0; i < data_.size(); ++i) {
+    // transfer data to staging
+    auto flat_size = sizes_[i].width * sizes_[i].height * sizes_[i].depth * 4;
+    VENUS_RETURN_BAD_RESULT(staging.copy(data_[i], flat_size, offsets[i]));
+  }
+
+  VENUS_RETURN_BAD_RESULT(
+      gd.immediateSubmit([&](const pipeline::CommandBuffer &cb) {
+        // record staging -> device transfer
+        for (u32 i = 0; i < data_.size(); ++i) {
+          cb.transitionImage(images_[i], VK_IMAGE_LAYOUT_UNDEFINED,
+                             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+          VkBufferImageCopy copy_region = {};
+          copy_region.bufferOffset = 0;
+          copy_region.bufferRowLength = 0;
+          copy_region.bufferImageHeight = 0;
+
+          copy_region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+          copy_region.imageSubresource.mipLevel = 0;
+          copy_region.imageSubresource.baseArrayLayer = 0;
+          copy_region.imageSubresource.layerCount = 1;
+          copy_region.imageExtent = sizes_[i];
+
+          cb.copy(*staging, images_[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                  {copy_region});
+
+          cb.transitionImage(images_[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+          // todo: miplevels
+          // generateMipmaps(cb, images_[i], {sizes_[i].width,
+          // sizes_[i].height});
+        }
+      }));
+
+  return VeResult::noError();
+}
+
+VeResult ImageWritter::generateMipmaps(const pipeline::CommandBuffer &cb,
+                                       VkImage image, VkExtent2D size) const {
+  i32 mip_levels =
+      int(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+  for (int level = 0; level < mip_levels; ++level) {
+
+    VkExtent2D half_size = size;
+    half_size.width /= 2;
+    half_size.height /= 2;
+
+    VkImageMemoryBarrier2 image_barrier{};
+    image_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    image_barrier.pNext = nullptr;
+    image_barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    image_barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+    image_barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    image_barrier.dstAccessMask =
+        VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+
+    image_barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    image_barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+
+    image_barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    image_barrier.subresourceRange.baseMipLevel = level;
+    image_barrier.subresourceRange.levelCount = 1;
+    image_barrier.subresourceRange.baseArrayLayer = 0;
+    image_barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    image_barrier.image = image;
+
+    VkDependencyInfo dep_info{};
+    dep_info.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    dep_info.pNext = nullptr;
+    dep_info.imageMemoryBarrierCount = 1;
+    dep_info.pImageMemoryBarriers = &image_barrier;
+
+    vkCmdPipelineBarrier2(*cb, &dep_info);
+
+    if (level < mip_levels - 1) {
+      VkImageBlit2 blit_region{};
+      blit_region.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+      blit_region.pNext = nullptr;
+
+      blit_region.srcOffsets[1].x = size.width;
+      blit_region.srcOffsets[1].y = size.height;
+      blit_region.srcOffsets[1].z = 1;
+
+      blit_region.dstOffsets[1].x = half_size.width;
+      blit_region.dstOffsets[1].y = half_size.height;
+      blit_region.dstOffsets[1].z = 1;
+
+      blit_region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      blit_region.srcSubresource.baseArrayLayer = 0;
+      blit_region.srcSubresource.layerCount = 1;
+      blit_region.srcSubresource.mipLevel = level;
+
+      blit_region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      blit_region.dstSubresource.baseArrayLayer = 0;
+      blit_region.dstSubresource.layerCount = 1;
+      blit_region.dstSubresource.mipLevel = level + 1;
+
+      VkBlitImageInfo2 blit_info{};
+      blit_info.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+      blit_info.pNext = nullptr;
+
+      blit_info.dstImage = image;
+      blit_info.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+      blit_info.srcImage = image;
+      blit_info.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+      blit_info.filter = VK_FILTER_LINEAR;
+      blit_info.regionCount = 1;
+      blit_info.pRegions = &blit_region;
+
+      vkCmdBlitImage2(*cb, &blit_info);
+
+      size = half_size;
+    }
+  }
+
+  // transition all mip levels into the final read_only layout
+  cb.transitionImage(image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
   return VeResult::noError();
 }

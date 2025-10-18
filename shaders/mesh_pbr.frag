@@ -3,7 +3,6 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
-#define USE_BINDLESS
 #include "base.glsl"
 
 
@@ -57,10 +56,10 @@ void main()
 	vec3 irradiance = calcIrradiance(inNormal); 
 
 
-	//vec3 color = inColor * texture(colorTex,inUV).xyz;
     int colorID = materialData.colorTexID;
-    vec3 color = inColor;// * texture(allTextures[colorID],inUV).xyz;
+    vec3 color = inColor * texture(allTextures[colorID],inUV).xyz;
 
 	outFragColor = vec4(color * lightValue + color * irradiance.x * vec3(0.2f) ,1.0f);
+ // outFragColor = vec4(1.0,0.0,0.0,1.0);
 }
 

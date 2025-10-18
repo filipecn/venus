@@ -36,9 +36,18 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Texture)
 HERMES_TO_STRING_DEBUG_METHOD_END
 
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::TextureCache)
+HERMES_TO_STRING_DEBUG_METHOD_END
+
 } // namespace venus
 
 namespace venus::scene {
+
+Sampler::Config::Config() {
+  info_ = {};
+  info_.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  info_.pNext = nullptr;
+}
 
 VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Sampler, setFlags,
                                           VkSamplerCreateFlags, flags)
@@ -120,5 +129,30 @@ void Sampler::swap(Sampler &rhs) {
 }
 
 VkSampler Sampler::operator*() const { return vk_sampler_; }
+
+u32 TextureCache::add(const VkImageView &image, VkSampler sampler) {
+  for (u32 i = 0; i < cache_.size(); i++) {
+    if (cache_[i].imageView == image && cache_[i].sampler == sampler) {
+      return i;
+    }
+  }
+
+  u32 idx = cache_.size();
+
+  cache_.push_back(VkDescriptorImageInfo{
+      .sampler = sampler,
+      .imageView = image,
+      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+
+  return idx;
+}
+
+void TextureCache::clear() { cache_.clear(); }
+
+u32 TextureCache::size() const { return cache_.size(); }
+
+const std::vector<VkDescriptorImageInfo> &TextureCache::operator*() const {
+  return cache_;
+}
 
 } // namespace venus::scene

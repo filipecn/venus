@@ -57,6 +57,8 @@ public:
     /// \param format [def=eR8G8B8A8Unorm] Image format.
     static Config defaults(const VkExtent2D &extent,
                            VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
+    static Config defaults(const VkExtent3D &extent,
+                           VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
     /// \brief Creates defaults config for images.
     /// Default values are:
     ///   - ImageType = e2D
@@ -155,6 +157,7 @@ public:
     void destroy() noexcept;
     void swap(View &rhs) noexcept;
     VkImageView operator*() const;
+    operator bool() const;
 
   private:
     VkDevice vk_device_{VK_NULL_HANDLE};
@@ -179,6 +182,7 @@ public:
   void swap(Image &rhs) noexcept;
   /// \return Underlying image vulkan object.
   VkImage operator*() const;
+  operator bool() const;
   /// \return Image data format.
   VkFormat format() const;
   /// \return Associated device.
@@ -222,6 +226,50 @@ public:
 
 private:
   VENUS_to_string_FRIEND(AllocatedImage);
+};
+
+/// The image pool holds an set of images and image views that can be accessed
+/// by through unique names.
+class ImagePool {
+public:
+  VENUS_DECLARE_RAII_FUNCTIONS(ImagePool)
+
+  void destroy() noexcept;
+  void swap(ImagePool &rhs);
+
+  /// Creates a new image with label name.
+  /// \param name Image label.
+  /// \param config Allocated image config.
+  /// \return error.
+  template <class... P>
+  HERMES_NODISCARD VeResult addImage(const std::string &name,
+                                     const AllocatedImage::Config &config,
+                                     P &&...params) {
+    ImageData data{};
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+        data.image, config.create(std::forward<P>(params)...));
+    images_[name] = std::move(data);
+    return VeResult::noError();
+  }
+
+  HERMES_NODISCARD VeResult
+  addImageView(const std::string &image_name,
+               const Image::View::Config &image_view_config);
+
+  /// Gets image vulkan object.
+  /// \param name Image key (label).
+  /// \return Image or error.
+  HERMES_NODISCARD Result<VkImage> operator[](const std::string &name) const;
+
+private:
+  struct ImageData {
+    AllocatedImage image;
+    Image::View view;
+  };
+
+  std::unordered_map<std::string, ImageData> images_;
+
+  VENUS_to_string_FRIEND(ImagePool);
 };
 
 } // namespace venus::mem

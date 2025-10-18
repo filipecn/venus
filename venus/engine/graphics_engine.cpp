@@ -28,6 +28,8 @@
 
 #include <venus/engine/materials.h>
 
+#include <hermes/colors/argb_colors.h>
+
 std::vector<std::string> getInstanceExtensions() {
   std::vector<std::string> extensions;
   extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
@@ -58,11 +60,11 @@ GraphicsEngine GraphicsEngine::s_instance;
 VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
 
 #define CREATE_SHADER_MODULE(NAME, FILE)                                       \
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(                                    \
-      NAME, pipeline::ShaderModule::Config()                                   \
-                .setEntryFuncName("main")                                      \
-                .fromSpvFile(shaders_path / #FILE)                             \
-                .create(vk_device));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(NAME,                                      \
+                                    pipeline::ShaderModule::Config()           \
+                                        .setEntryFuncName("main")              \
+                                        .fromSpvFile(shaders_path / #FILE)     \
+                                        .create(vk_device));
 
   // shaders
   std::filesystem::path shaders_path(VENUS_SHADERS_PATH);
@@ -91,9 +93,8 @@ void GraphicsEngine::Globals::Shaders::clear() {
 }
 
 VeResult GraphicsEngine::Globals::Materials::init(GraphicsDevice &gd) {
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(color,
-                                           scene::Material_Test::material(gd));
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(color, scene::Material_Test::material(gd));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gltf_metallic_roughness, scene::GLTF_MetallicRoughness::material(gd));
   return VeResult::noError();
 }
@@ -119,13 +120,13 @@ VeResult GraphicsEngine::Globals::Descriptors::init(GraphicsDevice &gd) {
     flags.bindingCount = 2;
     flags.pBindingFlags = binding_flags.data();
 
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         scene_data_layout_,
         pipeline::DescriptorSet::Layout::Config()
             .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                               VK_SHADER_STAGE_VERTEX_BIT |
                                   VK_SHADER_STAGE_FRAGMENT_BIT)
-            .addLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+            .addLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10,
                               VK_SHADER_STAGE_VERTEX_BIT |
                                   VK_SHADER_STAGE_FRAGMENT_BIT)
             .create(**gd, &flags));
@@ -141,12 +142,79 @@ void GraphicsEngine::Globals::Descriptors::clear() {
   scene_data_layout = VK_NULL_HANDLE;
 }
 
-void GraphicsEngine::Globals::Defaults::clear() {}
+VeResult GraphicsEngine::Globals::Defaults::init(GraphicsDevice &gd) {
+  VkExtent2D image_size{16, 16};
+  { // error image
+    u32 black = hermes::colors::argb::white;
+    u32 magenta = hermes::colors::argb::red_200;
+    std::array<uint32_t, 16 * 16> pixels; // for 16x16 checkerboard texture
+    for (int x = 0; x < 16; x++) {
+      for (int y = 0; y < 16; y++) {
+        pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
+      }
+    }
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+        error_image_,
+        mem::AllocatedImage::Config()
+            .setImageConfig(mem::Image::Config::defaults(image_size)
+                                .addUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                                .addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT))
+            .setMemoryConfig(
+                mem::DeviceMemory::Config().setDeviceLocal().setUsage(
+                    VMA_MEMORY_USAGE_GPU_ONLY))
+            .create(*gd));
+
+    VENUS_RETURN_BAD_RESULT(
+        pipeline::ImageWritter()
+            .addImage(*error_image_, pixels.data(), image_size)
+            .immediateSubmit(gd));
+
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+        error_image_view_,
+        mem::Image::View::Config()
+            .setViewType(VK_IMAGE_VIEW_TYPE_2D)
+            .setFormat(error_image_.format())
+            .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
+            .create(error_image_));
+
+    error_image.image = *error_image_;
+    error_image.view = *error_image_view_;
+  }
+
+  { // linear sampler
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(linear_sampler_,
+                                      scene::Sampler::Config::defaults()
+                                          .setMagFilter(VK_FILTER_LINEAR)
+                                          .setMinFilter(VK_FILTER_LINEAR)
+                                          .create(**gd));
+    linear_sampler = *linear_sampler_;
+  }
+
+  { // nearest sampler
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(nearest_sampler_,
+                                      scene::Sampler::Config::defaults()
+                                          .setMagFilter(VK_FILTER_NEAREST)
+                                          .setMinFilter(VK_FILTER_NEAREST)
+                                          .create(**gd));
+    nearest_sampler = *nearest_sampler_;
+  }
+
+  HERMES_UNUSED_VARIABLE(gd);
+  return VeResult::noError();
+}
+
+void GraphicsEngine::Globals::Defaults::clear() {
+  error_image_view_.destroy();
+  error_image_.destroy();
+  linear_sampler_.destroy();
+  nearest_sampler_.destroy();
+}
 
 VeResult GraphicsEngine::Globals::init(GraphicsDevice &gd) {
   VENUS_RETURN_BAD_RESULT(descriptors.init(gd));
   VENUS_RETURN_BAD_RESULT(shaders.init(**gd));
   VENUS_RETURN_BAD_RESULT(materials.init(gd));
+  VENUS_RETURN_BAD_RESULT(defaults.init(gd));
   return VeResult::noError();
 }
 
@@ -158,12 +226,16 @@ VeResult GraphicsEngine::Globals::cleanup() {
   return VeResult::noError();
 }
 
-mem::AllocatedBufferPool &GraphicsEngine::Cache::allocatedBuffers() {
-  return allocated_buffer_pool_;
-}
+mem::BufferPool &GraphicsEngine::Cache::buffers() { return buffers_; }
+
+mem::ImagePool &GraphicsEngine::Cache::images() { return images_; }
+
+scene::TextureCache &GraphicsEngine::Cache::textures() { return textures_; }
 
 VeResult GraphicsEngine::Cache::cleanup() {
-  allocated_buffer_pool_.destroy();
+  buffers_.destroy();
+  images_.destroy();
+  textures_.clear();
   return VeResult::noError();
 }
 
@@ -213,7 +285,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsEngine, setDeviceExtensions,
 VeResult GraphicsEngine::Config::init(const io::Display *display) const {
 
   // vulkan instance
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       s_instance.instance_, core::Instance::Config()
                                 .setApiVersion(core::vk::Version(1, 4, 0))
                                 .setName("hello_vulkan_app")
@@ -225,17 +297,17 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
 
   HERMES_INFO("\n{}", venus::to_string(s_instance.instance_));
   // output surface
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       s_instance.surface_, display->createSurface(*s_instance.instance_));
 
   // graphics device
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      s_instance.gd_, engine::GraphicsDevice::Config()
-                          .setSurface(*s_instance.surface_)
-                          .setSurfaceExtent(display->resolution())
-                          .setFeatures(device_features_)
-                          .addExtensions(device_extensions_)
-                          .create(s_instance.instance_));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(s_instance.gd_,
+                                    engine::GraphicsDevice::Config()
+                                        .setSurface(*s_instance.surface_)
+                                        .setSurfaceExtent(display->resolution())
+                                        .setFeatures(device_features_)
+                                        .addExtensions(device_extensions_)
+                                        .create(s_instance.instance_));
 
   return VeResult::noError();
 }

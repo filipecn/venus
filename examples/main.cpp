@@ -34,63 +34,9 @@
 #include <venus/io/glfw_display.h>
 #include <venus/scene/camera.h>
 
-struct FrameData {
-  VeResult init() {
-    auto &cache = venus::engine::GraphicsEngine::cache();
-
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-        descriptors_allocator,
-        venus::pipeline::DescriptorAllocator::Config()
-            .setInitialSetCount(1)
-            .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.f)
-            .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3.f)
-            .create(**venus::engine::GraphicsEngine::device()));
-
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-        global_descriptor_set,
-        descriptors_allocator.allocate(venus::engine::GraphicsEngine::globals()
-                                           .descriptors.scene_data_layout));
-
-    VENUS_DECLARE_OR_RETURN_BAD_RESULT(VkBuffer, vk_global_data_buffer,
-                                       cache.allocatedBuffers()["base"]);
-
-    venus::pipeline::DescriptorWriter()
-        .writeBuffer(
-            0, vk_global_data_buffer,
-            sizeof(venus::engine::GraphicsEngine::Globals::Types::SceneData), 0,
-            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-        .update(global_descriptor_set);
-
-    return VeResult::noError();
-  }
-
-  VeResult update(const venus::scene::Camera &camera) {
-    auto &cache = venus::engine::GraphicsEngine::cache();
-
-    venus::engine::GraphicsEngine::Globals::Types::SceneData scene_data;
-    scene_data.view = camera.viewTransform();
-    scene_data.proj = camera.projectionTransform();
-    scene_data.viewproj = camera.projectionTransform() * camera.viewTransform();
-
-    VENUS_RETURN_BAD_RESULT(cache.allocatedBuffers().copyBlock(
-        "base", 0, &scene_data, sizeof(scene_data)));
-
-    return VeResult::noError();
-  }
-
-  void destroy() { descriptors_allocator.destroy(); }
-
-  std::vector<VkDescriptorSet> globalDescriptorSets() const {
-    return {*global_descriptor_set};
-  }
-
-  venus::pipeline::DescriptorAllocator descriptors_allocator;
-  venus::pipeline::DescriptorSet global_descriptor_set;
-
-} frame_data;
-
 venus::app::Scene scene;
 venus::scene::Camera camera;
+venus::app::Renderer renderer;
 
 VeResult initScene() {
   auto &cache = venus::engine::GraphicsEngine::cache();
@@ -112,23 +58,24 @@ VeResult initScene() {
           .create(venus::engine::GraphicsEngine::device()));
 
   venus::scene::graph::GLTF_Node::Ptr gltf;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      gltf, venus::scene::graph::GLTF_Node::from(
-                std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box.glb",
-                venus::engine::GraphicsEngine::device()));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      gltf,
+      venus::scene::graph::GLTF_Node::from(
+          std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box_textured.glb",
+          venus::engine::GraphicsEngine::device()));
 
   scene.graph().addModel("triangle", triangle_model_ptr);
+  scene.graph().get("triangle")->setVisible(false);
   scene.graph().add("box", gltf);
-  scene.graph().get("box")->setVisible(false);
 
   // allocate ub for triangle model
   u32 buffer_index = 0;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
-      buffer_index, cache.allocatedBuffers().allocate(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      buffer_index, cache.buffers().allocate(
                         "ub", sizeof(venus::scene::Material_Test::Data)));
   HERMES_UNUSED_VARIABLE(buffer_index);
 
-  camera = venus::scene::Camera::perspective(90).setPosition({1.f, 0.f, 0.f});
+  camera = venus::scene::Camera::perspective(90).setPosition({2.f, 0.f, 0.f});
   camera.projection()->setNear(1).setFar(11);
 
   return VeResult::noError();
@@ -136,29 +83,37 @@ VeResult initScene() {
 
 VeResult updateScene() {
   auto &gd = venus::engine::GraphicsEngine::device();
-  auto &cache = venus::engine::GraphicsEngine::cache();
-  // update camera
+  // auto &cache = venus::engine::GraphicsEngine::cache();
+  //  update camera
   auto clip_size = gd.swapchain().imageExtent();
   camera.resize(clip_size.width, clip_size.height);
+
+  // update renderer
+  venus::engine::GraphicsEngine::Globals::Types::SceneData scene_data;
+  scene_data.view = hermes::math::transpose(camera.viewTransform().matrix());
+  scene_data.proj =
+      hermes::math::transpose(camera.projectionTransform().matrix());
+  scene_data.viewproj = scene_data.proj * scene_data.view;
+  VENUS_RETURN_BAD_RESULT(renderer.update(scene_data));
 
   // update triangle material parameters
   const auto *material = scene.getMaterial("bindless");
   venus::scene::Material_Test parameters;
-  parameters.data.projection =
-      hermes::math::transpose(camera.projectionTransform().matrix());
-  parameters.data.view =
-      hermes::math::transpose(camera.viewTransform().matrix());
-  parameters.resources.data_buffer_offset = 0;
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(parameters.resources.data_buffer,
-                                           cache.allocatedBuffers()["ub"]);
-  // write parameters to uniform buffer
-  VENUS_RETURN_BAD_RESULT(cache.allocatedBuffers().copyBlock(
-      "ub", 0, &parameters.data, sizeof(venus::scene::Material_Test::Data)));
+  // parameters.data.projection =
+  //     hermes::math::transpose(camera.projectionTransform().matrix());
+  // parameters.data.view =
+  //     hermes::math::transpose(camera.viewTransform().matrix());
+  // parameters.resources.data_buffer_offset = 0;
+  // VENUS_ASSIGN_OR_RETURN_BAD_RESULT(parameters.resources.data_buffer,
+  //                                          cache.allocatedBuffers()["ub"]);
+  //// write parameters to uniform buffer
+  // VENUS_RETURN_BAD_RESULT(cache.allocatedBuffers().copyBlock(
+  //     "ub", 0, &parameters.data, sizeof(venus::scene::Material_Test::Data)));
 
   // write material descriptor set
   VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
       venus::scene::Material::Instance, mat,
-      parameters.write(frame_data.descriptors_allocator, material));
+      parameters.write(renderer.descriptorAllocator(), material));
 
   // update model material
   auto *triangle_node =
@@ -183,21 +138,17 @@ VeResult startup(venus::app::DisplayApp &app) {
   auto &gd = venus::engine::GraphicsEngine::device();
   auto &cache = venus::engine::GraphicsEngine::cache();
   // global ub
-  VENUS_RETURN_BAD_RESULT(cache.allocatedBuffers().addBuffer(
-      "base",
-      venus::mem::AllocatedBuffer::Config::forUniform(
-          sizeof(venus::engine::GraphicsEngine::Globals::Types::SceneData)),
-      *gd));
   // test/bindless test ub
-  VENUS_RETURN_BAD_RESULT(cache.allocatedBuffers().addBuffer(
-      "ub",
-      venus::mem::AllocatedBuffer::Config::forUniform(
-          sizeof(venus::scene::Material_Test::Data)),
-      *gd));
+  VENUS_RETURN_BAD_RESULT(
+      cache.buffers().addBuffer("ub",
+                                venus::mem::AllocatedBuffer::Config::forUniform(
+                                    sizeof(venus::scene::Material_Test::Data)),
+                                *gd));
 
   VENUS_RETURN_BAD_RESULT(initScene());
 
-  VENUS_RETURN_BAD_RESULT(frame_data.init());
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(renderer,
+                                    venus::app::Renderer::Config().create());
 
   return VeResult::noError();
 }
@@ -208,30 +159,26 @@ VeResult render(const venus::io::DisplayLoop::Iteration::Frame &frame) {
   VENUS_RETURN_BAD_RESULT(gd.prepare());
 
   VENUS_RETURN_BAD_RESULT(
-      gd.beginRecord(VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT));
+      gd.beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
 
   venus::scene::DrawContext ctx;
 
+  VENUS_RETURN_BAD_RESULT(renderer.begin());
   updateScene();
   scene.graph().draw({}, ctx);
-
-  venus::app::Renderer renderer;
-  VENUS_RETURN_BAD_RESULT(renderer.begin());
-  renderer.draw(ctx.objects); //, {*frame_data.global_descriptor_set});
+  renderer.draw(ctx.objects);
   VENUS_RETURN_BAD_RESULT(renderer.end());
 
   VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().endRecord());
   VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().submit());
   VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::device().finish());
 
-  using namespace std::chrono_literals;
-  std::this_thread::sleep_for(500ms);
-
   return VeResult::noError();
 }
 
 VeResult shutdown() {
-  frame_data.destroy();
+  vkDeviceWaitIdle(**venus::engine::GraphicsEngine::device());
+  renderer.destroy();
   scene.destroy();
   return venus::engine::GraphicsEngine::shutdown();
 }

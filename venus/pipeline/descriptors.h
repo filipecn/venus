@@ -69,6 +69,7 @@ public:
     void destroy() noexcept;
     void swap(Layout &rhs) noexcept;
 
+    operator bool() const;
     VkDescriptorSetLayout operator*() const;
 
   private:
@@ -87,6 +88,7 @@ public:
   void destroy() noexcept;
   void swap(DescriptorSet &rhs) noexcept;
 
+  operator bool() const;
   VkDescriptorSet operator*() const;
   VkDevice device() const;
 
@@ -147,7 +149,7 @@ public:
   /// \param device
   /// \param layout descriptor set layout.
   HERMES_NODISCARD Result<DescriptorSet>
-  allocate(VkDescriptorSetLayout vk_layout);
+  allocate(VkDescriptorSetLayout vk_layout, void *next = nullptr);
 
 private:
   // create a new pool
@@ -192,6 +194,13 @@ public:
   DescriptorWriter &writeImage(i32 binding, VkImageView image,
                                VkSampler sampler, VkImageLayout layout,
                                VkDescriptorType type);
+  /// \brief Registers VkWriteDescriptorSet for a given set of images.
+  /// \param binding
+  /// \param images
+  /// \param type Descriptor type.
+  DescriptorWriter &
+  writeImages(i32 binding, const std::vector<VkDescriptorImageInfo> &images,
+              VkDescriptorType type);
   /// Clears all registered writes.
   void clear();
   /// \brief Updates the descriptor set with all registered writes.

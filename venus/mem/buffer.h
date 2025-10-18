@@ -223,12 +223,12 @@ private:
 /// and accessed.
 /// They can be very handy for uniform buffers that can be share by multiple
 /// descriptor sets.
-class AllocatedBufferPool {
+class BufferPool {
 public:
-  VENUS_DECLARE_RAII_FUNCTIONS(AllocatedBufferPool)
+  VENUS_DECLARE_RAII_FUNCTIONS(BufferPool)
 
   void destroy() noexcept;
-  void swap(AllocatedBufferPool &rhs);
+  void swap(BufferPool &rhs);
 
   /// Allocates a new buffer with label name.
   /// \param name Buffer label.
@@ -238,7 +238,7 @@ public:
   VeResult addBuffer(const std::string &name,
                      const AllocatedBuffer::Config &config, P &&...params) {
     BufferData data{};
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         data.buffer, config.create(std::forward<P>(params)...));
     buffers_[name] = std::move(data);
     return VeResult::noError();
@@ -262,12 +262,13 @@ public:
   HERMES_NODISCARD Result<VkBuffer> operator[](const std::string &name) const;
   /// Appends count blocks in a buffer free space.
   /// \param name Buffer key (label).
-  /// \param size_in_bytes Size of the block to be allocated.
+  /// \param size_in_bytes [def=0] Size of the block to be allocated. If 0,
+  ///                              allocates whole available size.
   /// \param count [def=1] Number of same-size blocks to be allocated
   ///                      contiguously in the buffer.
   /// \return The offset in the buffer of the first allocated block.
   HERMES_NODISCARD Result<u32> allocate(const std::string &name,
-                                        u32 size_in_bytes, u32 count = 1);
+                                        u32 size_in_bytes = 0, u32 count = 1);
   /// Appends count blocks of sizeof(T) in a buffer free space.
   /// \param name Buffer key (label).
   /// \param count [def=1] Number of same-size blocks to be allocated
@@ -285,7 +286,7 @@ public:
                                            u32 block_index) const;
 
 private:
-  VENUS_to_string_FRIEND(AllocatedBufferPool);
+  VENUS_to_string_FRIEND(BufferPool);
 
   struct BufferData {
     AllocatedBuffer buffer;

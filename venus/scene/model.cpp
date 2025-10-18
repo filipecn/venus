@@ -127,7 +127,7 @@ AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
   auto vertex_buffer_size = mesh_.aos.dataSize();
   auto index_buffer_size = sizeof(u32) * mesh_.indices.size();
 
-  VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       model.storage_.vertices,
       mem::AllocatedBuffer::Config()
           .setBufferConfig(mem::Buffer::Config::forStorage(vertex_buffer_size)
@@ -137,7 +137,7 @@ AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
           .create(*gd));
 
   if (index_buffer_size) {
-    VENUS_ASSIGN_RESULT_OR_RETURN_BAD_RESULT(
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         model.storage_.indices,
         mem::AllocatedBuffer::Config()
             .setBufferConfig(mem::Buffer::Config::forStorage(index_buffer_size)

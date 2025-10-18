@@ -102,7 +102,7 @@ inline std::string to_string(const VeResult &err) {
   if (err.base_type != HeError::NO_ERROR) {
 #define VE_ERROR_TYPE_NAME(E)                                                  \
   if (err.type == VeResult::Type::E)                                           \
-  ss << #E
+  ss << " | " << #E
     VE_ERROR_TYPE_NAME(NO_ERROR);
     VE_ERROR_TYPE_NAME(VK_ERROR);
     VE_ERROR_TYPE_NAME(INCOMPATIBLE_API);

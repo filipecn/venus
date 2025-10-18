@@ -28,6 +28,7 @@
 #pragma once
 
 #include <venus/core/device.h>
+#include <venus/mem/image.h>
 
 namespace venus::scene {
 
@@ -35,6 +36,7 @@ struct Sampler {
   struct Config {
     static Config defaults();
 
+    Config();
     Config &setFlags(VkSamplerCreateFlags flags);
     Config &setMagFilter(VkFilter filter);
     Config &setMinFilter(VkFilter filter);
@@ -76,6 +78,23 @@ struct Texture {
   VkImageLayout image_layout;
 
   VENUS_to_string_FRIEND(Texture);
+};
+
+/// The texture cache holds an array of textures that can be accessed by
+/// bindless shaders or arbitrarily. Cached textures can own their data, be
+/// self allocated or just image handles.
+class TextureCache {
+public:
+  u32 add(const VkImageView &image, VkSampler sampler);
+  void clear();
+
+  u32 size() const;
+  const std::vector<VkDescriptorImageInfo> &operator*() const;
+
+private:
+  std::vector<VkDescriptorImageInfo> cache_;
+
+  VENUS_to_string_FRIEND(TextureCache);
 };
 
 } // namespace venus::scene
