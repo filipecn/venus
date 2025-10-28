@@ -71,6 +71,18 @@ public:
   bool shouldClose() override;
   /// Receive new input events.
   void pollEvents() override;
+  /// Init resources for UI (imgui)
+  VeResult initUI() const override;
+  ///
+  void closeUI() const override;
+  ///
+  void newUIFrame() const override;
+  /// \return display extent
+  VkExtent2D size() const override;
+  /// \return current cursor screen position (pixels)
+  hermes::geo::point2 cursorPos() const override;
+  /// \return current cursor position (NDC)
+  hermes::geo::point2 cursorNDC() const override;
 
 private:
   GLFWwindow *window_{nullptr};

@@ -29,7 +29,10 @@
 
 #include <venus/utils/debug.h>
 
+#include <hermes/core/ref.h>
 #include <hermes/geometry/bounds.h>
+#include <hermes/geometry/line.h>
+#include <hermes/geometry/plane.h>
 #include <hermes/geometry/transform.h>
 
 namespace venus::scene {
@@ -39,6 +42,7 @@ class OrthographicProjection;
 
 class Camera {
 public:
+  using Ptr = hermes::Ref<Camera>;
   /// Build with Perspective projection
   template <class... P> static Camera perspective(P &&...params) {
     return Camera().setProjection<PerspectiveProjection>(
@@ -129,6 +133,15 @@ public:
   /// \param w width in pixels
   /// \param h height in pixels
   virtual void resize(f32 w, f32 h);
+
+  /// \param p normalized screen position (ndc)
+  /// \return line object in world space
+  HERMES_NODISCARD hermes::geo::Line
+  viewLineFromWindow(const hermes::geo::point2 &p) const;
+  /// \param p point in world space
+  /// \return plane containing **p**, perpendicular to camera's view axis
+  HERMES_NODISCARD hermes::geo::Plane
+  viewPlane(const hermes::geo::point3 &p) const;
 
 protected:
   virtual void update() const;

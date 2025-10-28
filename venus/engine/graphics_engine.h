@@ -27,7 +27,6 @@
 
 #pragma once
 
-#include <venus/engine/gltf_io.h>
 #include <venus/engine/graphics_device.h>
 #include <venus/io/display.h>
 #include <venus/pipeline/descriptors.h>
@@ -85,6 +84,8 @@ public:
     struct Shaders {
       pipeline::ShaderModule vert_mesh;
       pipeline::ShaderModule frag_mesh_pbr;
+      pipeline::ShaderModule vert_vdb_volume;
+      pipeline::ShaderModule frag_vdb_volume;
 
       // utils
 
@@ -101,6 +102,7 @@ public:
     /// \brief Set of materials provided by the graphics engine.
     struct Materials {
       scene::Material gltf_metallic_roughness;
+      scene::Material vdb;
       scene::Material color;
 
     private:
@@ -143,10 +145,26 @@ public:
       scene::Sampler nearest_sampler_;
     };
 
+    struct UI {
+      void newFrame();
+      void draw();
+      void resize();
+
+    private:
+      friend struct Globals;
+      VeResult init(engine::GraphicsEngine &ge);
+      void clear();
+
+      VkDescriptorPool vk_descriptor_pool_{VK_NULL_HANDLE};
+      VkDevice vk_device_{VK_NULL_HANDLE};
+      VkInstance vk_instance_{VK_NULL_HANDLE};
+      VkPhysicalDevice vk_physical_device_{VK_NULL_HANDLE};
+      VkQueue vk_graphics_queue_{VK_NULL_HANDLE};
+    };
     /// Builds all resources.
     /// \param gd Graphics device.
     /// \return error status.
-    VeResult init(engine::GraphicsDevice &gd);
+    VeResult init(engine::GraphicsEngine &ge);
     /// Release and clears all resources.
     VeResult cleanup();
 
@@ -158,6 +176,8 @@ public:
     Descriptors descriptors;
     // defaults
     Defaults defaults;
+    // ui
+    UI ui;
   };
 
   // ***************************************************************************
@@ -184,6 +204,7 @@ public:
     Config &setSynchronization2();
     Config &setBindless();
     Config &setDynamicRendering();
+    Config &enableUI();
     Config &setDeviceFeatures(const core::vk::DeviceFeatures &features);
     Config &setDeviceExtensions(const std::vector<std::string> &extensions);
 
@@ -192,6 +213,8 @@ public:
   private:
     core::vk::DeviceFeatures device_features_;
     std::vector<std::string> device_extensions_;
+    // TODO: this is not being used at all!
+    bool enable_ui_{false};
   };
 
   struct FrameData {
@@ -211,6 +234,8 @@ public:
   HERMES_NODISCARD static Cache &cache();
   /// \return Graphics device.
   HERMES_NODISCARD static GraphicsDevice &device();
+  /// \return Display
+  HERMES_NODISCARD static const io::Display *display();
 
 private:
   GraphicsEngine() noexcept = default;
@@ -231,6 +256,7 @@ private:
   GraphicsDevice gd_;
   // output
   io::SurfaceKHR surface_;
+  const io::Display *display_{nullptr};
 };
 
 } // namespace venus::engine

@@ -48,9 +48,11 @@ public:
   using Ptr = hermes::Ref<Model>;
 
   struct Mesh {
+    enum class PrimitiveType { TRIANGLES, POINTS, LINES };
     mem::VertexLayout layout;
     hermes::mem::AoS aos;
     std::vector<u32> indices;
+    PrimitiveType primitive_type{PrimitiveType::TRIANGLES};
 
     hermes::geo::bounds::bsphere3 computeBounds() const;
   };

@@ -27,11 +27,16 @@
 
 #pragma once
 
+#include <venus/scene/camera.h>
 #include <venus/scene/material.h>
 #include <venus/scene/model.h>
 
 #include <hermes/geometry/bounds.h>
 #include <hermes/geometry/transform.h>
+
+#ifdef VENUS_INCLUDE_GLTF
+#include <venus/scene/texture.h>
+#endif // VENUS_INCLUDE_GLTF
 
 namespace venus::scene {
 
@@ -172,6 +177,109 @@ protected:
 };
 
 // *****************************************************************************
+//                                                                 Camera Node
+// *****************************************************************************
+
+/// Specialized scene graph node containing a camera.
+class CameraNode : public Node {
+public:
+  using Ptr = hermes::Ref<CameraNode>;
+
+  CameraNode() = default;
+  virtual ~CameraNode() noexcept = default;
+  CameraNode(Camera::Ptr camera);
+
+  void draw(const hermes::geo::Transform &top_matrix,
+            DrawContext &context) override;
+  void destroy() noexcept override;
+
+  Camera::Ptr camera();
+  void setCamera(Camera::Ptr camera);
+
+protected:
+  Camera::Ptr camera_;
+
+  VENUS_to_string_FRIEND(CameraNode);
+  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
+};
+
+#ifdef VENUS_INCLUDE_GLTF
+class GLTF_Node : public Node {
+public:
+  using Ptr = hermes::Ref<GLTF_Node>;
+
+  struct ImageData {
+    mem::AllocatedImage image;
+    mem::Image::View view;
+  };
+
+  static Result<Ptr> from(const std::filesystem::path &path,
+                          const engine::GraphicsDevice &gd);
+
+  ~GLTF_Node() noexcept;
+
+  void draw(const hermes::geo::Transform &top_matrix,
+            DrawContext &ctx) override;
+  void destroy() noexcept override;
+
+private:
+  // named data
+
+  std::unordered_map<std::string, ImageData> images_;
+  std::unordered_map<std::string, Model::Ptr> meshes_;
+  std::unordered_map<std::string, Model::Storage<mem::AllocatedBuffer>>
+      mesh_storage_;
+  std::unordered_map<std::string, Node::Ptr> nodes_;
+  std::unordered_map<std::string, Material::Instance::Ptr> materials_;
+
+  // top nodes on the GLTF tree
+  std::vector<Node::Ptr> top_nodes_;
+
+  // constructed data
+
+  std::vector<Sampler> samplers_;
+  std::vector<mem::Image::Handle> image_handles_;
+
+  pipeline::DescriptorAllocator descriptor_allocator_;
+
+  mem::AllocatedBuffer material_data_buffer_;
+
+  VENUS_to_string_FRIEND(GLTF_Node);
+  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
+};
+#endif // VENUS_INCLUDE_GLTF
+
+#ifdef VENUS_INCLUDE_VDB
+class VDB_Node : public Node {
+public:
+  using Ptr = hermes::Ref<VDB_Node>;
+
+  static Result<Ptr> from(const std::filesystem::path &vdb_file_path,
+                          const engine::GraphicsDevice &gd);
+
+  ~VDB_Node() noexcept;
+
+  void draw(const hermes::geo::Transform &top_matrix,
+            DrawContext &ctx) override;
+  void destroy() noexcept override;
+
+  // material update
+  VeResult update(const hermes::geo::point3 &camera_pos);
+
+private:
+  mem::AllocatedBuffer gpu_vdb_data_;
+  AllocatedModel bounds_model_;
+
+  pipeline::DescriptorAllocator descriptor_allocator_;
+  Material::Instance::Ptr material_;
+  mem::AllocatedBuffer material_data_buffer_;
+
+  VENUS_to_string_FRIEND(VDB_Node);
+  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
+};
+#endif // VENUS_INCLUDE_VDB
+
+// *****************************************************************************
 //                                                                 Scene Graph
 // *****************************************************************************
 
@@ -185,6 +293,8 @@ public:
                     const std::string &parent = "");
   LabeledGraph &addModel(const std::string &name, const Model::Ptr &model,
                          const std::string &parent = "");
+  LabeledGraph &addCamera(const std::string &name, const Camera::Ptr &camera,
+                          const std::string &parent = "");
   template <typename NodeType = Node>
   const NodeType *get(const std::string &name) const {
     auto it = nodes_.find(name);

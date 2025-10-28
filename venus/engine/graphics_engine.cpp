@@ -26,8 +26,10 @@
 
 #include <venus/engine/graphics_engine.h>
 
-#include <venus/engine/materials.h>
+#include <venus/scene/materials.h>
+#include <venus/utils/vk_debug.h>
 
+#include <backends/imgui_impl_vulkan.h>
 #include <hermes/colors/argb_colors.h>
 
 std::vector<std::string> getInstanceExtensions() {
@@ -71,6 +73,8 @@ VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
 
   CREATE_SHADER_MODULE(vert_mesh, mesh.vert.spv)
   CREATE_SHADER_MODULE(frag_mesh_pbr, mesh_pbr.frag.spv)
+  CREATE_SHADER_MODULE(vert_vdb_volume, ve_vdb_volume.vert.spv)
+  CREATE_SHADER_MODULE(frag_vdb_volume, ve_vdb_volume.frag.spv)
 
   CREATE_SHADER_MODULE(vert_test, test.vert.spv)
   CREATE_SHADER_MODULE(vert_bindless_test, bindless_test.vert.spv)
@@ -83,6 +87,9 @@ VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
 }
 
 void GraphicsEngine::Globals::Shaders::clear() {
+  vert_vdb_volume.destroy();
+  frag_vdb_volume.destroy();
+
   vert_mesh.destroy();
   frag_mesh_pbr.destroy();
 
@@ -93,14 +100,27 @@ void GraphicsEngine::Globals::Shaders::clear() {
 }
 
 VeResult GraphicsEngine::Globals::Materials::init(GraphicsDevice &gd) {
-  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(color, scene::Material_Test::material(gd));
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      gltf_metallic_roughness, scene::GLTF_MetallicRoughness::material(gd));
+      color, scene::materials::Material_Test::material(gd));
+#ifdef VENUS_INCLUDE_GLTF
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      gltf_metallic_roughness,
+      scene::materials::GLTF_MetallicRoughness::material(gd));
+#endif
+#ifdef VENUS_INCLUDE_VDB
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(vdb,
+                                    scene::materials::VDB_Volume::material(gd));
+#endif
   return VeResult::noError();
 }
 
 void GraphicsEngine::Globals::Materials::clear() {
+#ifdef VENUS_INCLUDE_GLTF
   gltf_metallic_roughness.destroy();
+#endif
+#ifdef VENUS_INCLUDE_VDB
+  vdb.destroy();
+#endif
   color.destroy();
 }
 
@@ -210,11 +230,154 @@ void GraphicsEngine::Globals::Defaults::clear() {
   nearest_sampler_.destroy();
 }
 
-VeResult GraphicsEngine::Globals::init(GraphicsDevice &gd) {
+void GraphicsEngine::Globals::UI::newFrame() {
+  ImGui_ImplVulkan_NewFrame();
+  GraphicsEngine::display()->newUIFrame();
+  ImGui::NewFrame();
+}
+
+void GraphicsEngine::Globals::UI::draw() {
+  ImGuiIO &io = ImGui::GetIO();
+  HERMES_UNUSED_VARIABLE(io);
+  ImGui::Render();
+
+  auto &gd = GraphicsEngine::device();
+
+  auto rendering_info =
+      pipeline::CommandBuffer::RenderingInfo()
+          .setLayerCount(1)
+          .setRenderArea({VkOffset2D{0, 0}, gd.swapchain().imageExtent()})
+          .addColorAttachment(
+              pipeline::CommandBuffer::RenderingInfo::Attachment()
+                  .setImageLayout(VK_IMAGE_LAYOUT_GENERAL)
+                  .setImageView(
+                      *gd.swapchain().imageViews()[gd.currentTargetIndex()])
+                  .setStoreOp(VK_ATTACHMENT_STORE_OP_STORE)
+                  .setLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD));
+
+  auto &cb = gd.commandBuffer();
+  cb.beginRendering(*rendering_info);
+  ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), *cb);
+  cb.endRendering();
+}
+
+void GraphicsEngine::Globals::UI::resize() {
+  // auto extent = GraphicsEngine::display()->size();
+  ImGui_ImplVulkan_SetMinImageCount(3);
+}
+
+VeResult GraphicsEngine::Globals::UI::init(engine::GraphicsEngine &ge) {
+
+  VkDescriptorPoolSize pool_sizes[] = {
+      {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+      {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+      {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+  pool_info.maxSets = 1000;
+  pool_info.poolSizeCount = (uint32_t)std::size(pool_sizes);
+  pool_info.pPoolSizes = pool_sizes;
+
+  vk_device_ = **ge.device();
+  vk_instance_ = *ge.instance_;
+  vk_physical_device_ = *((*ge.device()).physical());
+  vk_graphics_queue_ = ge.device().graphicsQueue();
+
+  VENUS_VK_RETURN_BAD_RESULT(vkCreateDescriptorPool(
+      vk_device_, &pool_info, nullptr, &vk_descriptor_pool_));
+
+  // this initializes the core structures of imgui
+  ImGui::CreateContext();
+  ImGuiIO &io = ImGui::GetIO();
+  (void)io;
+
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+  // Setup Dear ImGui style
+  ImGui::StyleColorsDark();
+  // ImGui::StyleColorsLight();
+
+  // Setup scaling
+  // ImGuiStyle &style = ImGui::GetStyle();
+  // style.ScaleAllSizes(11); // Bake a fixed style scale. (until we have a
+  // solution for dynamic style scaling, changing this
+  // requires resetting Style + calling this again)
+  // style.FontScaleDpi =
+  //     11; // Set initial font scale. (using io.ConfigDpiScaleFonts=true
+  //  makes this unnecessary. We leave both here for
+  //  documentation purpose)
+
+  // this initializes imgui for SDL
+  HERMES_ASSERT(ge.display_);
+  VENUS_RETURN_BAD_RESULT(ge.display_->initUI());
+
+  // this initializes imgui for Vulkan
+  ImGui_ImplVulkan_InitInfo init_info = {};
+  init_info.Instance = vk_instance_;
+  init_info.PhysicalDevice = vk_physical_device_;
+  init_info.Device = vk_device_;
+  init_info.Queue = vk_graphics_queue_;
+  init_info.DescriptorPool = vk_descriptor_pool_;
+  init_info.MinImageCount = 3;
+  init_info.ImageCount = 3;
+  init_info.UseDynamicRendering = true;
+
+  // dynamic rendering parameters for imgui to use
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo = {};
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.sType =
+      VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.pNext = nullptr;
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount =
+      1;
+  auto swapchain_format = ge.device().swapchain().colorFormat();
+  init_info.PipelineInfoMain.PipelineRenderingCreateInfo
+      .pColorAttachmentFormats = &swapchain_format;
+
+  init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+  ImGui_ImplVulkan_LoadFunctions(
+      ge.instance_.apiVersion().version(),
+      [](const char *function_name, void *globals_ui) {
+        PFN_vkVoidFunction instanceAddr = vkGetInstanceProcAddr(
+            (*(reinterpret_cast<GraphicsEngine::Globals::UI *>(globals_ui)))
+                .vk_instance_,
+            function_name);
+        PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(
+            (*(reinterpret_cast<GraphicsEngine::Globals::UI *>(globals_ui)))
+                .vk_device_,
+            function_name);
+        return deviceAddr ? deviceAddr : instanceAddr;
+      },
+      this);
+  ImGui_ImplVulkan_Init(&init_info);
+
+  return VeResult::noError();
+}
+
+void GraphicsEngine::Globals::UI::clear() {
+  ImGui_ImplVulkan_Shutdown();
+  GraphicsEngine::display()->closeUI();
+  ImGui::DestroyContext();
+  vkDestroyDescriptorPool(vk_device_, vk_descriptor_pool_, nullptr);
+}
+
+VeResult GraphicsEngine::Globals::init(GraphicsEngine &ge) {
+  auto &gd = ge.device();
   VENUS_RETURN_BAD_RESULT(descriptors.init(gd));
   VENUS_RETURN_BAD_RESULT(shaders.init(**gd));
   VENUS_RETURN_BAD_RESULT(materials.init(gd));
   VENUS_RETURN_BAD_RESULT(defaults.init(gd));
+  VENUS_RETURN_BAD_RESULT(ui.init(ge));
   return VeResult::noError();
 }
 
@@ -223,6 +386,7 @@ VeResult GraphicsEngine::Globals::cleanup() {
   materials.clear();
   descriptors.clear();
   defaults.clear();
+  ui.clear();
   return VeResult::noError();
 }
 
@@ -275,6 +439,11 @@ GraphicsEngine::Config &GraphicsEngine::Config::setDynamicRendering() {
   return *this;
 }
 
+GraphicsEngine::Config &GraphicsEngine::Config::enableUI() {
+  enable_ui_ = true;
+  return *this;
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsEngine, setDeviceFeatures,
                                      const core::vk::DeviceFeatures &,
                                      device_features_ = value);
@@ -297,6 +466,7 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
 
   HERMES_INFO("\n{}", venus::to_string(s_instance.instance_));
   // output surface
+  s_instance.display_ = display;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       s_instance.surface_, display->createSurface(*s_instance.instance_));
 
@@ -309,13 +479,15 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
                                         .addExtensions(device_extensions_)
                                         .create(s_instance.instance_));
 
+  // init ui
+
   return VeResult::noError();
 }
 
 VeResult GraphicsEngine::startup() {
 
   // globals
-  VENUS_RETURN_BAD_RESULT(s_instance.globals_.init(s_instance.gd_));
+  VENUS_RETURN_BAD_RESULT(s_instance.globals_.init(s_instance));
 
   return VeResult::noError();
 }
@@ -336,5 +508,7 @@ GraphicsEngine::Globals &GraphicsEngine::globals() {
 GraphicsEngine::Cache &GraphicsEngine::cache() { return s_instance.cache_; }
 
 GraphicsDevice &GraphicsEngine::device() { return s_instance.gd_; }
+
+const io::Display *GraphicsEngine::display() { return s_instance.display_; }
 
 } // namespace venus::engine

@@ -155,6 +155,27 @@ void Camera::update() const {
   needs_update_ = false;
 }
 
+hermes::geo::Line
+Camera::viewLineFromWindow(const hermes::geo::point2 &p) const {
+  hermes::geo::point3 O = hermes::geo::inverse(model_ * view_)(
+      hermes::geo::inverse(projection_->computeTransform()) *
+      hermes::geo::point3(p.x, p.y, 0.f));
+  hermes::geo::point3 D = hermes::geo::inverse(model_ * view_)(
+      hermes::geo::inverse(projection_->computeTransform()) *
+      hermes::geo::point3(p.x, p.y, 1.f));
+  return {O, D - O};
+}
+
+hermes::geo::Plane Camera::viewPlane(const hermes::geo::point3 &p) const {
+  hermes::geo::vec3 n = pos_ - p;
+  if (fabs(n.length()) < 1e-8)
+    n = hermes::geo::vec3(0, 0, 0);
+  else
+    n = hermes::geo::normalize(n);
+  return {hermes::geo::normal3(n),
+          hermes::geo::dot(n, hermes::geo::vec3(p.x, p.y, p.z))};
+}
+
 VENUS_DEFINE_SET_FIELD_METHOD(Camera::Projection, setClipSize,
                               const hermes::geo::vec2 &,
                               (needs_update_ = true, clip_size_ = value))

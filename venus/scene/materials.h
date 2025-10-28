@@ -20,31 +20,53 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   gltf_io.h
+/// \file   materials.h
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-07-30
-/// \brief  GLTF support.
+/// \brief  Built-in venus materials.
 
-#pragma once
-
+#include <hermes/numeric/matrix.h>
 #include <venus/engine/graphics_device.h>
 #include <venus/mem/image.h>
 #include <venus/pipeline/shader_module.h>
 #include <venus/scene/material.h>
-#include <venus/scene/model.h>
-#include <venus/scene/scene_graph.h>
-#include <venus/scene/texture.h>
 
+#include <hermes/geometry/transform.h>
 #include <hermes/geometry/vector.h>
 
-namespace venus::io {
+namespace venus::scene::materials {
 
-class GLTF_File {};
+class Material_Test : public Material::Writer {
+public:
+  static Result<Material> material(const engine::GraphicsDevice &gd);
 
-} // namespace venus::io
+  struct Data {
+    hermes::math::mat4 projection;
+    hermes::math::mat4 view;
+  };
 
-namespace venus::scene {
+  struct Resources {
+    VkBuffer data_buffer;
+    u32 data_buffer_offset;
+  };
 
+  Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
+                                   const Material *material) override;
+
+  Data data;
+  Resources resources;
+};
+
+class Material_BindlessTest : public Material_Test {
+public:
+  static Result<Material> material(const engine::GraphicsDevice &gd);
+
+  struct PushConstants {
+    VkDeviceAddress vertex_buffer;
+  };
+};
+
+#ifdef VENUS_INCLUDE_GLTF
 class GLTF_MetallicRoughness : public Material::Writer {
 public:
   static Result<Material> material(const engine::GraphicsDevice &gd);
@@ -77,52 +99,35 @@ public:
 
   VENUS_to_string_FRIEND(GLTF_MetallicRoughness);
 };
+#endif // VENUS_INCLUDE_GLTF
 
-namespace graph {
-
-class GLTF_Node : public Node {
+#ifdef VENUS_INCLUDE_VDB
+class VDB_Volume : public Material::Writer {
 public:
-  using Ptr = hermes::Ref<GLTF_Node>;
+  static Result<Material> material(const engine::GraphicsDevice &gd);
 
-  struct ImageData {
-    mem::AllocatedImage image;
-    mem::Image::View view;
+  struct Data {
+    VkDeviceAddress vdb_buffer;
+    hermes::geo::point3 camera_pos;
+    u32 pad[3];
+    hermes::geo::vec4 extra[14];
   };
 
-  static Result<Ptr> from(const std::filesystem::path &path,
-                          const engine::GraphicsDevice &gd);
+  static_assert(sizeof(Data) == 256);
 
-  ~GLTF_Node() noexcept;
+  struct Resources {
+    VkBuffer data_buffer;
+    u32 data_buffer_offset;
+  };
 
-  void draw(const hermes::geo::Transform &top_matrix,
-            DrawContext &ctx) override;
-  void destroy() noexcept override;
+  Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
+                                   const Material *material) override;
 
-private:
-  // named data
+  Data data;
+  Resources resources;
 
-  std::unordered_map<std::string, ImageData> images_;
-  std::unordered_map<std::string, Model::Ptr> meshes_;
-  std::unordered_map<std::string, Model::Storage<mem::AllocatedBuffer>>
-      mesh_storage_;
-  std::unordered_map<std::string, Node::Ptr> nodes_;
-  std::unordered_map<std::string, Material::Instance::Ptr> materials_;
-
-  // top nodes on the GLTF tree
-  std::vector<Node::Ptr> top_nodes_;
-
-  // constructed data
-
-  std::vector<Sampler> samplers_;
-  std::vector<mem::Image::Handle> image_handles_;
-
-  pipeline::DescriptorAllocator descriptor_allocator_;
-
-  mem::AllocatedBuffer material_data_buffer_;
-
-  VENUS_to_string_FRIEND(GLTF_Node);
+  VENUS_to_string_FRIEND(VDB_Volume);
 };
+#endif // VENUS_INCLUDE_VDB
 
-} // namespace graph
-
-} // namespace venus::scene
+} // namespace venus::scene::materials

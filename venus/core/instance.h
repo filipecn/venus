@@ -109,6 +109,7 @@ public:
   HERMES_NODISCARD operator bool() const;
   /// \return list of detected physical devices.
   HERMES_NODISCARD Result<PhysicalDevices> physicalDevices() const;
+  vk::Version apiVersion() const;
 
   /// \return Vulkan handle
   HERMES_NODISCARD VkInstance operator*() const;

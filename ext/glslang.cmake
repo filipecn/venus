@@ -14,3 +14,4 @@ FetchContent_GetProperties(glslang)
 FetchContent_MakeAvailable(glslang)
 
 
+set(GLSLANG_INCLUDE_DIR ${glslang_SOURCE_DIR} CACHE STRING "" FORCE)

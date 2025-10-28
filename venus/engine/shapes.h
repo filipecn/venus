@@ -85,4 +85,7 @@ Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
                              const hermes::geo::point3 &c,
                              shape_options options = shape_option_bits::none);
 
+Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
+                        shape_options options = shape_option_bits::none);
+
 } // namespace venus::scene::shapes

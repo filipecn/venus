@@ -21,6 +21,10 @@ include(CMakePrintHelpers)
 option(VENUS_BUILD_ALL "build all targets" OFF)
 option(VENUS_BUILD_TESTS "build tests" OFF)
 option(VENUS_BUILD_EXAMPLES "build examples" OFF)
+option(VENUS_BUILD_DOCS "build library documentation" OFF)
+option(VENUS_INCLUDE_TO_STRING_METHODS "enable venus::to_string methods" ON)
+option(VENUS_INCLUDE_VDB "include vdb volumes support" ON)
+option(VENUS_INCLUDE_GLTF "include gltf support" ON)
 
 # ##############################################################################
 # COMPILATION                                                                  #
@@ -56,3 +60,10 @@ add_subdirectory(venus)
 if (VENUS_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif (VENUS_BUILD_EXAMPLES)
+
+# ##############################################################################
+#                                                                DOCUMENTATION #
+# ##############################################################################
+if(VENUS_BUILD_DOCS)
+  include(GenerateDocs)
+endif(VENUS_BUILD_DOCS)

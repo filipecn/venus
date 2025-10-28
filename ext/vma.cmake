@@ -17,3 +17,6 @@ set(VMA_BUILD_SAMPLES
     CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(vma)
+
+set(VMA_INCLUDE_DIR ${vma_SOURCE_DIR}/include CACHE STRING "" FORCE)
+

@@ -46,6 +46,27 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
     const std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)> &,
     render_callback_ = value);
 
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
+    DisplayApp, setCursorPosFn,
+    const std::function<void(const hermes::geo::point2 &)> &,
+    cursor_pos_func_ = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
+    DisplayApp, setMouseButtonFn,
+    const std::function<void(ui::Action, ui::MouseButton, ui::Modifier)> &,
+    mouse_button_func_ = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
+    DisplayApp, setMouseScrollFn,
+    const std::function<void(const hermes::geo::vec2 &)> &,
+    scroll_func_ = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
+    DisplayApp, setKeyFn,
+    const std::function<void(ui::Action, ui::Key, ui::Modifier)> &,
+    key_func_ = value);
+
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setFPS, f32, fps_ = value);
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setDurationInFrames, u32,
+                                     frames_ = value);
+
 DisplayApp DisplayApp::Config::create() const {
 
   DisplayApp app;
@@ -57,14 +78,22 @@ DisplayApp DisplayApp::Config::create() const {
 
   VENUS_CHECK_VE_RESULT(app.window_->init(title_.c_str(), resolution_));
 
+  app.window_->key_func = key_func_;
+  app.window_->mouse_button_func = mouse_button_func_;
+  app.window_->cursor_pos_func = cursor_pos_func_;
+  app.window_->scroll_func = scroll_func_;
+
+  app.fps_ = fps_;
+  app.frames_ = frames_;
+
   return app;
 }
 
 i32 DisplayApp::run() {
   if (startup_callback_)
     startup_callback_(*this);
-  for (auto it : io::DisplayLoop(*window_).setDurationInFrames(10)) {
-    HERMES_INFO("{}", venus::to_string(it));
+  for (auto it :
+       io::DisplayLoop(*window_).setDurationInFrames(frames_).setFPS(fps_)) {
     if (render_callback_)
       render_callback_(it.frame());
   }

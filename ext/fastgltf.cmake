@@ -9,3 +9,4 @@ FetchContent_Declare(
 FetchContent_GetProperties(fastgltf)
 FetchContent_MakeAvailable(fastgltf)
 
+set(FASTGLTF_INCLUDE_DIR ${fastgltf_SOURCE_DIR}/include CACHE STRING "" FORCE)

@@ -30,6 +30,9 @@
 #include <hermes/core/types.h>
 #include <venus/core/vk_api.h>
 #include <venus/io/surface.h>
+#include <venus/ui/input.h>
+
+#include <hermes/geometry/point.h>
 
 namespace venus::io {
 
@@ -54,6 +57,11 @@ public:
   virtual bool shouldClose() = 0;
   /// Receive new input events.
   virtual void pollEvents() = 0;
+  /// Init resources for UI (imgui)
+  virtual VeResult initUI() const = 0;
+  virtual void closeUI() const = 0;
+  virtual void newUIFrame() const = 0;
+  virtual VkExtent2D size() const = 0;
 
   // base methods
 
@@ -64,6 +72,15 @@ public:
     HERMES_ASSERT(resolution_.height);
     return resolution_.width / static_cast<f32>(resolution_.height);
   }
+  virtual hermes::geo::point2 cursorPos() const = 0;
+  virtual hermes::geo::point2 cursorNDC() const = 0;
+
+  // input callbacks
+  std::function<void(const hermes::geo::point2 &)> cursor_pos_func;
+  std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
+      mouse_button_func;
+  std::function<void(const hermes::geo::vec2 &)> scroll_func;
+  std::function<void(ui::Action, ui::Key, ui::Modifier)> key_func;
 
 protected:
   VkExtent2D resolution_{};

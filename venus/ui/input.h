@@ -20,50 +20,70 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   materials.h
+/// \file   input.h
 /// \author FilipeCN (filipedecn@gmail.com)
-/// \date   2025-07-30
-/// \brief  Built-in venus materials.
+/// \date   2025-09-16
+/// \brief  Input enumerations.
 
-#include <hermes/numeric/matrix.h>
-#include <venus/engine/graphics_device.h>
-#include <venus/mem/image.h>
-#include <venus/pipeline/shader_module.h>
-#include <venus/scene/material.h>
+#pragma once
 
-#include <hermes/geometry/transform.h>
-#include <hermes/geometry/vector.h>
+#include <venus/utils/debug.h>
 
-namespace venus::scene {
+namespace venus::ui {
 
-class Material_Test : public Material::Writer {
-public:
-  static Result<Material> material(const engine::GraphicsDevice &gd);
+enum class Action { RELEASE = 0, PRESS = 1, REPEAT = 2 };
 
-  struct Data {
-    hermes::math::mat4 projection;
-    hermes::math::mat4 view;
-  };
+enum class Modifier { SHIFT, CONTROL };
 
-  struct Resources {
-    VkBuffer data_buffer;
-    u32 data_buffer_offset;
-  };
+enum class MouseButton { LEFT = 10, RIGHT = 11, MIDDLE = 12 };
 
-  Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
-                                   const Material *material) override;
-
-  Data data;
-  Resources resources;
+enum class Key {
+  NUM_0 = 48,
+  NUM_1 = 49,
+  NUM_2 = 50,
+  NUM_3 = 51,
+  NUM_4 = 52,
+  NUM_5 = 53,
+  NUM_6 = 54,
+  NUM_7 = 55,
+  NUM_8 = 56,
+  NUM_9 = 57,
+  A = 65,
+  B = 66,
+  C = 67,
+  D = 68,
+  E = 69,
+  F = 70,
+  G = 71,
+  H = 72,
+  I = 73,
+  J = 74,
+  K = 75,
+  L = 76,
+  M = 77,
+  N = 78,
+  O = 79,
+  P = 80,
+  Q = 81,
+  R = 82,
+  S = 83,
+  T = 84,
+  U = 85,
+  V = 86,
+  W = 87,
+  X = 88,
+  Y = 89,
+  Z = 90,
 };
 
-class Material_BindlessTest : public Material_Test {
-public:
-  static Result<Material> material(const engine::GraphicsDevice &gd);
+inline bool isMouseButton(u32 code) {
+  return code >= static_cast<u32>(MouseButton::LEFT) &&
+         code <= static_cast<u32>(MouseButton::MIDDLE);
+}
 
-  struct PushConstants {
-    VkDeviceAddress vertex_buffer;
-  };
-};
+inline bool isKey(u32 code) {
+  return code >= static_cast<u32>(Key::NUM_0) &&
+         code <= static_cast<u32>(Key::Z);
+}
 
-} // namespace venus::scene
+} // namespace venus::ui

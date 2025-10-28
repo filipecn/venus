@@ -47,12 +47,26 @@ public:
       resolution_ = resolution;
       return *this;
     }
+    Config &setFPS(f32 fps);
+    /// \param frame_count total number of frames before shutdown.
+    /// \note frame_count = 0 means no limit.
+    Config &setDurationInFrames(u32 frame_count);
     Config &
     setStartupFn(const std::function<VeResult(DisplayApp &)> &startup_callback);
     Config &setShutdownFn(const std::function<VeResult()> &shutdown_callback);
     Config &setRenderFn(
         const std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
             &render_callback);
+    Config &
+    setCursorPosFn(const std::function<void(const hermes::geo::point2 &)>
+                       &cursor_pos_func);
+    Config &setMouseButtonFn(
+        const std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
+            &mouse_button_func);
+    Config &setMouseScrollFn(
+        const std::function<void(const hermes::geo::vec2 &)> &scroll_func);
+    Config &setKeyFn(
+        const std::function<void(ui::Action, ui::Key, ui::Modifier)> &key_func);
 
     DisplayApp create() const;
 
@@ -66,6 +80,14 @@ public:
     std::function<VeResult()> shutdown_callback_{nullptr};
     std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
         render_callback_{nullptr};
+    std::function<void(const hermes::geo::point2 &)> cursor_pos_func_;
+    std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
+        mouse_button_func_;
+    std::function<void(const hermes::geo::vec2 &)> scroll_func_;
+    std::function<void(ui::Action, ui::Key, ui::Modifier)> key_func_;
+    // display config
+    f32 fps_{60.0};
+    u32 frames_{0};
   };
 
   /// Start the application.
@@ -83,6 +105,9 @@ protected:
   std::function<VeResult()> shutdown_callback_{nullptr};
   std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
       render_callback_{nullptr};
+
+  f32 fps_{60.0};
+  u32 frames_{0};
 };
 
 } // namespace venus::app

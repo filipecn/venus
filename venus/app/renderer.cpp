@@ -189,15 +189,7 @@ VeResult Renderer::update(
 }
 
 VeResult Renderer::end() {
-  auto &gd = engine::GraphicsEngine::device();
-  auto &cb = gd.commandBuffer();
-
-  cb.endRendering();
-
-  VkImage image = *gd.swapchain().images()[gd.currentTargetIndex()];
-  cb.transitionImage(image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
+  engine::GraphicsEngine::device().commandBuffer().endRendering();
   return VeResult::noError();
 }
 
@@ -209,7 +201,6 @@ void Renderer::draw(const std::vector<scene::RenderObject> &render_objects) {
 
 void Renderer::draw(const scene::RenderObject &ro) {
   auto &gd = engine::GraphicsEngine::device();
-  HERMES_PING;
   auto &cb = gd.commandBuffer();
   if (last_material_ != ro.material_instance->material()) {
     if (last_pipeline_ != *(ro.material_instance->pipeline())) {

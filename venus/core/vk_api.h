@@ -35,6 +35,10 @@
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
+// TODO: this is needed only in debug... shouldn't be necessary!
+#ifndef VK_USE_PLATFORM_XCB_KHR
+#define VK_USE_PLATFORM_XCB_KHR
+#endif
 #include <volk.h>
 #pragma GCC diagnostic pop
 

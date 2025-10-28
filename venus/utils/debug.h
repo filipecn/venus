@@ -92,6 +92,19 @@ HERMES_TEMPLATE_TO_STRING_DEBUG_METHOD;
   }
 #endif
 
+#ifndef VENUS_HE_RETURN_BAD_RESULT
+#define VENUS_HE_RETURN_BAD_RESULT(A)                                          \
+  {                                                                            \
+    HeError _venus_return_ve_error_ = (A);                                     \
+    if (_venus_return_ve_error_ != HeError::NO_ERROR) {                        \
+      HERMES_ERROR("Error at: {}", #A);                                        \
+      HERMES_ERROR("  w/ err: {}",                                             \
+                   hermes::to_string(_venus_return_ve_error_));                \
+      return VeResult::heError(_venus_return_ve_error_);                       \
+    }                                                                          \
+  }
+#endif
+
 #ifndef VENUS_ASSIGN
 #define VENUS_ASSIGN(R, V)                                                     \
   if (auto _venus_result_ = V)                                                 \

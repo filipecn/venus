@@ -8,3 +8,5 @@ FetchContent_Declare(
 set(HERMES_INCLUDE_TO_STRING ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(hermes)
+
+set(HERMES_INCLUDE_DIR ${hermes_SOURCE_DIR} CACHE STRING "" FORCE)

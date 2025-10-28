@@ -25,7 +25,11 @@
 /// \date   2025-06-07
 
 #include <venus/io/glfw_display.h>
+
+#include <venus/ui/input.h>
 #include <venus/utils/vk_debug.h>
+
+#include <backends/imgui_impl_glfw.h>
 
 namespace venus::io {
 
@@ -51,41 +55,48 @@ VeResult GLFW_Window::init(const char *name, const VkExtent2D &extent) {
     HERMES_ERROR("Failed to create glfw window.");
     return VeResult::extError();
   }
+  glfwSetWindowUserPointer(window_, this);
   resolution_ = extent;
 
   // setup callbacks
 
   glfwSetKeyCallback(window_, [](GLFWwindow *window, int key, int scancode,
                                  int action, int mods) {
-    HERMES_UNUSED_VARIABLE(window);
-    HERMES_UNUSED_VARIABLE(key);
     HERMES_UNUSED_VARIABLE(scancode);
-    HERMES_UNUSED_VARIABLE(action);
     HERMES_UNUSED_VARIABLE(mods);
+    GLFW_Window *w =
+        static_cast<GLFW_Window *>(glfwGetWindowUserPointer(window));
+    if (w && w->mouse_button_func)
+      w->key_func(static_cast<ui::Action>(action), static_cast<ui::Key>(key),
+                  {});
     glfwSetWindowShouldClose(window, true);
   });
 
-  glfwSetCursorPosCallback(window_,
-                           [](GLFWwindow *window, double xpos, double ypos) {
-                             HERMES_UNUSED_VARIABLE(window);
-                             HERMES_UNUSED_VARIABLE(xpos);
-                             HERMES_UNUSED_VARIABLE(ypos);
-                           });
+  glfwSetCursorPosCallback(
+      window_, [](GLFWwindow *window, double xpos, double ypos) {
+        GLFW_Window *w =
+            static_cast<GLFW_Window *>(glfwGetWindowUserPointer(window));
+        if (w && w->cursor_pos_func)
+          w->cursor_pos_func(hermes::geo::point2(xpos, ypos));
+      });
 
   glfwSetMouseButtonCallback(
       window_, [](GLFWwindow *window, int button, int action, int mods) {
-        HERMES_UNUSED_VARIABLE(window);
-        HERMES_UNUSED_VARIABLE(button);
-        HERMES_UNUSED_VARIABLE(action);
         HERMES_UNUSED_VARIABLE(mods);
+        GLFW_Window *w =
+            static_cast<GLFW_Window *>(glfwGetWindowUserPointer(window));
+        if (w && w->mouse_button_func)
+          w->mouse_button_func(static_cast<ui::Action>(action),
+                               static_cast<ui::MouseButton>(button + 10), {});
       });
 
-  glfwSetScrollCallback(window_,
-                        [](GLFWwindow *window, double xoffset, double yoffset) {
-                          HERMES_UNUSED_VARIABLE(window);
-                          HERMES_UNUSED_VARIABLE(xoffset);
-                          HERMES_UNUSED_VARIABLE(yoffset);
-                        });
+  glfwSetScrollCallback(
+      window_, [](GLFWwindow *window, double xoffset, double yoffset) {
+        GLFW_Window *w =
+            static_cast<GLFW_Window *>(glfwGetWindowUserPointer(window));
+        if (w && w->mouse_button_func)
+          w->scroll_func(hermes::geo::vec2(xoffset, yoffset));
+      });
 
   return VeResult::noError();
 }
@@ -108,5 +119,31 @@ Result<SurfaceKHR> GLFW_Window::createSurface(VkInstance instance) const {
 bool GLFW_Window::shouldClose() { return glfwWindowShouldClose(window_); }
 
 void GLFW_Window::pollEvents() { glfwPollEvents(); }
+
+VeResult GLFW_Window::initUI() const {
+  if (ImGui_ImplGlfw_InitForVulkan(window_, true))
+    return VeResult::noError();
+  return VeResult::extError();
+}
+
+void GLFW_Window::closeUI() const { ImGui_ImplGlfw_Shutdown(); }
+
+void GLFW_Window::newUIFrame() const { ImGui_ImplGlfw_NewFrame(); }
+
+VkExtent2D GLFW_Window::size() const { return resolution_; }
+
+hermes::geo::point2 GLFW_Window::cursorPos() const {
+  f64 xpos, ypos;
+  glfwGetCursorPos(window_, &xpos, &ypos);
+  return hermes::geo::point2(xpos, ypos);
+}
+
+hermes::geo::point2 GLFW_Window::cursorNDC() const {
+  f64 xpos, ypos;
+  glfwGetCursorPos(window_, &xpos, &ypos);
+  int vp[] = {0, 0, (int)resolution_.width, (int)resolution_.height};
+  return hermes::geo::point2((xpos - vp[0]) / vp[2] * 2.0 - 1.0,
+                             (ypos - vp[1]) / vp[3] * 2.0 - 1.0);
+}
 
 } // namespace venus::io

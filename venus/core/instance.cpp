@@ -383,6 +383,8 @@ Result<PhysicalDevices> Instance::physicalDevices() const {
   return Result<PhysicalDevices>(physical_devices);
 }
 
+vk::Version Instance::apiVersion() const { return version_; }
+
 } // namespace venus::core
 
 namespace venus {

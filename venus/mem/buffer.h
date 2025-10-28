@@ -196,6 +196,7 @@ class AllocatedBuffer : public Buffer, public DeviceMemory {
 public:
   struct Config {
     static Config forUniform(u32 size_in_bytes);
+    static Config forStorage(u32 size_in_bytes, VkBufferUsageFlags usage);
     Config &setBufferConfig(const Buffer::Config &config);
     Config &setMemoryConfig(const DeviceMemory::Config &config);
 

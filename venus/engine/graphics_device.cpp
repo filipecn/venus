@@ -345,6 +345,8 @@ u32 GraphicsDevice::currentTargetIndex() const {
 
 const GraphicsDevice::Output &GraphicsDevice::output() const { return output_; }
 
+VkQueue GraphicsDevice::graphicsQueue() const { return graphics_queue_; }
+
 const pipeline::RenderPass &GraphicsDevice::renderpass() const {
   return renderpass_;
 }
@@ -359,10 +361,12 @@ const GraphicsDevice::FrameResources &GraphicsDevice::frameData() const {
   return frames_[current_frame_ % swapchain_image_count_];
 }
 
-VeResult GraphicsDevice::prepare() {
+VeResult GraphicsDevice::begin(const VkCommandBufferUsageFlags &flags) {
   const auto &frame = frameData();
 
   vkDeviceWaitIdle(*device_);
+
+  // acquire image
 
   VENUS_VK_RETURN_BAD_RESULT(frame.render_fence.wait());
 
@@ -372,11 +376,27 @@ VeResult GraphicsDevice::prepare() {
 
   VENUS_VK_RETURN_BAD_RESULT(frame.render_fence.reset());
 
+  // begin record
+
+  VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].reset({}));
+  VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].begin(flags));
+
   return VeResult::noError();
 }
 
-VeResult GraphicsDevice::submit() const {
+VeResult GraphicsDevice::finish() {
   const auto &frame = frameData();
+
+  // prepare image for rendering
+
+  VkImage image = *swapchain_.images()[swapchain_image_index_];
+  frame.command_buffers[0].transitionImage(
+      image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+      VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+  // end command buffer record
+
+  VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].end());
 
   // prepare the submission to the queue.
   // we want to wait on the present semaphore, as that semaphore is signaled
@@ -392,12 +412,8 @@ VeResult GraphicsDevice::submit() const {
           .addCommandBufferInfo(*frame.command_buffers[0])
           .submit(graphics_queue_, *frame.render_fence));
 
-  return VeResult::noError();
-}
-
-VeResult GraphicsDevice::finish() {
-  const auto &frame = frameData();
   // prepare present
+
   //  this will put the image we just rendered to into the visible window.
   //  we want to wait on the render semaphore for that,
   //  as its necessary that drawing commands have finished before the image is
@@ -419,7 +435,6 @@ VeResult GraphicsDevice::finish() {
   VkResult result = vkQueuePresentKHR(graphics_queue_, &present_info);
   switch (result) {
   case VK_SUCCESS:
-    HERMES_INFO("vk::Queue::presentKHR returned vk::SUCCESS!");
     break;
   case VK_ERROR_OUT_OF_DATE_KHR:
     HERMES_INFO("vk::Queue::presentKHR returned vk::OUT_OF_DATE_KHR!");
@@ -438,35 +453,10 @@ VeResult GraphicsDevice::finish() {
   return VeResult::noError();
 }
 
-VeResult
-GraphicsDevice::beginRecord(const VkCommandBufferUsageFlags &flags) const {
-  const auto &frame = frameData();
-  VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].reset({}));
-  VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].begin(flags));
-  return VeResult::noError();
-}
-
-VeResult GraphicsDevice::endRecord() const {
-  const auto &frame = frameData();
-  VENUS_RETURN_BAD_RESULT(frame.command_buffers[0].end());
-  return VeResult::noError();
-}
-
 void GraphicsDevice::record(
     const std::function<void(const pipeline::CommandBuffer &)> &f) const {
   const auto &frame = frameData();
   f(frame.command_buffers[0]);
-}
-
-VeResult GraphicsDevice::submit(
-    const std::function<void(const pipeline::CommandBuffer &)> &f) const {
-  const auto &frame = frameData();
-  VENUS_RETURN_BAD_RESULT(
-      beginRecord(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
-  f(frame.command_buffers[0]);
-  VENUS_RETURN_BAD_RESULT(endRecord());
-  VENUS_RETURN_BAD_RESULT(submit());
-  return VeResult::noError();
 }
 
 VeResult GraphicsDevice::immediateSubmit(

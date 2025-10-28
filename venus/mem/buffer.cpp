@@ -281,6 +281,16 @@ AllocatedBuffer::Config AllocatedBuffer::Config::forUniform(u32 size_in_bytes) {
       .setMemoryConfig(venus::mem::DeviceMemory::Config().setHostVisible());
 }
 
+AllocatedBuffer::Config
+AllocatedBuffer::Config::forStorage(u32 size_in_bytes,
+                                    VkBufferUsageFlags usage) {
+  return AllocatedBuffer::Config()
+      .setBufferConfig(venus::mem::Buffer::Config::forStorage(size_in_bytes)
+                           .addUsage(usage)
+                           .enableShaderDeviceAddress())
+      .setMemoryConfig(venus::mem::DeviceMemory::Config().setDeviceLocal());
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedBuffer, setBufferConfig,
                                      const Buffer::Config &,
                                      buffer_config_ = value)

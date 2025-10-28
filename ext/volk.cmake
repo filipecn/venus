@@ -27,3 +27,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
 FetchContent_MakeAvailable(volk)
+
+set(VOLK_INCLUDE_DIR ${volk_SOURCE_DIR} CACHE STRING "" FORCE)
+set(VOLK_DEFINES ${VOLK_STATIC_DEFINES} CACHE STRING "" FORCE)
+
+
+

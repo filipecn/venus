@@ -95,19 +95,16 @@ public:
 
   /// \brief Performs pre-frame operations.
   /// \note Acquires swapchain image
-  HERMES_NODISCARD VeResult prepare();
-  /// \brief Initiates current command buffer
-  HERMES_NODISCARD VeResult
-  beginRecord(const VkCommandBufferUsageFlags &flags = {}) const;
+  /// \note initiates frame's commandb buffer
+  HERMES_NODISCARD VeResult begin(const VkCommandBufferUsageFlags &flags = {});
   /// \brief Initiates renderpass
   void beginRenderPass();
   /// \brief Finishes renderpass
   void endRenderPass();
-  /// \brief Finishes current command buffer
-  HERMES_NODISCARD VeResult endRecord() const;
-  /// \brief Submit the current command buffer record.
-  HERMES_NODISCARD VeResult submit() const;
   /// \brief Submit work and present
+  /// \note ends frame command buffer record
+  /// \note submit frame command buffer
+  /// \note present image
   HERMES_NODISCARD VeResult finish();
 
   // Command buffer access
@@ -136,6 +133,8 @@ public:
   u32 currentTargetIndex() const;
   /// \return Output images.
   const Output &output() const;
+  /// \return Graphics queue vulkan object
+  VkQueue graphicsQueue() const;
 
   // Non-dynamic rendering
 
