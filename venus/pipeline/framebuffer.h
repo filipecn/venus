@@ -52,8 +52,8 @@ public:
     /// \param layers
     Config &setLayers(u32 layers);
 
-    Result<Framebuffer> create(VkDevice vk_device,
-                               VkRenderPass vk_renderpass) const;
+    Result<Framebuffer> build(VkDevice vk_device,
+                              VkRenderPass vk_renderpass) const;
 
   private:
     u32 layers_{1};

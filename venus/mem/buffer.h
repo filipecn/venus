@@ -108,7 +108,7 @@ public:
     /// \brief Creates a buffer object from this configuration.
     /// \param device
     /// \return Buffer object or error.
-    HERMES_NODISCARD Result<Buffer> create(const core::Device &device) const;
+    HERMES_NODISCARD Result<Buffer> build(const core::Device &device) const;
 
   private:
     VkDeviceSize size_{};                                   //< size in bytes
@@ -132,7 +132,7 @@ public:
       Config &setRange(VkDeviceSize range);
       Config &setOffset(VkDeviceSize offset);
 
-      Result<View> create(const Buffer &buffer) const;
+      Result<View> build(const Buffer &buffer) const;
 
     private:
       VkFormat format_{};
@@ -197,10 +197,11 @@ public:
   struct Config {
     static Config forUniform(u32 size_in_bytes);
     static Config forStorage(u32 size_in_bytes, VkBufferUsageFlags usage);
+    static Config forAccelerationStructure(u32 size_in_bytes);
     Config &setBufferConfig(const Buffer::Config &config);
     Config &setMemoryConfig(const DeviceMemory::Config &config);
 
-    Result<AllocatedBuffer> create(const core::Device &device) const;
+    Result<AllocatedBuffer> build(const core::Device &device) const;
 
   private:
     Buffer::Config buffer_config_;
@@ -239,8 +240,8 @@ public:
   VeResult addBuffer(const std::string &name,
                      const AllocatedBuffer::Config &config, P &&...params) {
     BufferData data{};
-    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-        data.buffer, config.create(std::forward<P>(params)...));
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(data.buffer,
+                                      config.build(std::forward<P>(params)...));
     buffers_[name] = std::move(data);
     return VeResult::noError();
   }

@@ -77,7 +77,7 @@ public:
     Config &enableDebugUtilsExtension();
 #endif
     ///
-    HERMES_NODISCARD Result<Instance> create();
+    HERMES_NODISCARD Result<Instance> build();
 
   private:
     // create config

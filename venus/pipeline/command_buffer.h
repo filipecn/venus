@@ -214,6 +214,10 @@ public:
   void clear(VkImage image, VkImageLayout layout,
              const std::vector<VkImageSubresourceRange> &ranges,
              const VkClearDepthStencilValue &value) const;
+  /// \param vk_pipeline Vulkan pipeline object
+  /// \param bind_point Pipeline bind point
+  void bindPipeline(VkPipeline vk_pipeline,
+                    VkPipelineBindPoint bind_point) const;
   /// \param compute_pipeline
   void bind(const ComputePipeline &compute_pipeline) const;
   /// \param graphics_pipeline
@@ -343,7 +347,7 @@ public:
     Config &addCreateFlags(VkCommandPoolCreateFlagBits flags);
     Config &setQueueFamilyIndex(u32 queue_family_index);
 
-    Result<CommandPool> create(VkDevice vk_device) const;
+    Result<CommandPool> build(VkDevice vk_device) const;
 
   private:
     VkCommandPoolCreateFlags flags_{};

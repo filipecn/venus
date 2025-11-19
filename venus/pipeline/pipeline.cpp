@@ -226,7 +226,7 @@ Pipeline::ShaderStage::addSpecializationMapEntry(u32 constant_ID, u32 offset,
 }
 
 VkPipelineShaderStageCreateInfo
-Pipeline::ShaderStage::create(const ShaderModule &shader_module) const {
+Pipeline::ShaderStage::build(const ShaderModule &shader_module) const {
   VkPipelineShaderStageCreateInfo info;
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   info.flags = {};
@@ -256,7 +256,7 @@ Pipeline::Layout::Config::addPushConstantRange(VkShaderStageFlags stage_flags,
 }
 
 Result<Pipeline::Layout>
-Pipeline::Layout::Config::create(VkDevice vk_device) const {
+Pipeline::Layout::Config::build(VkDevice vk_device) const {
   Pipeline::Layout layout;
 
   VkPipelineLayoutCreateInfo info{};
@@ -367,7 +367,7 @@ GraphicsPipeline::VertexInput::addAttributeDescription(u32 location,
   return *this;
 }
 
-VkPipelineVertexInputStateCreateInfo GraphicsPipeline::VertexInput::create(
+VkPipelineVertexInputStateCreateInfo GraphicsPipeline::VertexInput::build(
     VkPipelineVertexInputStateCreateFlags flags) const {
   VkPipelineVertexInputStateCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -425,7 +425,7 @@ VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer,
 VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Rasterizer, setLineWidth,
                                    f32, lineWidth)
 
-VkPipelineRasterizationStateCreateInfo GraphicsPipeline::Rasterizer::create(
+VkPipelineRasterizationStateCreateInfo GraphicsPipeline::Rasterizer::build(
     VkPipelineRasterizationStateCreateFlags flags) const {
   auto info = info_;
   info.flags = flags;
@@ -463,7 +463,7 @@ VENUS_DEFINE_SET_INFO_FIELD_METHOD(GraphicsPipeline::Multisample,
 VENUS_DEFINE_SET_FIELD_METHOD(GraphicsPipeline::Multisample, addSampleMask,
                               VkSampleMask, sample_masks_.emplace_back(value))
 
-VkPipelineMultisampleStateCreateInfo GraphicsPipeline::Multisample::create(
+VkPipelineMultisampleStateCreateInfo GraphicsPipeline::Multisample::build(
     VkPipelineMultisampleStateCreateFlags flags) const {
   auto info = info_;
   info.flags = flags;
@@ -545,7 +545,7 @@ GraphicsPipeline::ColorBlend::setBlendingConstants(
   return *this;
 }
 
-VkPipelineColorBlendStateCreateInfo GraphicsPipeline::ColorBlend::create(
+VkPipelineColorBlendStateCreateInfo GraphicsPipeline::ColorBlend::build(
     VkPipelineColorBlendStateCreateFlags flags) const {
   auto info = info_;
   info.flags = flags;
@@ -584,7 +584,7 @@ GraphicsPipeline::DepthStencil::DepthStencil() noexcept {
   info_.pNext = nullptr;
 }
 
-VkPipelineDepthStencilStateCreateInfo GraphicsPipeline::DepthStencil::create(
+VkPipelineDepthStencilStateCreateInfo GraphicsPipeline::DepthStencil::build(
     VkPipelineDepthStencilStateCreateFlags flags) const {
   auto info = info_;
   info.flags = flags;
@@ -750,15 +750,15 @@ GraphicsPipeline::Config::forDynamicRendering(const io::Swapchain &swapchain) {
 }
 
 Result<GraphicsPipeline>
-GraphicsPipeline::Config::create(VkDevice vk_device,
-                                 VkPipelineLayout vk_pipeline_layout,
-                                 VkRenderPass vk_renderpass) const {
+GraphicsPipeline::Config::build(VkDevice vk_device,
+                                VkPipelineLayout vk_pipeline_layout,
+                                VkRenderPass vk_renderpass) const {
 
-  auto vertex_input = vertex_input_.create();
-  auto rasterization = rasterization_.create();
-  auto multisample = multisample_.create();
-  auto depth_stencil = depth_stencil_.create();
-  auto color_blend = color_blend_.create();
+  auto vertex_input = vertex_input_.build();
+  auto rasterization = rasterization_.build();
+  auto multisample = multisample_.build();
+  auto depth_stencil = depth_stencil_.build();
+  auto color_blend = color_blend_.build();
   auto dynamic = dynamic_;
   auto viewport = viewport_;
 
@@ -799,6 +799,75 @@ GraphicsPipeline::Config::create(VkDevice vk_device,
 #endif
 
   return Result<GraphicsPipeline>(std::move(pipeline));
+}
+
+RayTracingPipeline::ShaderGroup::ShaderGroup() {
+  info_.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+  info_.pNext = nullptr;
+  info_.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+  info_.intersectionShader = VK_SHADER_UNUSED_KHR;
+  info_.anyHitShader = VK_SHADER_UNUSED_KHR;
+  info_.closestHitShader = VK_SHADER_UNUSED_KHR;
+  info_.generalShader = VK_SHADER_UNUSED_KHR;
+}
+
+VENUS_DEFINE_SET_FIELD_METHOD(RayTracingPipeline::ShaderGroup, setType,
+                              VkRayTracingShaderGroupTypeKHR,
+                              info_.type = value)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(RayTracingPipeline::ShaderGroup,
+                                   setGeneralShader, u32, generalShader)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(RayTracingPipeline::ShaderGroup,
+                                   setClosestHitShader, u32, closestHitShader)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(RayTracingPipeline::ShaderGroup,
+                                   setAnyHitShader, u32, anyHitShader)
+VENUS_DEFINE_SET_INFO_FIELD_METHOD(RayTracingPipeline::ShaderGroup,
+                                   setIntersectionShader, u32,
+                                   intersectionShader)
+
+VkRayTracingShaderGroupCreateInfoKHR
+RayTracingPipeline::ShaderGroup::operator*() const {
+  return info_;
+}
+
+RayTracingPipeline::Config &RayTracingPipeline::Config::addShaderStage(
+    VkPipelineShaderStageCreateInfo shader_stage) {
+  stages_.emplace_back(shader_stage);
+  return *this;
+}
+
+RayTracingPipeline::Config &
+RayTracingPipeline::Config::addShaderGroup(const ShaderGroup &shader_group) {
+  shader_groups_.emplace_back(*shader_group);
+  return *this;
+}
+
+Result<RayTracingPipeline>
+RayTracingPipeline::Config::build(VkDevice vk_device,
+                                  VkPipelineLayout vk_pipeline_layout) const {
+  VkRayTracingPipelineCreateInfoKHR raytracing_pipeline_create_info{};
+  raytracing_pipeline_create_info.sType =
+      VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
+  raytracing_pipeline_create_info.stageCount =
+      static_cast<uint32_t>(stages_.size());
+  raytracing_pipeline_create_info.pStages = stages_.data();
+  raytracing_pipeline_create_info.groupCount =
+      static_cast<uint32_t>(shader_groups_.size());
+  raytracing_pipeline_create_info.pGroups = shader_groups_.data();
+  raytracing_pipeline_create_info.maxPipelineRayRecursionDepth = 1;
+  raytracing_pipeline_create_info.layout = vk_pipeline_layout;
+
+  RayTracingPipeline pipeline;
+  pipeline.vk_device_ = vk_device;
+
+  VENUS_VK_RETURN_BAD_RESULT(vkCreateRayTracingPipelinesKHR(
+      vk_device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
+      &raytracing_pipeline_create_info, nullptr, &pipeline.vk_pipeline_));
+
+#ifdef VENUS_DEBUG
+  pipeline.config_ = *this;
+#endif
+
+  return Result<RayTracingPipeline>(std::move(pipeline));
 }
 
 } // namespace venus::pipeline

@@ -108,9 +108,8 @@ public:
 
   struct Data {
     VkDeviceAddress vdb_buffer;
-    hermes::geo::point3 camera_pos;
-    u32 pad[3];
-    hermes::geo::vec4 extra[14];
+    u32 pad;
+    hermes::geo::vec4 extra[15];
   };
 
   static_assert(sizeof(Data) == 256);
@@ -119,6 +118,8 @@ public:
     VkBuffer data_buffer;
     u32 data_buffer_offset;
   };
+
+  struct PushConstants {};
 
   Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
                                    const Material *material) override;

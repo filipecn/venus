@@ -49,13 +49,16 @@ namespace venus::pipeline {
 // The interface between shader stages and shader resources is specified
 // through pipeline layouts (for example, the same address needs to be used in
 // shaders).
-// There are two types of pipelines:
+// There are three types of pipelines:
 // - Graphics pipelines
 //    Are used for drawing when binded to the command buffer before recording
 //    a drawing command. Can be bounded only inside render passes.
 // - Compute pipelines
 //    Consisted of a single compute shader stage, compute pipelines are used
 //    to perform mathematical operations.
+// - Ray Tracing pipelines
+//    Ray tracing pipelines utilize a dedicated set of shader stages, distinct
+//    from the traditional vertex/geometry/fragment stages.
 /// Pipeline Interface
 class Pipeline {
 public:
@@ -70,7 +73,7 @@ public:
                                            u32 size);
 
     HERMES_NODISCARD VkPipelineShaderStageCreateInfo
-    create(const ShaderModule &shader_module) const;
+    build(const ShaderModule &shader_module) const;
 
   private:
     VkShaderStageFlagBits stages_{};
@@ -89,7 +92,7 @@ public:
       Config &addPushConstantRange(VkShaderStageFlags stage_flags,
                                    uint32_t offset, uint32_t size);
 
-      Result<Layout> create(VkDevice vk_device) const;
+      Result<Layout> build(VkDevice vk_device) const;
 
     private:
       VkPipelineLayoutCreateFlags flags_{};
@@ -166,7 +169,7 @@ public:
     /// \brief Generate a create info object from this.
     /// \param flags [def={}] create flags.
     HERMES_NODISCARD VkPipelineVertexInputStateCreateInfo
-    create(VkPipelineVertexInputStateCreateFlags flags = {}) const;
+    build(VkPipelineVertexInputStateCreateFlags flags = {}) const;
 
   private:
     // vertex input
@@ -190,7 +193,7 @@ public:
     Rasterizer &setLineWidth(f32 line_width);
 
     HERMES_NODISCARD VkPipelineRasterizationStateCreateInfo
-    create(VkPipelineRasterizationStateCreateFlags flags = {}) const;
+    build(VkPipelineRasterizationStateCreateFlags flags = {}) const;
 
   private:
     VkPipelineRasterizationStateCreateInfo info_{};
@@ -211,7 +214,7 @@ public:
     Multisample &setAlphaToOneEnable(VkBool32 alpha_to_one_enable);
 
     HERMES_NODISCARD VkPipelineMultisampleStateCreateInfo
-    create(VkPipelineMultisampleStateCreateFlags flags = {}) const;
+    build(VkPipelineMultisampleStateCreateFlags flags = {}) const;
 
   private:
     VkPipelineMultisampleStateCreateInfo info_{};
@@ -233,7 +236,7 @@ public:
 
     HERMES_NODISCARD
     VkPipelineColorBlendStateCreateInfo
-    create(VkPipelineColorBlendStateCreateFlags flags = {}) const;
+    build(VkPipelineColorBlendStateCreateFlags flags = {}) const;
 
   private:
     VkPipelineColorBlendStateCreateInfo info_{};
@@ -252,7 +255,7 @@ public:
     DepthStencil() noexcept;
     HERMES_NODISCARD
     VkPipelineDepthStencilStateCreateInfo
-    create(VkPipelineDepthStencilStateCreateFlags flags = {}) const;
+    build(VkPipelineDepthStencilStateCreateFlags flags = {}) const;
 
   private:
     VkPipelineDepthStencilStateCreateInfo info_{};
@@ -328,9 +331,9 @@ public:
     /// \param extent Viewport/Scissor size.
     Config &setViewportAndDynamicStates(const VkExtent2D &extent);
 
-    Result<GraphicsPipeline> create(VkDevice vk_device,
-                                    VkPipelineLayout vk_pipeline_layout,
-                                    VkRenderPass vk_renderpass) const;
+    Result<GraphicsPipeline> build(VkDevice vk_device,
+                                   VkPipelineLayout vk_pipeline_layout,
+                                   VkRenderPass vk_renderpass) const;
 
   private:
     // vertex input
@@ -367,6 +370,47 @@ private:
 #endif
 
   VENUS_to_string_FRIEND(GraphicsPipeline);
+};
+
+/// Specialized pipeline for ray tracing.
+class RayTracingPipeline : public Pipeline {
+public:
+  struct ShaderGroup {
+    ShaderGroup();
+    ShaderGroup &setType(VkRayTracingShaderGroupTypeKHR type);
+    ShaderGroup &setGeneralShader(u32 shader_stage_index);
+    ShaderGroup &setClosestHitShader(u32 shader_stage_index);
+    ShaderGroup &setAnyHitShader(u32 shader_stage_index);
+    ShaderGroup &setIntersectionShader(u32 shader_stage_index);
+
+    VkRayTracingShaderGroupCreateInfoKHR operator*() const;
+
+  private:
+    VkRayTracingShaderGroupCreateInfoKHR info_{};
+  };
+
+  /// Builder for RayTracingPipeline
+  struct Config : public Pipeline::Config {
+    /// \param shader_stage
+    Config &addShaderStage(VkPipelineShaderStageCreateInfo shader_stage);
+    /// \param shader_group
+    Config &addShaderGroup(const ShaderGroup &shader_group);
+
+    Result<RayTracingPipeline> build(VkDevice vk_device,
+                                     VkPipelineLayout vk_pipeline_layout) const;
+
+  private:
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups_{};
+
+    VENUS_to_string_FRIEND(RayTracingPipeline::Config);
+  };
+
+private:
+#ifdef VENUS_DEBUG
+  Config config_;
+#endif
+
+  VENUS_to_string_FRIEND(RayTracingPipeline);
 };
 
 } // namespace venus::pipeline

@@ -178,8 +178,7 @@ VkImageCreateInfo Image::Config::createInfo() const {
   return info;
 }
 
-Result<Image> Image::Config::create(VkDevice vk_device,
-                                    VkImage vk_image) const {
+Result<Image> Image::Config::build(VkDevice vk_device, VkImage vk_image) const {
   Image image;
   image.vk_device_ = vk_device;
   image.vk_image_ = vk_image;
@@ -188,7 +187,7 @@ Result<Image> Image::Config::create(VkDevice vk_device,
   return Result<Image>(std::move(image));
 }
 
-Result<Image> Image::Config::create(const core::Device &device) const {
+Result<Image> Image::Config::build(const core::Device &device) const {
 
   Image image;
   auto info = createInfo();
@@ -218,7 +217,7 @@ VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image::View, setSubresourceRange,
                                           VkImageSubresourceRange,
                                           subresourceRange)
 
-Result<Image::View> Image::View::Config::create(const Image &image) const {
+Result<Image::View> Image::View::Config::build(const Image &image) const {
   auto info = info_;
   info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   info.pNext = nullptr;
@@ -308,7 +307,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedImage, setMemoryConfig,
                                      mem_config_ = value)
 
 Result<AllocatedImage>
-AllocatedImage::Config::create(const core::Device &device) const {
+AllocatedImage::Config::build(const core::Device &device) const {
   auto info = image_config_.createInfo();
 
   auto alloc_info = mem_config_.allocationInfo();
@@ -386,7 +385,7 @@ VeResult ImagePool::addImageView(const std::string &image_name,
     return VeResult::notFound();
   }
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(it->second.view,
-                                    image_view_config.create(it->second.image));
+                                    image_view_config.build(it->second.image));
   return VeResult::noError();
 }
 

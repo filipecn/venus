@@ -158,6 +158,9 @@ public:
     VkPhysicalDeviceVulkan12Features v12_f{};
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT descriptor_indexing_f{};
     VkPhysicalDeviceSynchronization2FeaturesKHR synchronization2_f{};
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR rt_pipeline_f{};
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR
+        acceleration_structures_f{};
   };
 
   /// Retrieve available queue families exposed by a physical device

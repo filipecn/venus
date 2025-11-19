@@ -133,8 +133,8 @@ VkShaderModule ShaderModule::operator*() const { return vk_shader_module_; }
 const std::string &ShaderModule::name() const { return name_; }
 
 Result<ShaderModule>
-ShaderModule::Config::create(VkDevice vk_device,
-                             VkShaderModuleCreateFlags flags) const {
+ShaderModule::Config::build(VkDevice vk_device,
+                            VkShaderModuleCreateFlags flags) const {
   ShaderModule module;
 
   VkShaderModuleCreateInfo info;

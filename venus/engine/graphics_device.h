@@ -63,7 +63,7 @@ public:
     Config &addExtension(const std::string_view &extension);
     Config &addExtensions(const std::vector<std::string> &extensions);
 
-    Result<GraphicsDevice> create(const core::Instance &instance) const;
+    Result<GraphicsDevice> build(const core::Instance &instance) const;
 
   private:
     bool useDynamicRendering() const;

@@ -24,16 +24,17 @@
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-06-07
 
-#include <venus/app/renderer.h>
+#include <venus/engine/rasterizer.h>
 
 #include <venus/engine/graphics_engine.h>
 
-#define RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME "renderer_global_descriptor_data"
+#define RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME                                \
+  "renderer_global_descriptor_data"
 
-namespace venus::app {
+namespace venus::engine {
 
-Result<Renderer> Renderer::Config::create() const {
-  Renderer renderer;
+Result<Rasterizer> Rasterizer::Config::build() const {
+  Rasterizer renderer;
 
   auto &gd = engine::GraphicsEngine::device();
   auto &cache = engine::GraphicsEngine::cache();
@@ -44,33 +45,33 @@ Result<Renderer> Renderer::Config::create() const {
           .setInitialSetCount(1)
           .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.f)
           .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3.f)
-          .create(**engine::GraphicsEngine::device()));
+          .build(**engine::GraphicsEngine::device()));
 
   VENUS_RETURN_BAD_RESULT(cache.buffers().addBuffer(
-      RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME,
+      RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME,
       mem::AllocatedBuffer::Config::forUniform(
           sizeof(engine::GraphicsEngine::Globals::Types::SceneData)),
       *gd));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       auto, buffer_index,
-      cache.buffers().allocate(RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME));
+      cache.buffers().allocate(RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME));
   HERMES_UNUSED_VARIABLE(buffer_index);
 
-  return Result<Renderer>(std::move(renderer));
+  return Result<Rasterizer>(std::move(renderer));
 }
 
-Renderer::Renderer(Renderer &&rhs) noexcept { *this = std::move(rhs); }
+Rasterizer::Rasterizer(Rasterizer &&rhs) noexcept { *this = std::move(rhs); }
 
-Renderer::~Renderer() noexcept { destroy(); }
+Rasterizer::~Rasterizer() noexcept { destroy(); }
 
-Renderer &Renderer::operator=(Renderer &&rhs) noexcept {
+Rasterizer &Rasterizer::operator=(Rasterizer &&rhs) noexcept {
   destroy();
   swap(rhs);
   return *this;
 }
 
-void Renderer::destroy() noexcept {
+void Rasterizer::destroy() noexcept {
   last_pipeline_ = VK_NULL_HANDLE;
   last_material_ = nullptr;
   last_index_buffer_ = VK_NULL_HANDLE;
@@ -79,7 +80,7 @@ void Renderer::destroy() noexcept {
   descriptor_allocator_.destroy();
 }
 
-void Renderer::swap(Renderer &rhs) {
+void Rasterizer::swap(Rasterizer &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(last_pipeline_);
   VENUS_SWAP_FIELD_WITH_RHS(last_material_);
   VENUS_SWAP_FIELD_WITH_RHS(last_index_buffer_);
@@ -88,7 +89,7 @@ void Renderer::swap(Renderer &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(descriptor_allocator_);
 }
 
-VeResult Renderer::begin() {
+VeResult Rasterizer::begin() {
   // reset
   last_pipeline_ = nullptr;
   last_material_ = nullptr;
@@ -149,18 +150,18 @@ VeResult Renderer::begin() {
   return VeResult::noError();
 }
 
-VeResult Renderer::update(
+VeResult Rasterizer::update(
     const engine::GraphicsEngine::Globals::Types::SceneData &scene_data) {
 
   auto &cache = engine::GraphicsEngine::cache();
 
   VENUS_RETURN_BAD_RESULT(
-      cache.buffers().copyBlock(RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME, 0,
+      cache.buffers().copyBlock(RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME, 0,
                                 &scene_data, sizeof(scene_data)));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       VkBuffer, vk_global_data_buffer,
-      cache.buffers()[RENDERER_GLOBAL_DESCRITOR_BUFFER_NAME]);
+      cache.buffers()[RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME]);
 
   VkDescriptorSetVariableDescriptorCountAllocateInfo alloc_array_info{};
   alloc_array_info.sType =
@@ -188,18 +189,18 @@ VeResult Renderer::update(
   return VeResult::noError();
 }
 
-VeResult Renderer::end() {
+VeResult Rasterizer::end() {
   engine::GraphicsEngine::device().commandBuffer().endRendering();
   return VeResult::noError();
 }
 
-void Renderer::draw(const std::vector<scene::RenderObject> &render_objects) {
+void Rasterizer::draw(const std::vector<scene::RenderObject> &render_objects) {
   for (const auto &object : render_objects) {
     draw(object);
   }
 }
 
-void Renderer::draw(const scene::RenderObject &ro) {
+void Rasterizer::draw(const scene::RenderObject &ro) {
   auto &gd = engine::GraphicsEngine::device();
   auto &cb = gd.commandBuffer();
   if (last_material_ != ro.material_instance->material()) {
@@ -253,8 +254,8 @@ void Renderer::draw(const scene::RenderObject &ro) {
     cb.draw(ro.count, 1, 0, 0);
 }
 
-pipeline::DescriptorAllocator &Renderer::descriptorAllocator() {
+pipeline::DescriptorAllocator &Rasterizer::descriptorAllocator() {
   return descriptor_allocator_;
 }
 
-} // namespace venus::app
+} // namespace venus::engine

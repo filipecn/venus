@@ -73,10 +73,7 @@ public:
       struct SceneData {
         hermes::geo::Transform view;
         hermes::geo::Transform proj;
-        hermes::geo::Transform viewproj;
-        hermes::colors::RGBA_Color ambient_color;
-        hermes::geo::vec4 sunlight_direction; // w for sun power
-        hermes::colors::RGBA_Color sunlight_color;
+        hermes::geo::point3 eye;
       };
     };
 
@@ -204,6 +201,7 @@ public:
     Config &setSynchronization2();
     Config &setBindless();
     Config &setDynamicRendering();
+    Config &setRayTracing();
     Config &enableUI();
     Config &setDeviceFeatures(const core::vk::DeviceFeatures &features);
     Config &setDeviceExtensions(const std::vector<std::string> &extensions);
@@ -215,10 +213,6 @@ public:
     std::vector<std::string> device_extensions_;
     // TODO: this is not being used at all!
     bool enable_ui_{false};
-  };
-
-  struct FrameData {
-    pipeline::DescriptorAllocator descriptor_allocator;
   };
 
   ~GraphicsEngine() = default;

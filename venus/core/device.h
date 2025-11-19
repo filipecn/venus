@@ -88,7 +88,7 @@ public:
     /// \param physical_device
     /// \return The newly created device or error.
     HERMES_NODISCARD Result<Device>
-    create(const PhysicalDevice &physical_device) const;
+    build(const PhysicalDevice &physical_device) const;
 
   private:
     vk::DeviceFeatures features_;

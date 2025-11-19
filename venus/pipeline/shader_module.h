@@ -52,8 +52,8 @@ public:
     /// \param name Entry function name.
     Config &setEntryFuncName(const std::string &name);
 
-    Result<ShaderModule> create(VkDevice vk_device,
-                                VkShaderModuleCreateFlags flags = {}) const;
+    Result<ShaderModule> build(VkDevice vk_device,
+                               VkShaderModuleCreateFlags flags = {}) const;
 
   private:
     std::string entry_function_name_{"main"};

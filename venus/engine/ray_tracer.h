@@ -20,54 +20,28 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   renderer.h
+/// \file   ray_tracer.h
 /// \author FilipeCN (filipedecn@gmail.com)
-/// \date   2025-06-07
-/// \brief  App renderer.
+/// \date   2025-11-12
+/// \brief  Ray tracer.
 
 #pragma once
 
 #include <venus/engine/graphics_engine.h>
+#include <venus/mem/image.h>
+#include <venus/scene/acceleration_structure.h>
 #include <venus/scene/scene_graph.h>
 
-namespace venus::app {
-
-class Renderer {
+namespace venus::engine {
+class RayTracer {
 public:
-  struct Config {
-    Result<Renderer> create() const;
-  };
-
-  VENUS_DECLARE_RAII_FUNCTIONS(Renderer)
-
+  VENUS_DECLARE_RAII_FUNCTIONS(RayTracer)
   void destroy() noexcept;
-  void swap(Renderer &rhs);
-
-  HERMES_NODISCARD VeResult begin();
-  /// Update global descriptor set data
-  HERMES_NODISCARD VeResult
-  update(const engine::GraphicsEngine::Globals::Types::SceneData &scene_data);
-  HERMES_NODISCARD VeResult end();
-
-  /// \param render_objects List of render objects to be rendered in sequence.
-  void draw(const std::vector<scene::RenderObject> &render_objects);
-  /// \param render_object
-  void draw(const scene::RenderObject &render_object);
-
-  pipeline::DescriptorAllocator &descriptorAllocator();
+  void swap(RayTracer &rhs);
 
 private:
-  VkPipeline last_pipeline_{nullptr};
-  venus::scene::Material *last_material_{nullptr};
-  VkBuffer last_index_buffer_{nullptr};
-  VkBuffer last_vertex_buffer_{nullptr};
-
-  // frame data
-  //
-  pipeline::DescriptorAllocator descriptor_allocator_;
-  /// The global descriptor set is bound at the beginning of the array of
-  /// descriptor sets accessed by all render objects.
-  pipeline::DescriptorSet global_descriptor_set_;
+  scene::AccelerationStructure as_;
+  mem::AllocatedImage image_;
 };
 
-} // namespace venus::app
+}; // namespace venus::engine

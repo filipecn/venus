@@ -53,8 +53,8 @@ public:
                                u32 descritor_count,
                                VkShaderStageFlags stage_flags);
 
-      Result<DescriptorSet::Layout> create(VkDevice vk_device,
-                                           void *next = nullptr) const;
+      Result<DescriptorSet::Layout> build(VkDevice vk_device,
+                                          void *next = nullptr) const;
 
     private:
       std::vector<VkDescriptorSetLayoutBinding> bindings_;
@@ -127,7 +127,7 @@ public:
     Config &addDescriptorType(VkDescriptorType type, f32 ratio = 1.f);
 
     /// \brief Initializes with a single descriptor pool.
-    Result<DescriptorAllocator> create(VkDevice device) const;
+    Result<DescriptorAllocator> build(VkDevice device) const;
 
   private:
     u32 initial_set_count_{0};
@@ -153,8 +153,8 @@ public:
 
 private:
   // create a new pool
-  Result<VkDescriptorPool> create(u32 set_count,
-                                  std::span<PoolSizeRatio> pool_ratios);
+  Result<VkDescriptorPool> build(u32 set_count,
+                                 std::span<PoolSizeRatio> pool_ratios);
   // get the current ready pool (or create a new one if necessary)
   Result<VkDescriptorPool> get();
 

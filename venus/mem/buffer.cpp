@@ -141,7 +141,7 @@ VkBufferCreateInfo Buffer::Config::createInfo() const {
   return info;
 }
 
-Result<Buffer> Buffer::Config::create(const core::Device &device) const {
+Result<Buffer> Buffer::Config::build(const core::Device &device) const {
   auto info = createInfo();
 
   VkBuffer vk_buffer{VK_NULL_HANDLE};
@@ -171,7 +171,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Buffer::View, setRange, VkDeviceSize,
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Buffer::View, setOffset, VkDeviceSize,
                                      offset_ = value)
 
-Result<Buffer::View> Buffer::View::Config::create(const Buffer &buffer) const {
+Result<Buffer::View> Buffer::View::Config::build(const Buffer &buffer) const {
   VkBufferViewCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO;
   info.pNext = nullptr;
@@ -291,6 +291,15 @@ AllocatedBuffer::Config::forStorage(u32 size_in_bytes,
       .setMemoryConfig(venus::mem::DeviceMemory::Config().setDeviceLocal());
 }
 
+AllocatedBuffer::Config forAccelerationStructure(u32 size_in_bytes) {
+  return AllocatedBuffer::Config()
+      .setBufferConfig(
+          venus::mem::Buffer::Config::forStorage(size_in_bytes)
+              .addUsage(VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR)
+              .enableShaderDeviceAddress())
+      .setMemoryConfig(venus::mem::DeviceMemory::Config().setDeviceLocal());
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedBuffer, setBufferConfig,
                                      const Buffer::Config &,
                                      buffer_config_ = value)
@@ -300,7 +309,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedBuffer, setMemoryConfig,
                                      mem_config_ = value)
 
 Result<AllocatedBuffer>
-AllocatedBuffer::Config::create(const core::Device &device) const {
+AllocatedBuffer::Config::build(const core::Device &device) const {
   auto info = buffer_config_.createInfo();
 
   auto alloc_info = mem_config_.allocationInfo();

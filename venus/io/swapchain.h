@@ -93,7 +93,7 @@ public:
     /// \param flags
     Config &addCreateFlags(VkSwapchainCreateFlagsKHR flags);
 
-    HERMES_NODISCARD Result<Swapchain> create(const core::Device &device) const;
+    HERMES_NODISCARD Result<Swapchain> build(const core::Device &device) const;
 
   private:
     VkSurfaceKHR surface_{VK_NULL_HANDLE};

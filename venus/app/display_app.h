@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <venus/engine/frame_loop.h>
 #include <venus/io/display.h>
 
 namespace venus::app {
@@ -36,49 +37,58 @@ class DisplayApp {
 public:
   // Configuration
 
-  struct Config {
-    Config &setTitle(const std::string_view &title);
-    Config &setResolution(const VkExtent2D &resolution);
+  /// Builder for DisplayApp.
+  /// \tparam Derived return type of configuration methods.
+  /// \tparam Type type of the object build by this setup.
+  template <typename Derived, typename Type> struct Setup {
+    ///
+    Derived &setTitle(const std::string_view &title);
+    ///
+    Derived &setResolution(const VkExtent2D &resolution);
+    ///
     template <typename DisplayType>
-    Config &setDisplay(const std::string_view &title,
-                       const VkExtent2D &resolution) {
-      display_.reset(new DisplayType());
-      title_ = title;
-      resolution_ = resolution;
-      return *this;
-    }
-    Config &setFPS(f32 fps);
+    Derived &setDisplay(const std::string_view &title,
+                        const VkExtent2D &resolution);
+    ///
+    Derived &setFPS(f32 fps);
     /// \param frame_count total number of frames before shutdown.
     /// \note frame_count = 0 means no limit.
-    Config &setDurationInFrames(u32 frame_count);
-    Config &
-    setStartupFn(const std::function<VeResult(DisplayApp &)> &startup_callback);
-    Config &setShutdownFn(const std::function<VeResult()> &shutdown_callback);
-    Config &setRenderFn(
-        const std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
-            &render_callback);
-    Config &
+    Derived &setDurationInFrames(u32 frame_count);
+    ///
+    Derived &
+    setStartupFn(const std::function<VeResult(Type &)> &startup_callback);
+    ///
+    Derived &setShutdownFn(const std::function<VeResult()> &shutdown_callback);
+    ///
+    Derived &setRenderFn(
+        const std::function<VeResult(
+            const engine::FrameLoop::Iteration::Frame &)> &render_callback);
+    ///
+    Derived &
     setCursorPosFn(const std::function<void(const hermes::geo::point2 &)>
                        &cursor_pos_func);
-    Config &setMouseButtonFn(
+    ///
+    Derived &setMouseButtonFn(
         const std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
             &mouse_button_func);
-    Config &setMouseScrollFn(
+    ///
+    Derived &setMouseScrollFn(
         const std::function<void(const hermes::geo::vec2 &)> &scroll_func);
-    Config &setKeyFn(
+    ///
+    Derived &setKeyFn(
         const std::function<void(ui::Action, ui::Key, ui::Modifier)> &key_func);
+    ///
+    Result<Type> build() const;
 
-    DisplayApp create() const;
-
-  private:
+  protected:
     // display settings
     std::string title_;
     VkExtent2D resolution_{};
     std::shared_ptr<io::Display> display_;
     // callbacks
-    std::function<VeResult(DisplayApp &)> startup_callback_{nullptr};
+    std::function<VeResult(Type &)> startup_callback_{nullptr};
     std::function<VeResult()> shutdown_callback_{nullptr};
-    std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
+    std::function<VeResult(const engine::FrameLoop::Iteration::Frame &)>
         render_callback_{nullptr};
     std::function<void(const hermes::geo::point2 &)> cursor_pos_func_;
     std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
@@ -90,8 +100,13 @@ public:
     u32 frames_{0};
   };
 
+  struct Config : public Setup<Config, DisplayApp> {};
+
+  void swap(DisplayApp &rhs);
+  void destroy() noexcept;
+
   /// Start the application.
-  i32 run();
+  virtual i32 run();
 
   const io::Display *display() const;
 
@@ -103,11 +118,54 @@ protected:
 
   std::function<VeResult(DisplayApp &)> startup_callback_{nullptr};
   std::function<VeResult()> shutdown_callback_{nullptr};
-  std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
+  std::function<VeResult(const engine::FrameLoop::Iteration::Frame &)>
       render_callback_{nullptr};
 
   f32 fps_{60.0};
   u32 frames_{0};
 };
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DisplayApp, setTitle,
+                                    const std::string_view &, title_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DisplayApp, setResolution,
+                                    const VkExtent2D &, resolution_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DisplayApp, setStartupFn,
+                                    const std::function<VeResult(Type &)> &,
+                                    startup_callback_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DisplayApp, setShutdownFn,
+                                    const std::function<VeResult()> &,
+                                    shutdown_callback_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(
+    DisplayApp, setRenderFn,
+    const std::function<VeResult(const engine::FrameLoop::Iteration::Frame &)>
+        &,
+    render_callback_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(
+    DisplayApp, setCursorPosFn,
+    const std::function<void(const hermes::geo::point2 &)> &, cursor_pos_func_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(
+    DisplayApp, setMouseButtonFn,
+    const std::function<void(ui::Action, ui::MouseButton, ui::Modifier)> &,
+    mouse_button_func_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(
+    DisplayApp, setMouseScrollFn,
+    const std::function<void(const hermes::geo::vec2 &)> &, scroll_func_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(
+    DisplayApp, setKeyFn,
+    const std::function<void(ui::Action, ui::Key, ui::Modifier)> &, key_func_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DisplayApp, setFPS, f32, fps_);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DisplayApp, setDurationInFrames, u32,
+                                    frames_);
+
+template <typename Derived, typename Type>
+template <typename DisplayType>
+Derived &
+DisplayApp::Setup<Derived, Type>::setDisplay(const std::string_view &title,
+                                             const VkExtent2D &resolution) {
+  display_.reset(new DisplayType());
+  title_ = title;
+  resolution_ = resolution;
+  return static_cast<Derived &>(*this);
+}
 
 } // namespace venus::app

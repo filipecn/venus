@@ -1,6 +1,5 @@
 set(VENUS_HEADERS
   app/display_app.h
-  app/renderer.h
   app/scene.h
   app/scene_app.h
 
@@ -10,8 +9,12 @@ set(VENUS_HEADERS
   core/sync.h
   core/vk_api.h
 
+  engine/frame_loop.h
   engine/graphics_device.h
   engine/graphics_engine.h
+  engine/rasterizer.h
+  engine/ray_tracer.h
+  engine/renderers.h
   engine/shapes.h
 
   io/display.h
@@ -28,9 +31,11 @@ set(VENUS_HEADERS
   pipeline/descriptors.h
   pipeline/framebuffer.h
   pipeline/pipeline.h
+  pipeline/rasterizer.h
   pipeline/renderpass.h
   pipeline/shader_module.h
 
+  scene/acceleration_structure.h
   scene/camera.h
   scene/material.h
   scene/materials.h
@@ -47,7 +52,6 @@ set(VENUS_HEADERS
 )
 set(VENUS_SOURCES
   app/display_app.cpp
-  app/renderer.cpp
   app/scene.cpp
   app/scene_app.cpp
 
@@ -57,11 +61,14 @@ set(VENUS_SOURCES
   core/sync.cpp
   core/vk_api.cpp
 
+  engine/frame_loop.cpp
   engine/graphics_device.cpp
   engine/graphics_engine.cpp
+  engine/rasterizer.cpp
+  engine/ray_tracer.cpp
+  engine/renderers.cpp
   engine/shapes.cpp
 
-  io/display.cpp
   io/glfw_display.cpp
   io/surface.cpp
   io/swapchain.cpp
@@ -75,9 +82,11 @@ set(VENUS_SOURCES
   pipeline/descriptors.cpp
   pipeline/framebuffer.cpp
   pipeline/pipeline.cpp
+  pipeline/rasterizer.cpp
   pipeline/renderpass.cpp
   pipeline/shader_module.cpp
 
+  scene/acceleration_structure.cpp
   scene/camera.cpp
   scene/material.cpp
   scene/materials.cpp

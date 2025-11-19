@@ -438,6 +438,20 @@ PhysicalDevices::Selector::setSynchronization2Features(
 }
 
 PhysicalDevices::Selector &
+PhysicalDevices::Selector::setRayTracingPipelineFeatures(
+    const VkPhysicalDeviceRayTracingPipelineFeaturesKHR &features) {
+  device_features.rt_pipeline_f = features;
+  return *this;
+}
+
+PhysicalDevices::Selector &
+PhysicalDevices::Selector::setAccelerationStructureFeatures(
+    const VkPhysicalDeviceAccelerationStructureFeaturesKHR &features) {
+  device_features.acceleration_structures_f = features;
+  return *this;
+}
+
+PhysicalDevices::Selector &
 PhysicalDevices::Selector::addQueueFlags(VkQueueFlags flags) {
   queue_flags |= flags;
   return *this;

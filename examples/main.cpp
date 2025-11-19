@@ -25,14 +25,8 @@
 /// \brief  Example on how to initialize venus.
 
 #include <venus/app/scene_app.h>
+#include <venus/engine/graphics_engine.h>
 #include <venus/io/glfw_display.h>
-
-VeResult update(venus::app::Scene &scene) {
-  auto *node = scene.graph().get<venus::scene::graph::VDB_Node>("sphere");
-  auto *camera = scene.graph().get<venus::scene::graph::CameraNode>("main");
-  node->update(camera->camera()->position());
-  return VeResult::noError();
-}
 
 VeResult init(venus::app::SceneApp &app) {
 
@@ -43,7 +37,7 @@ VeResult init(venus::app::SceneApp &app) {
           std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box_textured.glb",
           venus::engine::GraphicsEngine::device()));
 
-  app.scene().graph().add("sphere", vdb);
+  // app.scene().graph().add("sphere", vdb);
 
   venus::scene::graph::GLTF_Node::Ptr gltf;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -60,19 +54,21 @@ VeResult init(venus::app::SceneApp &app) {
   app.scene().graph().addCamera("main", camera);
   app.selectCamera("main");
 
-  update(app.scene());
-
   return VeResult::noError();
 }
 
 int main() {
   VENUS_CHECK_VE_RESULT(venus::core::vk::init());
 
-  return venus::app::SceneApp::Config()
-      .setDisplay<venus::io::GLFW_Window>("Hello Vulkan Display App",
-                                          {1024, 1024})
-      .setStartupFn(init)
-      .setUpdateSceneFn(update)
-      .create()
-      .run();
+  venus::app::SceneApp app;
+  VENUS_ASSIGN_OR(app,
+                  venus::app::SceneApp::Config()
+                      .setDisplay<venus::io::GLFW_Window>(
+                          "Hello Vulkan Display App", {1024, 1024})
+                      .setStartupFn(init)
+                      .setFPS(60)
+                      .setDurationInFrames(0)
+                      .build(),
+                  return -1);
+  return app.run();
 }

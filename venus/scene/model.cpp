@@ -82,7 +82,7 @@ Model::Config::pushVertexComponent(mem::VertexLayout::ComponentType component,
   return *this;
 }
 
-Result<Model> Model::Config::create() const {
+Result<Model> Model::Config::build() const {
   Model model;
   model.vk_vertex_buffer_ = vk_vertex_buffer_;
   model.vk_index_buffer_ = vk_index_buffer_;
@@ -116,7 +116,7 @@ AllocatedModel::Config AllocatedModel::Config::fromMesh(const Mesh &mesh) {
 }
 
 Result<AllocatedModel>
-AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
+AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
   AllocatedModel model;
 
   if (!mesh_.aos.size()) {
@@ -134,7 +134,7 @@ AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
                                .addUsage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
                                .enableShaderDeviceAddress())
           .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
-          .create(*gd));
+          .build(*gd));
 
   if (index_buffer_size) {
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -144,7 +144,7 @@ AllocatedModel::Config::create(const engine::GraphicsDevice &gd) const {
                                  .addUsage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
                                  .enableShaderDeviceAddress())
             .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
-            .create(*gd));
+            .build(*gd));
   }
 
   // copy data

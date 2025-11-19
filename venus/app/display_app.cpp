@@ -31,43 +31,9 @@
 
 namespace venus::app {
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setTitle,
-                                     const std::string_view &, title_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setResolution,
-                                     const VkExtent2D &, resolution_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
-    DisplayApp, setStartupFn, const std::function<VeResult(DisplayApp &)> &,
-    startup_callback_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setShutdownFn,
-                                     const std::function<VeResult()> &,
-                                     shutdown_callback_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
-    DisplayApp, setRenderFn,
-    const std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)> &,
-    render_callback_ = value);
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
-    DisplayApp, setCursorPosFn,
-    const std::function<void(const hermes::geo::point2 &)> &,
-    cursor_pos_func_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
-    DisplayApp, setMouseButtonFn,
-    const std::function<void(ui::Action, ui::MouseButton, ui::Modifier)> &,
-    mouse_button_func_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
-    DisplayApp, setMouseScrollFn,
-    const std::function<void(const hermes::geo::vec2 &)> &,
-    scroll_func_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
-    DisplayApp, setKeyFn,
-    const std::function<void(ui::Action, ui::Key, ui::Modifier)> &,
-    key_func_ = value);
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setFPS, f32, fps_ = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DisplayApp, setDurationInFrames, u32,
-                                     frames_ = value);
-
-DisplayApp DisplayApp::Config::create() const {
+template <>
+Result<DisplayApp>
+DisplayApp::Setup<DisplayApp::Config, DisplayApp>::build() const {
 
   DisplayApp app;
 
@@ -76,7 +42,7 @@ DisplayApp DisplayApp::Config::create() const {
   app.startup_callback_ = startup_callback_;
   app.shutdown_callback_ = shutdown_callback_;
 
-  VENUS_CHECK_VE_RESULT(app.window_->init(title_.c_str(), resolution_));
+  VENUS_RETURN_BAD_RESULT(app.window_->init(title_.c_str(), resolution_));
 
   app.window_->key_func = key_func_;
   app.window_->mouse_button_func = mouse_button_func_;
@@ -86,19 +52,38 @@ DisplayApp DisplayApp::Config::create() const {
   app.fps_ = fps_;
   app.frames_ = frames_;
 
-  return app;
+  return Result<DisplayApp>(std::move(app));
+}
+
+void DisplayApp::swap(DisplayApp &rhs) {
+  VENUS_SWAP_FIELD_WITH_RHS(window_);
+  VENUS_SWAP_FIELD_WITH_RHS(surface_);
+  VENUS_SWAP_FIELD_WITH_RHS(startup_callback_);
+  VENUS_SWAP_FIELD_WITH_RHS(shutdown_callback_);
+  VENUS_SWAP_FIELD_WITH_RHS(render_callback_);
+  VENUS_SWAP_FIELD_WITH_RHS(fps_);
+  VENUS_SWAP_FIELD_WITH_RHS(frames_);
+}
+
+void DisplayApp::destroy() noexcept {
+  window_.reset();
+  surface_ = VK_NULL_HANDLE;
+  frames_ = 0;
 }
 
 i32 DisplayApp::run() {
   if (startup_callback_)
-    startup_callback_(*this);
+    VENUS_RETURN_ON_BAD_RESULT(startup_callback_(*this), -1);
   for (auto it :
-       io::DisplayLoop(*window_).setDurationInFrames(frames_).setFPS(fps_)) {
+       engine::FrameLoop().setDurationInFrames(frames_).setFPS(fps_)) {
     if (render_callback_)
-      render_callback_(it.frame());
+      VENUS_RETURN_ON_BAD_RESULT(render_callback_(it.frame()), -1);
+    if (window_->shouldClose())
+      it.endLoop();
+    window_->pollEvents();
   }
   if (shutdown_callback_)
-    shutdown_callback_();
+    VENUS_RETURN_ON_BAD_RESULT(shutdown_callback_(), -1);
   return shutdown();
 }
 

@@ -98,7 +98,7 @@ Sampler::Config Sampler::Config::defaults() {
   return config;
 }
 
-Result<Sampler> Sampler::Config::create(VkDevice vk_device) const {
+Result<Sampler> Sampler::Config::build(VkDevice vk_device) const {
   Sampler sampler;
   VENUS_VK_RETURN_BAD_RESULT(
       vkCreateSampler(vk_device, &info_, nullptr, &sampler.vk_sampler_));

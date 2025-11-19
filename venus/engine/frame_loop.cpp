@@ -20,18 +20,28 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   display.cpp
+/// \file   frame_loop.cpp
 /// \author FilipeCN (filipedecn@gmail.com)
-/// \date   2025-06-07
+/// \date   2025-11-15
 
-#include <venus/io/display.h>
+#include <venus/engine/frame_loop.h>
 
-namespace venus::io {
+namespace venus {
 
-DisplayLoop::Iteration::Iteration(DisplayLoop &loop, bool is_end)
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::engine::FrameLoop::Iteration)
+HERMES_PUSH_DEBUG_FIELD(frame_.iteration_index);
+HERMES_PUSH_DEBUG_FIELD(frame_.last_frame_duration.count());
+HERMES_PUSH_DEBUG_FIELD(frame_.current_fps_period.count());
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+
+namespace venus::engine {
+
+FrameLoop::Iteration::Iteration(FrameLoop &loop, bool is_end)
     : loop_{loop}, is_end_{is_end} {}
 
-DisplayLoop::Iteration &DisplayLoop::Iteration::operator++() {
+FrameLoop::Iteration &FrameLoop::Iteration::operator++() {
   if (in_frame_) {
     // finish frame
     in_frame_ = false;
@@ -51,56 +61,41 @@ DisplayLoop::Iteration &DisplayLoop::Iteration::operator++() {
     is_end_ = true;
     return *this;
   }
-  if (loop_.display_.shouldClose()) {
-    is_end_ = true;
+  if (is_end_)
     return *this;
-  }
   in_frame_ = true;
   frame_.frame_start = std::chrono::steady_clock::now();
-  loop_.display_.pollEvents();
   return *this;
 }
 
-DisplayLoop::Iteration &DisplayLoop::Iteration::operator*() { return *this; }
+FrameLoop::Iteration &FrameLoop::Iteration::operator*() { return *this; }
 
-bool DisplayLoop::Iteration::operator==(
-    const DisplayLoop::Iteration &rhs) const {
+bool FrameLoop::Iteration::operator==(const FrameLoop::Iteration &rhs) const {
   return is_end_ == rhs.is_end_;
 }
 
-bool DisplayLoop::Iteration::operator!=(
-    const DisplayLoop::Iteration &rhs) const {
+bool FrameLoop::Iteration::operator!=(const FrameLoop::Iteration &rhs) const {
   return is_end_ != rhs.is_end_;
 }
 
-const DisplayLoop::Iteration::Frame &DisplayLoop::Iteration::frame() const {
+const FrameLoop::Iteration::Frame &FrameLoop::Iteration::frame() const {
   return frame_;
 }
 
-DisplayLoop::DisplayLoop(Display &display) : display_(display) {}
+void FrameLoop::Iteration::endLoop() { is_end_ = true; }
 
-DisplayLoop &DisplayLoop::setFPS(f32 fps) {
+FrameLoop &FrameLoop::setFPS(f32 fps) {
   fps_period_ = std::chrono::microseconds(u64(1000000 / fps));
   return *this;
 }
 
-DisplayLoop &DisplayLoop::setDurationInFrames(u32 frame_count) {
+FrameLoop &FrameLoop::setDurationInFrames(u32 frame_count) {
   max_frame_count_ = frame_count;
   return *this;
 }
 
-DisplayLoop::Iteration DisplayLoop::begin() { return {*this, false}; }
+FrameLoop::Iteration FrameLoop::begin() { return {*this, false}; }
 
-DisplayLoop::Iteration DisplayLoop::end() { return {*this, true}; }
+FrameLoop::Iteration FrameLoop::end() { return {*this, true}; }
 
-} // namespace venus::io
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::io::DisplayLoop::Iteration)
-HERMES_PUSH_DEBUG_FIELD(frame_.iteration_index);
-HERMES_PUSH_DEBUG_FIELD(frame_.last_frame_duration.count());
-HERMES_PUSH_DEBUG_FIELD(frame_.current_fps_period.count());
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
+} // namespace venus::engine

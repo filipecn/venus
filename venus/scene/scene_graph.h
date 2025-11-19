@@ -263,9 +263,6 @@ public:
             DrawContext &ctx) override;
   void destroy() noexcept override;
 
-  // material update
-  VeResult update(const hermes::geo::point3 &camera_pos);
-
 private:
   mem::AllocatedBuffer gpu_vdb_data_;
   AllocatedModel bounds_model_;

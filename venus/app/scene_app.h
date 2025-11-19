@@ -28,36 +28,34 @@
 #pragma once
 
 #include <venus/app/display_app.h>
-#include <venus/app/renderer.h>
 #include <venus/app/scene.h>
+#include <venus/engine/renderers.h>
 #include <venus/ui/camera.h>
 
 namespace venus::app {
 
 /// Auxiliary class for providing an application with display, scene and camera.
-class SceneApp {
+class SceneApp : public DisplayApp {
 public:
-  struct Config {
-    template <typename DisplayType>
-    Config &setDisplay(const std::string_view &title,
-                       const VkExtent2D &resolution) {
-      display_app_config_.setDisplay<DisplayType>(title, resolution);
-      return *this;
-    }
-    Config &
-    setStartupFn(const std::function<VeResult(SceneApp &)> &startup_callback);
-    Config &setUpdateSceneFn(
+  /// Builder for SceneApp.
+  /// \tparam Derived return type of configuration methods.
+  /// \tparam Type type of the object build by this setup.
+  template <typename Derived, typename Type>
+  struct Setup : DisplayApp::Setup<Derived, Type> {
+    /// \param startup_callback Function called during frame preparation.
+    Derived &setUpdateSceneFn(
         const std::function<VeResult(Scene &)> &update_scene_callback);
-    SceneApp create() const;
+    ///
+    Result<Type> build() const;
 
-  private:
-    DisplayApp::Config display_app_config_;
-    std::function<VeResult(SceneApp &)> startup_callback_{nullptr};
+  protected:
     std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
+    engine::SceneRenderer::Ptr renderer_;
   };
 
-  VENUS_DECLARE_RAII_FUNCTIONS(SceneApp)
+  struct Config : public Setup<Config, SceneApp> {};
 
+  VENUS_DECLARE_RAII_FUNCTIONS(SceneApp)
   void destroy() noexcept;
   void swap(SceneApp &rhs);
 
@@ -65,26 +63,35 @@ public:
   Scene &scene();
   void selectCamera(const std::string &label);
 
-  i32 run();
+  i32 run() override;
 
-private:
-  VeResult init(DisplayApp::Config display_app_config);
-  i32 shutdown();
+protected:
+  VeResult init();
 
-  DisplayApp display_app_;
-  Renderer renderer_;
   Scene scene_;
   std::string selected_camera_;
   ui::CameraController camera_controller_;
 
   // scene app callbacks
-  std::function<VeResult(SceneApp &)> startup_callback_{nullptr};
   std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
   // display app callbacks
-  std::function<VeResult(DisplayApp &)> da_startup_callback_{nullptr};
-  std::function<VeResult()> da_shutdown_callback_{nullptr};
-  std::function<VeResult(const io::DisplayLoop::Iteration::Frame &)>
-      da_render_callback_{nullptr};
+  std::function<VeResult(SceneApp &)> sa_startup_callback_{nullptr};
+  std::function<VeResult()> sa_shutdown_callback_{nullptr};
+  std::function<VeResult(const engine::FrameLoop::Iteration::Frame &)>
+      sa_render_callback_{nullptr};
+
+private:
+  /// Global descriptor allocator
+  pipeline::DescriptorAllocator descriptor_allocator_;
+  /// The global descriptor set is bound at the beginning of the array of
+  /// descriptor sets accessed by all render objects.
+  pipeline::DescriptorSet global_descriptor_set_;
+
+  engine::SceneRenderer::Ptr renderer_;
 };
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(SceneApp, setUpdateSceneFn,
+                                    const std::function<VeResult(Scene &)> &,
+                                    update_scene_callback_)
 
 } // namespace venus::app

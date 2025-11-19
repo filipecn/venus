@@ -232,6 +232,10 @@ public:
         const VkPhysicalDeviceDescriptorIndexingFeaturesEXT &features);
     Selector &setSynchronization2Features(
         const VkPhysicalDeviceSynchronization2FeaturesKHR &features);
+    Selector &setRayTracingPipelineFeatures(
+        const VkPhysicalDeviceRayTracingPipelineFeaturesKHR &features);
+    Selector &setAccelerationStructureFeatures(
+        const VkPhysicalDeviceAccelerationStructureFeaturesKHR &features);
     Selector &addQueueFlags(VkQueueFlags flags);
 
     /// If a surface is provided, then the selector will search for devices

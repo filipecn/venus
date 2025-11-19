@@ -53,7 +53,7 @@ struct Sampler {
     Config &setMaxLod(f32 lod);
     Config &setBorderColor(VkBorderColor color);
 
-    Result<Sampler> create(VkDevice vk_device) const;
+    Result<Sampler> build(VkDevice vk_device) const;
 
   private:
     VkSamplerCreateInfo info_;

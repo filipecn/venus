@@ -114,7 +114,7 @@ Device::Config::addQueueFamily(u32 index,
 }
 
 Result<Device>
-Device::Config::create(const PhysicalDevice &physical_device) const {
+Device::Config::build(const PhysicalDevice &physical_device) const {
   std::vector<char const *> extensions;
   extensions.reserve(extensions_.size());
   for (auto const &ext : extensions_) {

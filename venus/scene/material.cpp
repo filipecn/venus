@@ -66,7 +66,7 @@ namespace venus::scene {
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Instance, setMaterial,
                                      const Material *, material_ = value)
 
-Result<Material::Instance> Material::Instance::Config::create(
+Result<Material::Instance> Material::Instance::Config::build(
     pipeline::DescriptorAllocator &allocator) const {
   Material::Instance instance;
 
@@ -128,16 +128,16 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Pipeline,
                                      layout_config_ = value)
 
 Result<Material::Pipeline>
-Material::Pipeline::Config::create(VkDevice vk_device,
-                                   VkRenderPass vk_renderpass) const {
+Material::Pipeline::Config::build(VkDevice vk_device,
+                                  VkRenderPass vk_renderpass) const {
   Material::Pipeline p;
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(p.pipeline_layout_,
-                                    layout_config_.create(vk_device));
+                                    layout_config_.build(vk_device));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       p.pipeline_,
-      pipeline_config_.create(vk_device, *p.pipeline_layout_, vk_renderpass));
+      pipeline_config_.build(vk_device, *p.pipeline_layout_, vk_renderpass));
 
 #ifdef VENUS_DEBUG
   p.config_ = *this;
@@ -153,13 +153,13 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material, setDescriptorSetLayout,
                                      pipeline::DescriptorSet::Layout &&,
                                      descriptor_set_layout_ = std::move(value))
 
-Result<Material> Material::Config::create(VkDevice vk_device,
-                                          VkRenderPass vk_renderpass) const {
+Result<Material> Material::Config::build(VkDevice vk_device,
+                                         VkRenderPass vk_renderpass) const {
 
   Material material;
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      material.pipeline_, pipeline_config_.create(vk_device, vk_renderpass));
+      material.pipeline_, pipeline_config_.build(vk_device, vk_renderpass));
   material.descriptor_set_layout_ = std::move(descriptor_set_layout_);
 
   return Result<Material>(std::move(material));

@@ -86,48 +86,4 @@ protected:
   VkExtent2D resolution_{};
 };
 
-class DisplayLoop {
-public:
-  DisplayLoop(Display &display);
-  DisplayLoop &setFPS(f32 fps);
-  DisplayLoop &setDurationInFrames(u32 frame_count);
-
-  struct Iteration {
-    struct Frame {
-      u32 iteration_index{0};
-      // fps
-      std::chrono::steady_clock::time_point frame_start;
-      std::chrono::microseconds last_frame_duration{0};
-      std::chrono::microseconds current_fps_period{0};
-    };
-
-    Iteration(DisplayLoop &loop, bool is_end);
-
-    Iteration &operator++();
-    Iteration &operator*();
-    bool operator==(const Iteration &) const;
-    bool operator!=(const Iteration &) const;
-    const Frame &frame() const;
-
-  private:
-    DisplayLoop &loop_;
-    bool in_frame_{false};
-    bool is_end_{false};
-    Frame frame_;
-
-    VENUS_to_string_FRIEND(Iteration);
-  };
-
-  Iteration begin();
-  Iteration end();
-
-private:
-  friend class Iteration;
-
-  Display &display_;
-  // default for 60 fps
-  std::chrono::microseconds fps_period_{16666};
-  u32 max_frame_count_{0};
-};
-
 } // namespace venus::io

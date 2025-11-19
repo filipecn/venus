@@ -239,7 +239,7 @@ Instance::Config &Instance::Config::enableDebugUtilsExtension() {
 
 #endif
 
-Result<Instance> Instance::Config::create() {
+Result<Instance> Instance::Config::build() {
 
   std::vector<const char *> instance_extensions;
   for (auto &extension : extensions_) {

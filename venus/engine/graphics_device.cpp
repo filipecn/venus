@@ -50,7 +50,7 @@ bool GraphicsDevice::Config::useDynamicRendering() const {
 }
 
 Result<GraphicsDevice>
-GraphicsDevice::Config::create(const core::Instance &instance) const {
+GraphicsDevice::Config::build(const core::Instance &instance) const {
   GraphicsDevice gd;
   gd.surface_extent_ = surface_extent_;
   gd.presentation_surface_ = surface_;
@@ -82,7 +82,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
           .addQueueFamily(indices.graphics_queue_family_index, {1.f})
           .addQueueFamily(indices.present_queue_family_index, {1.f})
           .addExtensions(extensions_)
-          .create(physical_device));
+          .build(physical_device));
 
   // get device queues
 
@@ -100,7 +100,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
                          .addUsageFlags(VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
                          .setPresentMode(VK_PRESENT_MODE_FIFO_KHR)
-                         .create(gd.device_));
+                         .build(gd.device_));
   gd.surface_extent_ = gd.swapchain_.imageExtent();
 
   // create frame data
@@ -115,7 +115,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
         pipeline::CommandPool::Config()
             .addCreateFlags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
             .setQueueFamilyIndex(indices.graphics_queue_family_index)
-            .create(*gd.device_));
+            .build(*gd.device_));
 
     // Create Command Buffer
 
@@ -127,17 +127,17 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
 
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.frames_[i].image_acquired_semaphore,
-        core::Semaphore::Config().create(*gd.device_));
+        core::Semaphore::Config().build(*gd.device_));
 
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.frames_[i].render_semaphore,
-        core::Semaphore::Config().create(*gd.device_));
+        core::Semaphore::Config().build(*gd.device_));
 
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         gd.frames_[i].render_fence,
         core::Fence::Config()
             .setCreateFlags(VK_FENCE_CREATE_SIGNALED_BIT)
-            .create(*gd.device_));
+            .build(*gd.device_));
   }
 
   // Immediate submit data
@@ -147,7 +147,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
       pipeline::CommandPool::Config()
           .setQueueFamilyIndex(indices.graphics_queue_family_index)
           .addCreateFlags(VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT)
-          .create(*gd.device_));
+          .build(*gd.device_));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(gd.imm_submit_data_.command_buffers,
                                     gd.imm_submit_data_.command_pool.allocate(
@@ -157,7 +157,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
       gd.imm_submit_data_.fence,
       core::Fence::Config()
           .setCreateFlags(VK_FENCE_CREATE_SIGNALED_BIT)
-          .create(*gd.device_));
+          .build(*gd.device_));
 
   // Create Renderpass
   if (!useDynamicRendering()) {
@@ -194,7 +194,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
                         0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
                     .addColorAttachmentRef(
                         1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL))
-            .create(*gd.device_));
+            .build(*gd.device_));
 
     // framebuffers
 
@@ -210,7 +210,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
                            .addAttachment(*depth_buffer_view)
                            .setResolution(gd.swapchain_.imageExtent())
                            .setLayers(1)
-                           .create(*gd.device_, *gd.renderpass_));
+                           .build(*gd.device_, *gd.renderpass_));
       gd.framebuffers_.emplace_back(std::move(framebuffer));
     }
   }
@@ -228,7 +228,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
           .setMemoryConfig(
               mem::DeviceMemory::Config().setDeviceLocal().setUsage(
                   VMA_MEMORY_USAGE_GPU_ONLY))
-          .create(*gd));
+          .build(*gd));
 
   VkImageSubresourceRange subresource_range;
   subresource_range.baseMipLevel = 0;
@@ -242,7 +242,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
                                         .setFormat(gd.output_.color.format())
                                         .setViewType(VK_IMAGE_VIEW_TYPE_2D)
                                         .setSubresourceRange(subresource_range)
-                                        .create(gd.output_.color));
+                                        .build(gd.output_.color));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.output_.depth,
@@ -252,7 +252,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
           .setMemoryConfig(
               mem::DeviceMemory::Config().setDeviceLocal().setUsage(
                   VMA_MEMORY_USAGE_GPU_ONLY))
-          .create(*gd));
+          .build(*gd));
 
   subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
@@ -261,7 +261,7 @@ GraphicsDevice::Config::create(const core::Instance &instance) const {
                                         .setFormat(gd.output_.depth.format())
                                         .setViewType(VK_IMAGE_VIEW_TYPE_2D)
                                         .setSubresourceRange(subresource_range)
-                                        .create(gd.output_.depth));
+                                        .build(gd.output_.depth));
 
   return Result<GraphicsDevice>(std::move(gd));
 }

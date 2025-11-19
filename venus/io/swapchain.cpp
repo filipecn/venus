@@ -84,7 +84,7 @@ Swapchain::Config::addCreateFlags(VkSwapchainCreateFlagsKHR flags) {
   return *this;
 }
 
-Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
+Result<Swapchain> Swapchain::Config::build(const core::Device &device) const {
 
   // copy config values that might change
   auto extent = extent_;
@@ -202,14 +202,14 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(image,
                                       mem::Image::Config()
                                           .setFormat(surface_format.format)
-                                          .create(*device, vk_image));
+                                          .build(*device, vk_image));
     mem::Image::View view;
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         view, mem::Image::View::Config()
                   .setViewType(VK_IMAGE_VIEW_TYPE_2D)
                   .setFormat(surface_format.format)
                   .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
-                  .create(image));
+                  .build(image));
 
     swapchain.images_.emplace_back(std::move(image));
     swapchain.image_views_.emplace_back(std::move(view));
@@ -219,7 +219,7 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
       swapchain.depth_buffer_,
       mem::AllocatedImage::Config()
           .setImageConfig(mem::Image::Config::forDepthBuffer(extent))
-          .create(device));
+          .build(device));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       swapchain.depth_buffer_view_,
@@ -227,7 +227,7 @@ Result<Swapchain> Swapchain::Config::create(const core::Device &device) const {
           .setViewType(VK_IMAGE_VIEW_TYPE_2D)
           .setFormat(swapchain.depth_buffer_.format())
           .setSubresourceRange({VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1})
-          .create(swapchain.depth_buffer_));
+          .build(swapchain.depth_buffer_));
 
   swapchain.color_format_ = surface_format.format;
   swapchain.extent_ = extent;

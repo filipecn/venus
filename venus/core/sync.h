@@ -54,7 +54,7 @@ public:
   struct Config {
     Config &setCreateFlags(VkFenceCreateFlagBits flags);
 
-    Result<Fence> create(VkDevice vk_device) const;
+    Result<Fence> build(VkDevice vk_device) const;
 
   private:
     VkFenceCreateFlags flags_{};
@@ -81,7 +81,7 @@ public:
   struct Config {
     Config &setCreateFlags(VkSemaphoreCreateFlags flags);
 
-    Result<Semaphore> create(VkDevice vk_device) const;
+    Result<Semaphore> build(VkDevice vk_device) const;
 
   private:
     VkSemaphoreCreateFlags flags_{};

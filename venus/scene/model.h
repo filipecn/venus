@@ -89,7 +89,7 @@ public:
     Config &setVertices(VkBuffer vk_vertex_buffer, VkDeviceAddress vk_address);
     Config &setIndices(VkBuffer vk_index_buffer);
 
-    Result<Model> create() const;
+    Result<Model> build() const;
 
   private:
     VkBuffer vk_vertex_buffer_{VK_NULL_HANDLE};
@@ -146,7 +146,7 @@ public:
     /// Creates an allocated model from this configuration.
     /// \note If no shapes are defined, a single shape encompassing the whole
     ///       model is created.
-    Result<AllocatedModel> create(const engine::GraphicsDevice &gd) const;
+    Result<AllocatedModel> build(const engine::GraphicsDevice &gd) const;
 
   private:
     Model::Mesh mesh_;

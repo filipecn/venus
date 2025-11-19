@@ -48,8 +48,8 @@ Framebuffer::Config &Framebuffer::Config::setLayers(u32 layers) {
 }
 
 Result<Framebuffer>
-Framebuffer::Config::create(VkDevice vk_device,
-                            VkRenderPass vk_renderpass) const {
+Framebuffer::Config::build(VkDevice vk_device,
+                           VkRenderPass vk_renderpass) const {
   VkFramebufferCreateInfo info{};
 
   info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;

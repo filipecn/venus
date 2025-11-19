@@ -116,7 +116,7 @@ public:
     /// \param subpass_dependency
     Config &addSubpassDependency(const VkSubpassDependency &subpass_dependency);
 
-    Result<RenderPass> create(VkDevice vk_device) const;
+    Result<RenderPass> build(VkDevice vk_device) const;
 
   private:
     std::vector<VkAttachmentDescription> vk_attachments_;

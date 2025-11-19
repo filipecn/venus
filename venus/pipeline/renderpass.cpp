@@ -96,7 +96,7 @@ RenderPass::Config &RenderPass::Config::addSubpassDependency(
   return *this;
 }
 
-Result<RenderPass> RenderPass::Config::create(VkDevice vk_device) const {
+Result<RenderPass> RenderPass::Config::build(VkDevice vk_device) const {
   std::vector<VkSubpassDescription> subpass_descriptions;
   for (auto &sd : subpasses_) {
     VkSubpassDescription info{};

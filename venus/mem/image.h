@@ -99,12 +99,12 @@ public:
     /// Create image from this configuration.
     /// \param device
     /// \return image or error.
-    HERMES_NODISCARD Result<Image> create(const core::Device &device) const;
+    HERMES_NODISCARD Result<Image> build(const core::Device &device) const;
     /// \brief Creates an image from an already existent image.
     /// \note The newly created image gains ownership over the given vk_image
     ///       and will destroy it with destroy() is called.
-    HERMES_NODISCARD Result<Image> create(VkDevice vk_device,
-                                          VkImage vk_image) const;
+    HERMES_NODISCARD Result<Image> build(VkDevice vk_device,
+                                         VkImage vk_image) const;
     /// Create an initialized image from this configuration.
     /// \note This copies data into image's buffer memory.
     /// \param gd Graphics device with access to a command buffer.
@@ -142,7 +142,7 @@ public:
       Config &setComponents(VkComponentMapping components);
       Config &setSubresourceRange(VkImageSubresourceRange subresource_range);
 
-      Result<View> create(const Image &image) const;
+      Result<View> build(const Image &image) const;
 
     private:
       VkImageViewCreateInfo info_{};
@@ -210,7 +210,7 @@ public:
     Config &setImageConfig(const Image::Config &config);
     Config &setMemoryConfig(const DeviceMemory::Config &config);
 
-    Result<AllocatedImage> create(const core::Device &device) const;
+    Result<AllocatedImage> build(const core::Device &device) const;
 
   private:
     Image::Config image_config_;
@@ -246,8 +246,8 @@ public:
                                      const AllocatedImage::Config &config,
                                      P &&...params) {
     ImageData data{};
-    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-        data.image, config.create(std::forward<P>(params)...));
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(data.image,
+                                      config.build(std::forward<P>(params)...));
     images_[name] = std::move(data);
     return VeResult::noError();
   }

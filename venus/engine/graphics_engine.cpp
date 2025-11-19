@@ -66,7 +66,7 @@ VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
                                     pipeline::ShaderModule::Config()           \
                                         .setEntryFuncName("main")              \
                                         .fromSpvFile(shaders_path / #FILE)     \
-                                        .create(vk_device));
+                                        .build(vk_device));
 
   // shaders
   std::filesystem::path shaders_path(VENUS_SHADERS_PATH);
@@ -149,7 +149,7 @@ VeResult GraphicsEngine::Globals::Descriptors::init(GraphicsDevice &gd) {
             .addLayoutBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10,
                               VK_SHADER_STAGE_VERTEX_BIT |
                                   VK_SHADER_STAGE_FRAGMENT_BIT)
-            .create(**gd, &flags));
+            .build(**gd, &flags));
 
     scene_data_layout = *scene_data_layout_;
   }
@@ -182,7 +182,7 @@ VeResult GraphicsEngine::Globals::Defaults::init(GraphicsDevice &gd) {
             .setMemoryConfig(
                 mem::DeviceMemory::Config().setDeviceLocal().setUsage(
                     VMA_MEMORY_USAGE_GPU_ONLY))
-            .create(*gd));
+            .build(*gd));
 
     VENUS_RETURN_BAD_RESULT(
         pipeline::ImageWritter()
@@ -195,7 +195,7 @@ VeResult GraphicsEngine::Globals::Defaults::init(GraphicsDevice &gd) {
             .setViewType(VK_IMAGE_VIEW_TYPE_2D)
             .setFormat(error_image_.format())
             .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
-            .create(error_image_));
+            .build(error_image_));
 
     error_image.image = *error_image_;
     error_image.view = *error_image_view_;
@@ -206,7 +206,7 @@ VeResult GraphicsEngine::Globals::Defaults::init(GraphicsDevice &gd) {
                                       scene::Sampler::Config::defaults()
                                           .setMagFilter(VK_FILTER_LINEAR)
                                           .setMinFilter(VK_FILTER_LINEAR)
-                                          .create(**gd));
+                                          .build(**gd));
     linear_sampler = *linear_sampler_;
   }
 
@@ -215,7 +215,7 @@ VeResult GraphicsEngine::Globals::Defaults::init(GraphicsDevice &gd) {
                                       scene::Sampler::Config::defaults()
                                           .setMagFilter(VK_FILTER_NEAREST)
                                           .setMinFilter(VK_FILTER_NEAREST)
-                                          .create(**gd));
+                                          .build(**gd));
     nearest_sampler = *nearest_sampler_;
   }
 
@@ -439,6 +439,29 @@ GraphicsEngine::Config &GraphicsEngine::Config::setDynamicRendering() {
   return *this;
 }
 
+GraphicsEngine::Config &GraphicsEngine::Config::setRayTracing() {
+  device_features_.rt_pipeline_f.rayTracingPipeline = true;
+  device_features_.acceleration_structures_f.accelerationStructure = true;
+
+  // Ray tracing related extensions required by this sample
+  device_extensions_.emplace_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+  device_extensions_.emplace_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+
+  // Required by VK_KHR_acceleration_structure
+  device_extensions_.emplace_back(VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME);
+  device_extensions_.emplace_back(
+      VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+  device_extensions_.emplace_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+
+  // Required for VK_KHR_ray_tracing_pipeline
+  device_extensions_.emplace_back(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+
+  // Required by VK_KHR_spirv_1_4
+  device_extensions_.emplace_back(VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME);
+
+  return *this;
+}
+
 GraphicsEngine::Config &GraphicsEngine::Config::enableUI() {
   enable_ui_ = true;
   return *this;
@@ -462,7 +485,7 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
                                 .enableDefaultDebugMessageSeverityFlags()
                                 .enableDefaultDebugMessageTypeFlags()
                                 .enableDebugUtilsExtension()
-                                .create());
+                                .build());
 
   HERMES_INFO("\n{}", venus::to_string(s_instance.instance_));
   // output surface
@@ -477,7 +500,7 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
                                         .setSurfaceExtent(display->resolution())
                                         .setFeatures(device_features_)
                                         .addExtensions(device_extensions_)
-                                        .create(s_instance.instance_));
+                                        .build(s_instance.instance_));
 
   // init ui
 

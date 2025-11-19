@@ -35,7 +35,7 @@ Fence::Config &Fence::Config::setCreateFlags(VkFenceCreateFlagBits flags) {
   return *this;
 }
 
-Result<Fence> Fence::Config::create(VkDevice vk_device) const {
+Result<Fence> Fence::Config::build(VkDevice vk_device) const {
   VkFenceCreateInfo info;
   info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   info.pNext = nullptr;
@@ -91,7 +91,7 @@ Semaphore::Config::setCreateFlags(VkSemaphoreCreateFlags flags) {
   return *this;
 }
 
-Result<Semaphore> Semaphore::Config::create(VkDevice vk_device) const {
+Result<Semaphore> Semaphore::Config::build(VkDevice vk_device) const {
   VkSemaphoreCreateInfo info;
   info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
   info.pNext = nullptr;

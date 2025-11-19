@@ -276,6 +276,11 @@ void CommandBuffer::clear(VkImage image, VkImageLayout layout,
                               ranges.size(), ranges.data());
 }
 
+void CommandBuffer::bindPipeline(VkPipeline vk_pipeline,
+                                 VkPipelineBindPoint bind_point) const {
+  vkCmdBindPipeline(vk_command_buffer_, bind_point, vk_pipeline);
+}
+
 void CommandBuffer::bind(const ComputePipeline &compute_pipeline) const {
   vkCmdBindPipeline(vk_command_buffer_, VK_PIPELINE_BIND_POINT_COMPUTE,
                     *compute_pipeline);
@@ -478,7 +483,7 @@ CommandPool::Config::setQueueFamilyIndex(u32 queue_family_index) {
   return *this;
 }
 
-Result<CommandPool> CommandPool::Config::create(VkDevice vk_device) const {
+Result<CommandPool> CommandPool::Config::build(VkDevice vk_device) const {
   VkCommandPoolCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   info.pNext = nullptr;
@@ -544,7 +549,7 @@ VeResult CommandPool::imadiateSubmit(
       CommandPool::Config()
           .addCreateFlags(VK_COMMAND_POOL_CREATE_TRANSIENT_BIT)
           .setQueueFamilyIndex(queue_family_index)
-          .create(vk_device_));
+          .build(vk_device_));
 
   CommandBuffer short_living_command_buffer;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -558,7 +563,7 @@ VeResult CommandPool::imadiateSubmit(
 
   core::Fence submit_fence;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(submit_fence,
-                                    core::Fence::Config().create(vk_device_));
+                                    core::Fence::Config().build(vk_device_));
   short_living_command_buffer.submit(queue, *submit_fence);
   VENUS_VK_RETURN_BAD_RESULT(submit_fence.wait());
   return VeResult::noError();
@@ -643,7 +648,7 @@ VeResult BufferWritter::record(const core::Device &device,
               mem::DeviceMemory::Config()
                   .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
                   .setUsage(VMA_MEMORY_USAGE_CPU_ONLY))
-          .create(device));
+          .build(device));
 
   std::vector<VkBufferCopy> copies;
   for (u32 i = 0; i < data_.size(); ++i) {
@@ -682,7 +687,7 @@ BufferWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
               mem::DeviceMemory::Config()
                   .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
                   .setUsage(VMA_MEMORY_USAGE_CPU_ONLY))
-          .create(*gd));
+          .build(*gd));
 
   std::vector<VkBufferCopy> copies;
   for (u32 i = 0; i < data_.size(); ++i) {
@@ -737,7 +742,7 @@ VeResult ImageWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
               mem::DeviceMemory::Config()
                   .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
                   .setUsage(VMA_MEMORY_USAGE_CPU_TO_GPU))
-          .create(*gd));
+          .build(*gd));
 
   std::vector<VkBufferCopy> copies;
   for (u32 i = 0; i < data_.size(); ++i) {

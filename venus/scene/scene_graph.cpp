@@ -312,7 +312,7 @@ std::vector<Sampler> loadSamplers(const fastgltf::Asset &asset,
                          sampler.minFilter.value_or(fastgltf::Filter::Nearest)))
                      .setMipmapMode(extractMipMapMode(
                          sampler.minFilter.value_or(fastgltf::Filter::Nearest)))
-                     .create(vk_device));
+                     .build(vk_device));
     samplers.emplace_back(std::move(s));
   }
   return samplers;
@@ -339,7 +339,7 @@ GLTF_Node::ImageData loadImage(const engine::GraphicsDevice &gd,
             .setImageConfig(mem::Image::Config::defaults(size).addUsage(
                 VK_IMAGE_USAGE_TRANSFER_DST_BIT))
             .setMemoryConfig(mem::DeviceMemory::Config::forTexture())
-            .create(*gd);
+            .build(*gd);
 
     if (image_r) {
 
@@ -402,7 +402,7 @@ GLTF_Node::ImageData loadImage(const engine::GraphicsDevice &gd,
             .setViewType(VK_IMAGE_VIEW_TYPE_2D)
             .setFormat(image_data.image.format())
             .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
-            .create(image_data.image);
+            .build(image_data.image);
     if (view_r) {
       image_data.view = std::move(*view_r);
     }
@@ -589,13 +589,13 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
         storage.vertices,
         mem::AllocatedBuffer::Config::forStorage(
             sizeof(Vertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
-            .create(*gd));
+            .build(*gd));
 
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         storage.indices,
         mem::AllocatedBuffer::Config::forStorage(
             sizeof(u32) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
-            .create(*gd));
+            .build(*gd));
 
     // copy data
 
@@ -613,7 +613,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
         model_config
             .setVertices(*storage.vertices, storage.vertices.deviceAddress())
             .setIndices(*storage.indices)
-            .create());
+            .build());
 
     auto mesh_key = mesh.name.c_str();
 
@@ -723,7 +723,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
       mem::AllocatedBuffer::Config::forUniform(
           sizeof(materials::GLTF_MetallicRoughness::Data) *
           asset->materials.size())
-          .create(*gd));
+          .build(*gd));
 
   // we can estimate the descriptors we will need accurately
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -733,7 +733,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
           .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.f)
           .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3.f)
           .addDescriptorType(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1.f)
-          .create(**gd));
+          .build(**gd));
 
   /////////////////////////////////////////////////////////////////////////////
   // MATERIALS
@@ -905,12 +905,29 @@ Result<VDB_Node::Ptr> VDB_Node::from(const std::filesystem::path &vdb_file_path,
 
   HERMES_UNUSED_VARIABLE(vdb_file_path);
   try {
-    // Create an OpenVDB grid (here a level set surface but replace this with
-    // your own code)
-    auto srcGrid = openvdb::tools::createLevelSetSphere<openvdb::FloatGrid>(
-        4.0f, openvdb::Vec3f(0.0f), 0.1f);
+
+    openvdb::initialize();
+
+    // Create a VDB file object.
+    openvdb::io::File file("smoke2.vdb");
+    file.open();
+
+    openvdb::GridBase::Ptr baseGrid;
+    for (openvdb::io::File::NameIterator nameIter = file.beginName();
+         nameIter != file.endName(); ++nameIter) {
+      // Read in only the grid we are interested in.
+      if (nameIter.gridName() == "density") {
+        baseGrid = file.readGrid(nameIter.gridName());
+      } else {
+        std::cout << "skipping grid " << nameIter.gridName() << std::endl;
+      }
+    }
+    file.close();
+
+    openvdb::FloatGrid::Ptr grid =
+        openvdb::gridPtrCast<openvdb::FloatGrid>(baseGrid);
     // Convert the OpenVDB grid, srcGrid, into a NanoVDB grid handle.
-    auto handle = nanovdb::tools::createNanoGrid(*srcGrid);
+    auto handle = nanovdb::tools::createNanoGrid(*grid);
     // Define a (raw) pointer to the NanoVDB grid on the host. Note we match the
     // value type of the srcGrid!
     auto *dstGrid = handle.grid<float>();
@@ -932,7 +949,7 @@ Result<VDB_Node::Ptr> VDB_Node::from(const std::filesystem::path &vdb_file_path,
         vdb_node->bounds_model_,
         AllocatedModel::Config::fromShape(shapes::box, box,
                                           shape_option_bits::vertices)
-            .create(gd));
+            .build(gd));
 
     // send grid to gpu
 
@@ -940,28 +957,48 @@ Result<VDB_Node::Ptr> VDB_Node::from(const std::filesystem::path &vdb_file_path,
         vdb_node->gpu_vdb_data_,
         mem::AllocatedBuffer::Config::forStorage(
             handle.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
-            .create(*gd));
+            .build(*gd));
 
     // uniform buffer
+
+    VENUS_RETURN_BAD_RESULT(
+        pipeline::BufferWritter()
+            .addBuffer(*(vdb_node->gpu_vdb_data_), handle.data(), handle.size())
+            .immediateSubmit(gd));
+
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(vdb_node->material_data_buffer_,
+                                      mem::AllocatedBuffer::Config::forUniform(
+                                          sizeof(materials::VDB_Volume::Data))
+                                          .build(*gd));
 
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         vdb_node->descriptor_allocator_,
         pipeline::DescriptorAllocator::Config()
             .setInitialSetCount(1)
             .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1.f)
-            .create(**gd));
-
-    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(vdb_node->material_data_buffer_,
-                                      mem::AllocatedBuffer::Config::forUniform(
-                                          sizeof(materials::VDB_Volume::Data))
-                                          .create(*gd));
+            .build(**gd));
 
     // copy data
 
-    VENUS_RETURN_BAD_RESULT(
-        pipeline::BufferWritter()
-            .addBuffer(*(vdb_node->gpu_vdb_data_), handle.data(), handle.size())
-            .immediateSubmit(gd));
+    materials::VDB_Volume parameters;
+    parameters.data.vdb_buffer = vdb_node->gpu_vdb_data_.deviceAddress();
+    parameters.resources.data_buffer = *(vdb_node->material_data_buffer_);
+    parameters.resources.data_buffer_offset = 0;
+
+    {
+      VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+          mem::DeviceMemory::ScopedMap, d,
+          vdb_node->material_data_buffer_.scopedMap());
+      materials::VDB_Volume::Data *data = d.get<materials::VDB_Volume::Data>();
+      *data = parameters.data;
+    }
+
+    VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
+        Material::Instance, m_instance,
+        parameters.write(vdb_node->descriptor_allocator_,
+                         &engine::GraphicsEngine::globals().materials.vdb));
+
+    vdb_node->bounds_model_.setMaterial(0, m_instance);
 
   } catch (const std::exception &e) {
     HERMES_ERROR("An exception occurred: \"{}\"", e.what());
@@ -998,33 +1035,6 @@ void VDB_Node::draw(const hermes::geo::Transform &top_matrix,
     ctx.objects.push_back(render_object);
   }
   Node::draw(model_matrix, ctx);
-}
-
-VeResult VDB_Node::update(const hermes::geo::point3 &camera_pos) {
-
-  descriptor_allocator_.reset();
-
-  materials::VDB_Volume parameters;
-  parameters.data.vdb_buffer = gpu_vdb_data_.deviceAddress();
-  parameters.data.camera_pos = camera_pos;
-  parameters.resources.data_buffer = *(material_data_buffer_);
-  parameters.resources.data_buffer_offset = 0;
-
-  {
-    VENUS_DECLARE_OR_RETURN_BAD_RESULT(mem::DeviceMemory::ScopedMap, d,
-                                       material_data_buffer_.scopedMap());
-    materials::VDB_Volume::Data *data = d.get<materials::VDB_Volume::Data>();
-    *data = parameters.data;
-  }
-
-  VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
-      Material::Instance, m_instance,
-      parameters.write(descriptor_allocator_,
-                       &engine::GraphicsEngine::globals().materials.vdb));
-
-  bounds_model_.setMaterial(0, m_instance);
-
-  return VeResult::noError();
 }
 
 void VDB_Node::destroy() noexcept {

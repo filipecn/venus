@@ -51,7 +51,7 @@ public:
 
     struct Config {
       Config &setMaterial(const Material *material);
-      Result<Instance> create(pipeline::DescriptorAllocator &allocator) const;
+      Result<Instance> build(pipeline::DescriptorAllocator &allocator) const;
 
     private:
       const Material *material_{nullptr};
@@ -90,8 +90,8 @@ public:
       Config &
       setPipelineLayoutConfig(const pipeline::Pipeline::Layout::Config &config);
 
-      Result<Material::Pipeline> create(VkDevice vk_device,
-                                        VkRenderPass vk_renderpass) const;
+      Result<Material::Pipeline> build(VkDevice vk_device,
+                                       VkRenderPass vk_renderpass) const;
 
     private:
       pipeline::GraphicsPipeline::Config pipeline_config_;
@@ -130,8 +130,8 @@ public:
         pipeline::DescriptorSet::Layout &&descriptor_set_layout);
     Config &setMaterialPipelineConfig(const Pipeline::Config &config);
 
-    Result<Material> create(VkDevice vk_device,
-                            VkRenderPass vk_renderpass) const;
+    Result<Material> build(VkDevice vk_device,
+                           VkRenderPass vk_renderpass) const;
 
   private:
     mutable pipeline::DescriptorSet::Layout descriptor_set_layout_;

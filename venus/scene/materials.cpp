@@ -54,7 +54,7 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
       l, pipeline::DescriptorSet::Layout::Config()
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT)
-             .create(**gd));
+             .build(**gd));
 
   auto &globals = engine::GraphicsEngine::globals();
 
@@ -78,10 +78,10 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
                                )
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .create(globals.shaders.vert_test))
+                              .build(globals.shaders.vert_test))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .create(globals.shaders.frag_flat_color));
+                              .build(globals.shaders.frag_flat_color));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       Material, m,
@@ -91,7 +91,7 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
               Material::Pipeline::Config()
                   .setPipelineConfig(pipeline_config)
                   .setPipelineLayoutConfig(pipeline_layout_config))
-          .create(**gd, *gd.renderpass()));
+          .build(**gd, *gd.renderpass()));
 
   return Result<Material>(std::move(m));
 }
@@ -103,7 +103,7 @@ Material_Test::write(pipeline::DescriptorAllocator &allocator,
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       instance,
-      Material::Instance::Config().setMaterial(material).create(allocator))
+      Material::Instance::Config().setMaterial(material).build(allocator))
 
   // descriptor_writer_.clear();
   // descriptor_writer_.writeBuffer(
@@ -121,7 +121,7 @@ Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
       l, pipeline::DescriptorSet::Layout::Config()
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT)
-             .create(**gd));
+             .build(**gd));
 
   auto &globals = engine::GraphicsEngine::globals();
 
@@ -138,10 +138,10 @@ Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .create(globals.shaders.vert_bindless_test))
+                              .build(globals.shaders.vert_bindless_test))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .create(globals.shaders.frag_flat_color));
+                              .build(globals.shaders.frag_flat_color));
 
   Material m;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -151,7 +151,7 @@ Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
                  Material::Pipeline::Config()
                      .setPipelineConfig(pipeline_config)
                      .setPipelineLayoutConfig(pipeline_layout_config))
-             .create(**gd, *gd.renderpass()));
+             .build(**gd, *gd.renderpass()));
 
   return Result<Material>(std::move(m));
 }
@@ -165,7 +165,7 @@ GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT |
                                    VK_SHADER_STAGE_FRAGMENT_BIT)
-             .create(**gd));
+             .build(**gd));
 
   auto &globals = engine::GraphicsEngine::globals();
 
@@ -182,10 +182,10 @@ GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .create(globals.shaders.vert_mesh))
+                              .build(globals.shaders.vert_mesh))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .create(globals.shaders.frag_mesh_pbr));
+                              .build(globals.shaders.frag_mesh_pbr));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       Material, m,
@@ -195,7 +195,7 @@ GLTF_MetallicRoughness::material(const engine::GraphicsDevice &gd) {
               Material::Pipeline::Config()
                   .setPipelineConfig(pipeline_config)
                   .setPipelineLayoutConfig(pipeline_layout_config))
-          .create(**gd, *gd.renderpass()));
+          .build(**gd, *gd.renderpass()));
 
   return Result<Material>(std::move(m));
 }
@@ -209,7 +209,7 @@ GLTF_MetallicRoughness::write(pipeline::DescriptorAllocator &allocator,
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       instance,
-      Material::Instance::Config().setMaterial(material).create(allocator))
+      Material::Instance::Config().setMaterial(material).build(allocator))
 
   descriptor_writer_.clear();
   descriptor_writer_.writeBuffer(
@@ -230,7 +230,7 @@ Result<Material> VDB_Volume::material(const engine::GraphicsDevice &gd) {
              .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
                                VK_SHADER_STAGE_VERTEX_BIT |
                                    VK_SHADER_STAGE_FRAGMENT_BIT)
-             .create(**gd));
+             .build(**gd));
 
   auto &globals = engine::GraphicsEngine::globals();
 
@@ -247,10 +247,10 @@ Result<Material> VDB_Volume::material(const engine::GraphicsDevice &gd) {
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .create(globals.shaders.vert_vdb_volume))
+                              .build(globals.shaders.vert_vdb_volume))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .create(globals.shaders.frag_vdb_volume));
+                              .build(globals.shaders.frag_vdb_volume));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       Material, m,
@@ -260,7 +260,7 @@ Result<Material> VDB_Volume::material(const engine::GraphicsDevice &gd) {
               Material::Pipeline::Config()
                   .setPipelineConfig(pipeline_config)
                   .setPipelineLayoutConfig(pipeline_layout_config))
-          .create(**gd, *gd.renderpass()));
+          .build(**gd, *gd.renderpass()));
 
   return Result<Material>(std::move(m));
 }
@@ -274,7 +274,7 @@ VDB_Volume::write(pipeline::DescriptorAllocator &allocator,
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       instance,
-      Material::Instance::Config().setMaterial(material).create(allocator))
+      Material::Instance::Config().setMaterial(material).build(allocator))
 
   descriptor_writer_.clear();
   descriptor_writer_.writeBuffer(

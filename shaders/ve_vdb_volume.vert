@@ -9,10 +9,7 @@ SceneData {
 	
   mat4 view;
 	mat4 projection;
-	mat4 view_projection;
-	vec4 ambientColor;
-	vec4 sunlightDirection; //w for sun power
-	vec4 sunlightColor;
+	vec3 eye;
 
 } scene_data;
 

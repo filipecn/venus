@@ -46,7 +46,7 @@ DescriptorSet::Layout::Config &DescriptorSet::Layout::Config::addLayoutBinding(
 }
 
 Result<DescriptorSet::Layout>
-DescriptorSet::Layout::Config::create(VkDevice vk_device, void *next) const {
+DescriptorSet::Layout::Config::build(VkDevice vk_device, void *next) const {
 
   VkDescriptorSetLayoutCreateInfo info;
   info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -120,7 +120,7 @@ void DescriptorSet::swap(DescriptorSet &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vk_descriptor_set_);
 }
 
-void DescriptorSet::destroy() noexcept {}
+void DescriptorSet::destroy() noexcept { vk_descriptor_set_ = VK_NULL_HANDLE; }
 
 DescriptorSet::operator bool() const {
   return vk_descriptor_set_ != VK_NULL_HANDLE;
@@ -147,7 +147,7 @@ DescriptorAllocator::Config::addDescriptorType(VkDescriptorType type,
 }
 
 Result<DescriptorAllocator>
-DescriptorAllocator::Config::create(VkDevice vk_device) const {
+DescriptorAllocator::Config::build(VkDevice vk_device) const {
   DescriptorAllocator da;
   da.vk_device_ = vk_device;
   da.sets_per_pool_ = initial_set_count_ * 1.5;
@@ -158,7 +158,7 @@ DescriptorAllocator::Config::create(VkDevice vk_device) const {
   VkDescriptorPool new_pool{VK_NULL_HANDLE};
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(new_pool,
-                                    da.create(initial_set_count_, da.ratios_));
+                                    da.build(initial_set_count_, da.ratios_));
 
   da.ready_pools_.emplace_back(std::move(new_pool));
 
@@ -193,6 +193,7 @@ void DescriptorAllocator::destroy() noexcept {
     for (auto &pool : ready_pools_)
       vkDestroyDescriptorPool(vk_device_, pool, nullptr);
   }
+  vk_device_ = VK_NULL_HANDLE;
   full_pools_.clear();
   ready_pools_.clear();
   ratios_.clear();
@@ -210,7 +211,7 @@ void DescriptorAllocator::reset(VkDescriptorPoolResetFlags flags) {
   }
 }
 
-Result<VkDescriptorPool> DescriptorAllocator::create(
+Result<VkDescriptorPool> DescriptorAllocator::build(
     u32 set_count, std::span<DescriptorAllocator::PoolSizeRatio> pool_ratios) {
   std::vector<VkDescriptorPoolSize> pool_sizes;
   for (auto r : pool_ratios)
@@ -241,8 +242,7 @@ Result<VkDescriptorPool> DescriptorAllocator::create(
 Result<VkDescriptorPool> DescriptorAllocator::get() {
   VkDescriptorPool new_pool{VK_NULL_HANDLE};
   if (ready_pools_.empty()) {
-    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(new_pool,
-                                      create(sets_per_pool_, ratios_));
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(new_pool, build(sets_per_pool_, ratios_));
     sets_per_pool_ = std::min(static_cast<u32>(sets_per_pool_ * 1.5), 4092u);
   } else {
     new_pool = std::move(ready_pools_.back());
@@ -278,6 +278,7 @@ DescriptorAllocator::allocate(VkDescriptorSetLayout vk_layout, void *next) {
   case VK_ERROR_OUT_OF_POOL_MEMORY:
   case VK_ERROR_UNKNOWN:
   case VK_ERROR_VALIDATION_FAILED_EXT:
+    HERMES_ERROR("{}", string_VkResult(err));
     break;
   default:
     full_pools_.emplace_back(std::move(pool));
