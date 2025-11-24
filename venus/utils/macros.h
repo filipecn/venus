@@ -37,11 +37,29 @@
   CLASS &operator=(CLASS &&) noexcept;
 #endif
 
+#ifndef VENUS_DEFINE_SETUP_METHOD
+#define VENUS_DEFINE_SETUP_METHOD(CLASS, METHOD, TYPE, CODE)                   \
+  template <typename Derived, typename Type>                                   \
+  Derived &CLASS::Setup<Derived, Type>::METHOD(TYPE value) {                   \
+    CODE;                                                                      \
+    return static_cast<Derived &>(*this);                                      \
+  }
+#endif
+
 #ifndef VENUS_DEFINE_SETUP_SET_FIELD_METHOD
 #define VENUS_DEFINE_SETUP_SET_FIELD_METHOD(CLASS, METHOD, TYPE, FIELD)        \
   template <typename Derived, typename Type>                                   \
   Derived &CLASS::Setup<Derived, Type>::METHOD(TYPE value) {                   \
     FIELD = value;                                                             \
+    return static_cast<Derived &>(*this);                                      \
+  }
+#endif
+
+#ifndef VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD
+#define VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(CLASS, METHOD, TYPE, FIELD)        \
+  template <typename Derived, typename Type>                                   \
+  Derived &CLASS::Setup<Derived, Type>::METHOD(TYPE value) {                   \
+    FIELD |= value;                                                            \
     return static_cast<Derived &>(*this);                                      \
   }
 #endif

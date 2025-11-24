@@ -100,85 +100,10 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 
 namespace venus::mem {
 
-Image::Config Image::Config::defaults(const VkExtent3D &extent,
-                                      VkFormat format) {
-  return Image::Config()
-      .addCreateFlags({})
-      .setImageType(VK_IMAGE_TYPE_2D)
-      .setFormat(format)
-      .setExtent(extent)
-      .setMipLevels(1)
-      .setArrayLayers(1)
-      .setSamples(VK_SAMPLE_COUNT_1_BIT)
-      .setTiling(VK_IMAGE_TILING_LINEAR)
-      .addUsage(VK_IMAGE_USAGE_SAMPLED_BIT)
-      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
-      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
-      .addAspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
-}
-
-Image::Config Image::Config::defaults(const VkExtent2D &extent,
-                                      VkFormat format) {
-  return Image::Config::defaults(VkExtent3D(extent.width, extent.height, 1),
-                                 format);
-}
-
-Image::Config Image::Config::forDepthBuffer(const VkExtent2D &extent,
-                                            VkFormat format) {
-  return Image::Config()
-      .addCreateFlags({})
-      .setImageType(VK_IMAGE_TYPE_2D)
-      .setFormat(format)
-      .setExtent(VkExtent3D(extent.width, extent.height, 1))
-      .setMipLevels(1)
-      .setArrayLayers(1)
-      .setSamples(VK_SAMPLE_COUNT_1_BIT)
-      .setTiling(VK_IMAGE_TILING_OPTIMAL)
-      .addUsage(VK_IMAGE_USAGE_SAMPLED_BIT |
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
-      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
-      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
-      .addAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT);
-}
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, setInfo, VkImageCreateInfo,
-                                     info_ = value)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, addCreateFlags,
-                                          VkImageCreateFlags, flags)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setImageType, VkImageType,
-                                          imageType)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setFormat, VkFormat, format)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setExtent, VkExtent3D, extent)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setMipLevels, u32, mipLevels)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setArrayLayers, u32,
-                                          arrayLayers)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setSamples,
-                                          VkSampleCountFlagBits, samples)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setTiling, VkImageTiling,
-                                          tiling)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addUsage, VkImageUsageFlags,
-                                     info_.usage |= value)
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setSharingMode, VkSharingMode,
-                                          sharingMode)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addQueueFamilyIndex, u32,
-                                     queue_family_indices_.emplace_back(value))
-VENUS_DEFINE_SET_CONFIG_INFO_FIELD_METHOD(Image, setInitialLayout,
-                                          VkImageLayout, initialLayout)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addAspectMask, VkImageAspectFlags,
-                                     aspect_mask_ |= value)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Image, addFormatFeatures,
-                                     VkFormatFeatureFlagBits,
-                                     format_features_ |= value)
-
-VkImageCreateInfo Image::Config::createInfo() const {
-  auto info = info_;
-  info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  info.pQueueFamilyIndices = queue_family_indices_.data();
-  info.queueFamilyIndexCount = queue_family_indices_.size();
-  return info;
-}
-
-Result<Image> Image::Config::build(VkDevice vk_device, VkImage vk_image) const {
+template <>
+Result<Image>
+Image::Setup<Image::Config, Image>::build(VkDevice vk_device,
+                                          VkImage vk_image) const {
   Image image;
   image.vk_device_ = vk_device;
   image.vk_image_ = vk_image;
@@ -187,7 +112,9 @@ Result<Image> Image::Config::build(VkDevice vk_device, VkImage vk_image) const {
   return Result<Image>(std::move(image));
 }
 
-Result<Image> Image::Config::build(const core::Device &device) const {
+template <>
+Result<Image>
+Image::Setup<Image::Config, Image>::build(const core::Device &device) const {
 
   Image image;
   auto info = createInfo();
@@ -198,7 +125,7 @@ Result<Image> Image::Config::build(const core::Device &device) const {
   image.vk_device_ = *device;
   image.vk_format_ = info.format;
 #ifdef VENUS_DEBUG
-  image.config_ = *this;
+  image.config_ = static_cast<const Image::Config &>(*this);
 #endif
 
   return Result<Image>(std::move(image));
@@ -310,7 +237,7 @@ Result<AllocatedImage>
 AllocatedImage::Config::build(const core::Device &device) const {
   auto info = image_config_.createInfo();
 
-  auto alloc_info = mem_config_.allocationInfo();
+  auto alloc_info = vma_allocation_create_info_; // mem_config_.allocationInfo();
   VkImage vk_image{VK_NULL_HANDLE};
   VmaAllocation vma_allocation{VK_NULL_HANDLE};
   VENUS_VK_RETURN_BAD_RESULT(vmaCreateImage(device.allocator(), &info,

@@ -83,65 +83,9 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 
 namespace venus::mem {
 
-Buffer::Config Buffer::Config::forStaging(const VkDeviceSize &size_in_bytes) {
-  return Buffer::Config()
-      .addUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
-      .setSize(size_in_bytes);
-}
-
-Buffer::Config Buffer::Config::forUniform(const VkDeviceSize &size_in_bytes) {
-  return Buffer::Config()
-      .addUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
-      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-      .setSize(size_in_bytes);
-}
-
-Buffer::Config Buffer::Config::forStorage(const VkDeviceSize &size_in_bytes) {
-  return Buffer::Config()
-      .addUsage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
-      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-      .setSize(size_in_bytes);
-}
-
-Buffer::Config Buffer::Config::forIndices(u32 index_count,
-                                          VkIndexType index_type) {
-  return Buffer::Config()
-      .addUsage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
-      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
-      .setSize(index_count * core::vk::indexSize(index_type));
-}
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Buffer, setSize, VkDeviceSize,
-                                     size_ = value)
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Buffer, addUsage, VkBufferUsageFlags,
-                                     usage_ |= value)
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Buffer, setSharingMode, VkSharingMode,
-                                     sharing_mode_ = value)
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Buffer, addCreateFlags,
-                                     VkBufferCreateFlags, flags_ = value)
-
-Buffer::Config &Buffer::Config::enableShaderDeviceAddress() {
-  usage_ |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-  return *this;
-}
-
-VkBufferCreateInfo Buffer::Config::createInfo() const {
-  VkBufferCreateInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  info.pNext = nullptr;
-  info.flags = flags_;
-  info.size = size_;
-  info.usage = usage_;
-  info.sharingMode = sharing_mode_;
-  info.queueFamilyIndexCount = 0;
-  info.pQueueFamilyIndices = nullptr;
-  return info;
-}
-
-Result<Buffer> Buffer::Config::build(const core::Device &device) const {
+template <>
+Result<Buffer>
+Buffer::Setup<Buffer::Config, Buffer>::build(const core::Device &device) const {
   auto info = createInfo();
 
   VkBuffer vk_buffer{VK_NULL_HANDLE};
@@ -156,7 +100,7 @@ Result<Buffer> Buffer::Config::build(const core::Device &device) const {
   buffer.init(*device, vk_buffer);
 
 #ifdef VENUS_DEBUG
-  buffer.config_ = *this;
+  buffer.config_ = static_cast<const Buffer::Config &>(*this);
 #endif
 
   return Result<Buffer>(std::move(buffer));
@@ -275,50 +219,56 @@ void Buffer::init(VkDevice vk_device, VkBuffer vk_buffer) {
   }
 }
 
+AllocatedBuffer::Config AllocatedBuffer::Config::forStaging(u32 size_in_bytes) {
+  return AllocatedBuffer::Config()
+      .setSize(size_in_bytes)
+      .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+      .setMemoryUsage(VMA_MEMORY_USAGE_CPU_ONLY);
+}
+
 AllocatedBuffer::Config AllocatedBuffer::Config::forUniform(u32 size_in_bytes) {
   return AllocatedBuffer::Config()
-      .setBufferConfig(venus::mem::Buffer::Config::forUniform(size_in_bytes))
-      .setMemoryConfig(venus::mem::DeviceMemory::Config().setHostVisible());
+      // buffer
+      .addUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+      .setSize(size_in_bytes)
+      // memory
+      .setHostVisible();
 }
 
 AllocatedBuffer::Config
 AllocatedBuffer::Config::forStorage(u32 size_in_bytes,
                                     VkBufferUsageFlags usage) {
   return AllocatedBuffer::Config()
-      .setBufferConfig(venus::mem::Buffer::Config::forStorage(size_in_bytes)
-                           .addUsage(usage)
-                           .enableShaderDeviceAddress())
-      .setMemoryConfig(venus::mem::DeviceMemory::Config().setDeviceLocal());
+      // buffer
+      .addUsage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+      .setSize(size_in_bytes)
+      .addUsage(usage)
+      .enableShaderDeviceAddress()
+      // memory
+      .setDeviceLocal();
 }
 
 AllocatedBuffer::Config forAccelerationStructure(u32 size_in_bytes) {
-  return AllocatedBuffer::Config()
-      .setBufferConfig(
-          venus::mem::Buffer::Config::forStorage(size_in_bytes)
-              .addUsage(VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR)
-              .enableShaderDeviceAddress())
-      .setMemoryConfig(venus::mem::DeviceMemory::Config().setDeviceLocal());
+  return AllocatedBuffer::Config::forStorage(
+             size_in_bytes,
+             VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR)
+      .enableShaderDeviceAddress()
+      .setDeviceLocal();
 }
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedBuffer, setBufferConfig,
-                                     const Buffer::Config &,
-                                     buffer_config_ = value)
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedBuffer, setMemoryConfig,
-                                     const DeviceMemory::Config &,
-                                     mem_config_ = value)
 
 Result<AllocatedBuffer>
 AllocatedBuffer::Config::build(const core::Device &device) const {
-  auto info = buffer_config_.createInfo();
-
-  auto alloc_info = mem_config_.allocationInfo();
+  auto info = createInfo();
 
   VkBuffer vk_buffer{VK_NULL_HANDLE};
   VmaAllocation vma_allocation{VK_NULL_HANDLE};
-  VENUS_VK_RETURN_BAD_RESULT(vmaCreateBuffer(device.allocator(), &info,
-                                             &alloc_info, &vk_buffer,
-                                             &vma_allocation, nullptr));
+  HERMES_WARN("{:x}", vma_allocation_create_info_.flags);
+  VENUS_VK_RETURN_BAD_RESULT(
+      vmaCreateBuffer(device.allocator(), &info, &vma_allocation_create_info_,
+                      &vk_buffer, &vma_allocation, nullptr));
 
   AllocatedBuffer buffer;
   buffer.vma_allocator_ = device.allocator();

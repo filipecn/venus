@@ -641,14 +641,10 @@ VeResult BufferWritter::record(const core::Device &device,
 
   mem::AllocatedBuffer staging;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      staging,
-      mem::AllocatedBuffer::Config()
-          .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
-          .setMemoryConfig(
-              mem::DeviceMemory::Config()
-                  .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
-                  .setUsage(VMA_MEMORY_USAGE_CPU_ONLY))
-          .build(device));
+      staging, mem::AllocatedBuffer::Config::forStaging(staging_size)
+                   .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
+                   .setMemoryUsage(VMA_MEMORY_USAGE_CPU_ONLY)
+                   .build(device));
 
   std::vector<VkBufferCopy> copies;
   for (u32 i = 0; i < data_.size(); ++i) {
@@ -681,13 +677,7 @@ BufferWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
   mem::AllocatedBuffer staging;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       staging,
-      mem::AllocatedBuffer::Config()
-          .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
-          .setMemoryConfig(
-              mem::DeviceMemory::Config()
-                  .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
-                  .setUsage(VMA_MEMORY_USAGE_CPU_ONLY))
-          .build(*gd));
+      mem::AllocatedBuffer::Config::forStaging(staging_size).build(*gd));
 
   std::vector<VkBufferCopy> copies;
   for (u32 i = 0; i < data_.size(); ++i) {
@@ -735,14 +725,10 @@ VeResult ImageWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
 
   mem::AllocatedBuffer staging;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      staging,
-      mem::AllocatedBuffer::Config()
-          .setBufferConfig(mem::Buffer::Config::forStaging(staging_size))
-          .setMemoryConfig(
-              mem::DeviceMemory::Config()
-                  .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
-                  .setUsage(VMA_MEMORY_USAGE_CPU_TO_GPU))
-          .build(*gd));
+      staging, mem::AllocatedBuffer::Config::forStaging(staging_size)
+                   .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
+                   .setMemoryUsage(VMA_MEMORY_USAGE_CPU_TO_GPU)
+                   .build(*gd));
 
   std::vector<VkBufferCopy> copies;
   for (u32 i = 0; i < data_.size(); ++i) {

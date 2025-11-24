@@ -45,37 +45,40 @@ namespace venus::mem {
 /// \note this class uses raii.
 class Buffer {
 public:
-  /// Builder for buffer.
+  /// Builder for Buffer.
+  /// \tparam Derived return type of configuration methods.
+  /// \tparam Type type of the object build by this setup.
   /// \note The builder considers device local buffers by default and that data
   ///       will be transferred through staging buffers.
-  struct Config {
+  template <typename Derived, typename Type> struct Setup {
     friend class Buffer;
     /// \brief Config for staging buffers
     /// \note This sets usage flag as eTransferSrc
     /// \param size_in_bytes
-    static Config forStaging(const VkDeviceSize &size_in_bytes);
-    /// \brief Config for uniform buffers
+    static Derived forStaging(const VkDeviceSize &size_in_bytes);
+    /// \brief Setup for uniform buffers
     /// \note This sets usage flag as eUniformBuffer.
     /// \note This sets for device local storage.
     /// \param size_in_bytes
-    static Config forUniform(const VkDeviceSize &size_in_bytes);
-    /// \brief Config for storage buffers.
+    static Derived forUniform(const VkDeviceSize &size_in_bytes);
+    /// \brief Setup for storage buffers.
     /// \note This sets usage flag as eStorageBuffer
     /// \note This sets usage flag as eTransferDst
     /// \note This sets for device local storage.
     /// \param size_in_bytes
-    static Config forStorage(const VkDeviceSize &size_in_bytes);
-    /// \brief Config for index buffers.
+    static Derived forStorage(const VkDeviceSize &size_in_bytes);
+    /// \brief Setup for index buffers.
     /// \note This sets usage flag as eIndexBuffer
     /// \note This sets usage flag as eTransferDst
     /// \note This sets for device local storage.
     /// \param index_count
     /// \param index_type [def=VK_INDEX_TYPE_UINT32] Index data type.
-    static Config forIndices(u32 index_count,
-                             VkIndexType index_type = VK_INDEX_TYPE_UINT32);
+    static Derived forIndices(u32 index_count,
+                              VkIndexType index_type = VK_INDEX_TYPE_UINT32);
+    Setup() noexcept;
     /// Set buffer size.
     /// \param size_in_bytes
-    Config &setSize(VkDeviceSize size_in_bytes);
+    Derived &setSize(VkDeviceSize size_in_bytes);
     /// Append buffer usage.
     ///  - VK_BUFFER_USAGE_TRANSFER_SRC_BIT specifies that the buffer can be a
     ///    source of data for copy operations
@@ -91,36 +94,38 @@ public:
     ///    in the buffer from within shaders.
     ///  - VK_BUFFER_USAGE_INDEX_BUFFER_BIT specifies that the buffer can be
     ///    used as a source of vertex indices during drawing.
-    ///  - VK_BUFFER_USAGE_VERTEX_BUFFER_BIT indicates that the buffer can be a
+    ///  - VK_BUFFER_USAGE_VERTEX_BUFFER_BIT indicates that the buffer can be
+    ///  a
     ///    source of data for vertex attributes specified during drawing.
     ///  - VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT indicates that the buffer can
     ///    contain data that will be used during indirect drawing.
     /// \param usage
-    Config &addUsage(VkBufferUsageFlags usage);
+    Derived &addUsage(VkBufferUsageFlags usage);
     /// \param mode Sharing mode.
-    Config &setSharingMode(VkSharingMode mode);
+    Derived &setSharingMode(VkSharingMode mode);
     /// \note This sets memory usage enableShaderDeviceAddress
-    Config &enableShaderDeviceAddress();
+    Derived &enableShaderDeviceAddress();
     /// \param flags
-    Config &addCreateFlags(VkBufferCreateFlags flags);
+    Derived &addCreateFlags(VkBufferCreateFlags flags);
     ///
     HERMES_NODISCARD VkBufferCreateInfo createInfo() const;
     /// \brief Creates a buffer object from this configuration.
     /// \param device
     /// \return Buffer object or error.
-    HERMES_NODISCARD Result<Buffer> build(const core::Device &device) const;
+    HERMES_NODISCARD Result<Type> build(const core::Device &device) const;
 
-  private:
+  protected:
     VkDeviceSize size_{};                                   //< size in bytes
     VkBufferUsageFlags usage_{};                            //< buffer purpose
     VkSharingMode sharing_mode_{VK_SHARING_MODE_EXCLUSIVE}; //< sharing mode
     VkBufferCreateFlags flags_{};
-
+  };
+  struct Config : public Setup<Config, Buffer> {
     VENUS_to_string_FRIEND(Buffer::Config);
   };
   /// Buffer views allow us to define how buffer's memory is accessed and
-  /// interpreted. For example, we can choose to look at the buffer as a uniform
-  /// texel buffer or as a storage texel buffer.
+  /// interpreted. For example, we can choose to look at the buffer as a
+  /// uniform texel buffer or as a storage texel buffer.
   /// \note this uses raii.
   class View final {
     friend class Buffer;
@@ -190,16 +195,85 @@ private:
   VENUS_to_string_FRIEND(Buffer);
 };
 
+template <typename Derived, typename Type>
+Buffer::Setup<Derived, Type>::Setup() noexcept {}
+
+template <typename Derived, typename Type>
+Derived
+Buffer::Setup<Derived, Type>::forStaging(const VkDeviceSize &size_in_bytes) {
+  return Buffer::Setup<Derived, Type>()
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+      .setSize(size_in_bytes);
+}
+
+template <typename Derived, typename Type>
+Derived
+Buffer::Setup<Derived, Type>::forUniform(const VkDeviceSize &size_in_bytes) {
+  return Buffer::Setup<Derived, Type>()
+      .addUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+      .setSize(size_in_bytes);
+}
+
+template <typename Derived, typename Type>
+Derived
+Buffer::Setup<Derived, Type>::forStorage(const VkDeviceSize &size_in_bytes) {
+  return Buffer::Setup<Derived, Type>()
+      .addUsage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+      .setSize(size_in_bytes);
+}
+
+template <typename Derived, typename Type>
+Derived Buffer::Setup<Derived, Type>::forIndices(u32 index_count,
+                                                 VkIndexType index_type) {
+  return Buffer::Setup<Derived, Type>()
+      .addUsage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+      .setSize(index_count * core::vk::indexSize(index_type));
+}
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Buffer, setSize, VkDeviceSize, size_)
+
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(Buffer, addUsage, VkBufferUsageFlags,
+                                    usage_)
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Buffer, setSharingMode, VkSharingMode,
+                                    sharing_mode_)
+
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(Buffer, addCreateFlags, VkBufferCreateFlags,
+                                    flags_)
+
+template <typename Derived, typename Type>
+Derived &Buffer::Setup<Derived, Type>::enableShaderDeviceAddress() {
+  usage_ |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+  return static_cast<Derived &>(*this);
+}
+
+template <typename Derived, typename Type>
+VkBufferCreateInfo Buffer::Setup<Derived, Type>::createInfo() const {
+  VkBufferCreateInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  info.pNext = nullptr;
+  info.flags = flags_;
+  info.size = size_;
+  info.usage = usage_;
+  info.sharingMode = sharing_mode_;
+  info.queueFamilyIndexCount = 0;
+  info.pQueueFamilyIndices = nullptr;
+  return info;
+}
+
 /// \brief Holds a self-allocated vulkan buffer object.
 /// The AllocatedBuffer owns the device memory used by the buffer.
 class AllocatedBuffer : public Buffer, public DeviceMemory {
 public:
-  struct Config {
+  struct Config : public Buffer::Setup<Config, AllocatedBuffer>,
+                  public DeviceMemory::Setup<Config, AllocatedBuffer> {
+    static Config forStaging(u32 size_in_bytes);
     static Config forUniform(u32 size_in_bytes);
     static Config forStorage(u32 size_in_bytes, VkBufferUsageFlags usage);
     static Config forAccelerationStructure(u32 size_in_bytes);
-    Config &setBufferConfig(const Buffer::Config &config);
-    Config &setMemoryConfig(const DeviceMemory::Config &config);
 
     Result<AllocatedBuffer> build(const core::Device &device) const;
 

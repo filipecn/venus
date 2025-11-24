@@ -24,9 +24,9 @@
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2025-11-12
 
-#include <venus/engine/ray_tracer.h>
+#include <venus/pipeline/ray_tracer.h>
 
-namespace venus::engine {
+namespace venus::pipeline {
 
 RayTracer::RayTracer(RayTracer &&rhs) noexcept { *this = std::move(rhs); }
 
@@ -48,4 +48,9 @@ void RayTracer::swap(RayTracer &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(image_);
 }
 
-} // namespace venus::engine
+RayTracer &RayTracer::setResolution(const VkExtent2D &resolution) {
+  HERMES_UNUSED_VARIABLE(resolution);
+  return *this;
+}
+
+} // namespace venus::pipeline

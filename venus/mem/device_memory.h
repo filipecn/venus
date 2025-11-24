@@ -35,46 +35,48 @@ namespace venus::mem {
 /// \note This class uses RAII.
 class DeviceMemory {
 public:
-  /// Builder for device memory.
-  struct Config {
+  /// Builder for DeviceMemory.
+  /// \tparam Derived return type of configuration methods.
+  /// \tparam Type type of the object build by this setup.
+  template <typename Derived, typename Type> struct Setup {
     /// This sets:
     ///  - device local
     ///  - gpu usage only
-    static Config forTexture();
+    static Derived forTexture();
     /// \param flags allocation flags (vma)
-    Config &setAllocationFlags(VmaAllocationCreateFlags flags);
+    Derived &setAllocationFlags(VmaAllocationCreateFlags flags);
     /// \param usage memory usage (vma)
-    Config &setUsage(VmaMemoryUsage usage);
+    Derived &setMemoryUsage(VmaMemoryUsage usage);
     /// \param properties appending properties.
-    Config &addRequiredProperties(VkMemoryPropertyFlags properties);
+    Derived &addRequiredProperties(VkMemoryPropertyFlags properties);
     /// \param properties appending properties.
-    Config &addPreferredProperties(VkMemoryPropertyFlags properties);
+    Derived &addPreferredProperties(VkMemoryPropertyFlags properties);
     /// \param Bitmask containing one bit set for every memory type acceptable
     ///        for this allocation.
-    Config &addMemoryType(u32 type_bits);
+    Derived &addMemoryType(u32 type_bits);
     /// \param pool (vma)
-    Config &setPool(VmaPool pool);
+    Derived &setPool(VmaPool pool);
     /// \param priority value in [0,1]
-    Config &setPriority(f32 priority);
+    Derived &setPriority(f32 priority);
     /// \param requirements new memory requirements.
-    Config &setRequirements(const VkMemoryRequirements &requirements);
+    Derived &setMemoryRequirements(const VkMemoryRequirements &requirements);
     /// Set memory host visible.
     /// \note This sets memory properties eHostCoherent and eHostVisible.
-    Config &setHostVisible();
+    Derived &setHostVisible();
     /// Set memory host visible.
     /// \note This sets memory properties eDeviceLocal.
-    Config &setDeviceLocal();
-    ///
-    VmaAllocationCreateInfo allocationInfo() const;
+    Derived &setDeviceLocal();
     /// Creates a new DeviceMemory from this configuration.
     /// \param device Device holding the new allocated memory.
     /// \return a new DeviceMemory, or error.
-    HERMES_NODISCARD Result<DeviceMemory> create(const core::Device &device);
+    HERMES_NODISCARD Result<Type> build(const core::Device &device) const;
 
-  private:
+  protected:
     VkMemoryRequirements requirements_{};
-    VmaAllocationCreateInfo vma_allocation_{};
+    VmaAllocationCreateInfo vma_allocation_create_info_{};
+  };
 
+  struct Config : public Setup<Config, DeviceMemory> {
     VENUS_to_string_FRIEND(DeviceMemory::Config);
   };
 
@@ -179,5 +181,48 @@ private:
 
   VENUS_to_string_FRIEND(DeviceMemory);
 };
+
+template <typename Derived, typename Type>
+Derived DeviceMemory::Setup<Derived, Type>::forTexture() {
+  return DeviceMemory::Setup<Derived, Type>().setDeviceLocal().setMemoryUsage(
+      VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+template <typename Derived, typename Type>
+Derived &DeviceMemory::Setup<Derived, Type>::setHostVisible() {
+  vma_allocation_create_info_.requiredFlags |=
+      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+  return static_cast<Derived &>(*this);
+}
+
+template <typename Derived, typename Type>
+Derived &DeviceMemory::Setup<Derived, Type>::setDeviceLocal() {
+  vma_allocation_create_info_.requiredFlags |=
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+  return static_cast<Derived &>(*this);
+}
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DeviceMemory, setMemoryUsage,
+                                    VmaMemoryUsage,
+                                    vma_allocation_create_info_.usage);
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(DeviceMemory, setAllocationFlags,
+                                    VmaAllocationCreateFlags,
+                                    vma_allocation_create_info_.flags);
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(DeviceMemory, addRequiredProperties,
+                                    VkMemoryPropertyFlags,
+                                    vma_allocation_create_info_.requiredFlags);
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(DeviceMemory, addPreferredProperties,
+                                    VkMemoryPropertyFlags,
+                                    vma_allocation_create_info_.preferredFlags);
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(DeviceMemory, addMemoryType, u32,
+                                    vma_allocation_create_info_.memoryTypeBits);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DeviceMemory, setPool, VmaPool,
+                                    vma_allocation_create_info_.pool);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DeviceMemory, setPriority, f32,
+                                    vma_allocation_create_info_.priority);
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DeviceMemory, setMemoryRequirements,
+                                    const VkMemoryRequirements &,
+                                    requirements_);
 
 } // namespace venus::mem

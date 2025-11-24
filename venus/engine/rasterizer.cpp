@@ -31,7 +31,7 @@
 #define RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME                                \
   "renderer_global_descriptor_data"
 
-namespace venus::engine {
+namespace venus::engine::deprecated {
 
 Result<Rasterizer> Rasterizer::Config::build() const {
   Rasterizer renderer;
@@ -258,4 +258,4 @@ pipeline::DescriptorAllocator &Rasterizer::descriptorAllocator() {
   return descriptor_allocator_;
 }
 
-} // namespace venus::engine
+} // namespace venus::engine::deprecated

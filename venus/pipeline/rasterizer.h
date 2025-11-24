@@ -33,9 +33,6 @@
 namespace venus::pipeline {
 
 /// \brief Rasterization pipeline
-/// \note When recording a buffer for rasterization, RenderSet keeps track ofa
-///       resources and pipeline objects being used so no object is bound
-///       repeatedly.
 class Rasterizer {
 public:
   struct RasterMaterial {

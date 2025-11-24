@@ -37,50 +37,24 @@
 #include <vk_mem_alloc.h>
 #pragma GCC diagnostic pop
 
+namespace venus {
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::DeviceMemory::Config)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::DeviceMemory)
+HERMES_PUSH_DEBUG_TITLE
+HERMES_TO_STRING_DEBUG_METHOD_END
+
+} // namespace venus
+  //
 namespace venus::mem {
 
-DeviceMemory::Config DeviceMemory::Config::forTexture() {
-  return DeviceMemory::Config().setDeviceLocal().setUsage(
-      VMA_MEMORY_USAGE_GPU_ONLY);
-}
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, setAllocationFlags,
-                                     VmaAllocationCreateFlags,
-                                     vma_allocation_.flags |= value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, setUsage, VmaMemoryUsage,
-                                     vma_allocation_.usage = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, addRequiredProperties,
-                                     VkMemoryPropertyFlags,
-                                     vma_allocation_.requiredFlags |= value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, addPreferredProperties,
-                                     VkMemoryPropertyFlags,
-                                     vma_allocation_.preferredFlags |= value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, addMemoryType, u32,
-                                     vma_allocation_.memoryTypeBits |= value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, setPool, VmaPool,
-                                     vma_allocation_.pool = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, setPriority, f32,
-                                     vma_allocation_.priority = value);
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(DeviceMemory, setRequirements,
-                                     const VkMemoryRequirements &,
-                                     requirements_ = value);
-
-DeviceMemory::Config &DeviceMemory::Config::setHostVisible() {
-  vma_allocation_.requiredFlags |= VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
-                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-  return *this;
-}
-
-DeviceMemory::Config &DeviceMemory::Config::setDeviceLocal() {
-  vma_allocation_.requiredFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-  return *this;
-}
-
-VmaAllocationCreateInfo DeviceMemory::Config::allocationInfo() const {
-  return vma_allocation_;
-}
-
-Result<DeviceMemory> DeviceMemory::Config::create(const core::Device &device) {
+template <>
+Result<DeviceMemory>
+DeviceMemory::Setup<DeviceMemory::Config, DeviceMemory>::build(
+    const core::Device &device) const {
   if (!requirements_.size)
     return VeResult::badAllocation();
 
@@ -100,13 +74,13 @@ Result<DeviceMemory> DeviceMemory::Config::create(const core::Device &device) {
 
   DeviceMemory device_memory;
 
-  VENUS_VK_RETURN_BAD_RESULT(
-      vmaAllocateMemory(device.allocator(), &requirements_, &vma_allocation_,
-                        &device_memory.vma_allocation_, nullptr));
+  VENUS_VK_RETURN_BAD_RESULT(vmaAllocateMemory(
+      device.allocator(), &requirements_, &vma_allocation_create_info_,
+      &device_memory.vma_allocation_, nullptr));
   device_memory.vma_allocator_ = device.allocator();
 
 #ifdef VENUS_DEBUG
-  device_memory.config_ = *this;
+  device_memory.config_ = static_cast<const DeviceMemory::Config &>(*this);
 #endif
   return Result<DeviceMemory>(std::move(device_memory));
 }
@@ -217,14 +191,3 @@ VeResult DeviceMemory::copy(const void *data, VkDeviceSize size_in_bytes,
 VkDeviceSize DeviceMemory::size() const { return vma_allocation_->GetSize(); }
 
 } // namespace venus::mem
-
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::DeviceMemory::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::DeviceMemory)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

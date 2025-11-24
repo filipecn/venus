@@ -32,16 +32,29 @@
 #include <venus/scene/acceleration_structure.h>
 #include <venus/scene/scene_graph.h>
 
-namespace venus::engine {
+namespace venus::pipeline {
+
+/// \brief Ray tracing pipeline
 class RayTracer {
 public:
   VENUS_DECLARE_RAII_FUNCTIONS(RayTracer)
   void destroy() noexcept;
   void swap(RayTracer &rhs);
 
+  /// \param area Output render image size (in pixels).
+  RayTracer &setResolution(const VkExtent2D &resolution);
+  /// Records the given command buffer with the rendering commands so output
+  /// is draw into the given image.
+  /// \param cb Command buffer being recorded.
+  /// \param vk_color_image
+  /// \param vk_color_image_view
+  HERMES_NODISCARD VeResult record(const CommandBuffer &cb,
+                                   VkImage vk_color_image,
+                                   VkImageView vk_color_image_view) const;
+
 private:
   scene::AccelerationStructure as_;
   mem::AllocatedImage image_;
 };
 
-}; // namespace venus::engine
+}; // namespace venus::pipeline

@@ -39,7 +39,9 @@ namespace venus::mem {
 class Image {
 public:
   /// Builder for image.
-  struct Config {
+  /// \tparam Derived return type of configuration methods.
+  /// \tparam Type type of the object build by this setup.
+  template <typename Derived, typename Type> struct Setup {
     friend class Image;
     /// \brief Creates defaults config for images.
     /// Default values are:
@@ -55,10 +57,10 @@ public:
     ///   - memory properties = eDeviceLocal
     /// \param extent Image extent in pixels.
     /// \param format [def=eR8G8B8A8Unorm] Image format.
-    static Config defaults(const VkExtent2D &extent,
-                           VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
-    static Config defaults(const VkExtent3D &extent,
-                           VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
+    static Derived defaults(const VkExtent2D &extent,
+                            VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
+    static Derived defaults(const VkExtent3D &extent,
+                            VkFormat format = VK_FORMAT_R8G8B8A8_UNORM);
     /// \brief Creates defaults config for images.
     /// Default values are:
     ///   - ImageType = e2D
@@ -73,38 +75,38 @@ public:
     ///   - memory properties = eDeviceLocal
     /// \param extent Image extent in pixels.
     /// \param format [def=eD16Unorm] Image format.
-    static Config forDepthBuffer(const VkExtent2D &extent,
-                                 VkFormat format = VK_FORMAT_D16_UNORM);
+    static Derived forDepthBuffer(const VkExtent2D &extent,
+                                  VkFormat format = VK_FORMAT_D16_UNORM);
 
     /// \param info Image create info.
-    Config &setInfo(VkImageCreateInfo info);
-    Config &addCreateFlags(VkImageCreateFlags flags);
-    Config &setImageType(VkImageType image_type);
-    Config &setFormat(VkFormat format);
-    Config &setExtent(VkExtent3D extent);
-    Config &setMipLevels(u32 mipLevels);
-    Config &setArrayLayers(u32 array_layers);
-    Config &setSamples(VkSampleCountFlagBits samples);
-    Config &setTiling(VkImageTiling tiling);
-    Config &addUsage(VkImageUsageFlags usage);
-    Config &setSharingMode(VkSharingMode sharing_mode);
-    Config &addQueueFamilyIndex(u32 queue_family_index_count);
-    Config &setInitialLayout(VkImageLayout initial_layout);
+    Derived &setInfo(VkImageCreateInfo info);
+    Derived &addCreateFlags(VkImageCreateFlags flags);
+    Derived &setImageType(VkImageType image_type);
+    Derived &setFormat(VkFormat format);
+    Derived &setExtent(VkExtent3D extent);
+    Derived &setMipLevels(u32 mipLevels);
+    Derived &setArrayLayers(u32 array_layers);
+    Derived &setSamples(VkSampleCountFlagBits samples);
+    Derived &setTiling(VkImageTiling tiling);
+    Derived &addUsage(VkImageUsageFlags usage);
+    Derived &setSharingMode(VkSharingMode sharing_mode);
+    Derived &addQueueFamilyIndex(u32 queue_family_index_count);
+    Derived &setInitialLayout(VkImageLayout initial_layout);
     /// \param aspect
-    Config &addAspectMask(VkImageAspectFlags aspect);
+    Derived &addAspectMask(VkImageAspectFlags aspect);
     /// \param features to append
-    Config &addFormatFeatures(VkFormatFeatureFlagBits features);
+    Derived &addFormatFeatures(VkFormatFeatureFlagBits features);
     //
     VkImageCreateInfo createInfo() const;
     /// Create image from this configuration.
     /// \param device
     /// \return image or error.
-    HERMES_NODISCARD Result<Image> build(const core::Device &device) const;
+    HERMES_NODISCARD Result<Type> build(const core::Device &device) const;
     /// \brief Creates an image from an already existent image.
     /// \note The newly created image gains ownership over the given vk_image
     ///       and will destroy it with destroy() is called.
-    HERMES_NODISCARD Result<Image> build(VkDevice vk_device,
-                                         VkImage vk_image) const;
+    HERMES_NODISCARD Result<Type> build(VkDevice vk_device,
+                                        VkImage vk_image) const;
     /// Create an initialized image from this configuration.
     /// \note This copies data into image's buffer memory.
     /// \param gd Graphics device with access to a command buffer.
@@ -112,7 +114,7 @@ public:
     // HERMES_NODISCARD Result<Image> createAndUpload(GraphicsDevice &gd,
     //                                                const void *data) const;
 
-  private:
+  protected:
     std::optional<VmaAllocationCreateInfo> allocation_;
     // format
     VkFormatFeatureFlags format_features_;
@@ -120,9 +122,8 @@ public:
     VkImageAspectFlags aspect_mask_;
     VkImageCreateInfo info_;
     std::vector<u32> queue_family_indices_;
-    // memory
-    DeviceMemory::Config memory_;
-
+  };
+  struct Config : public Setup<Config, Image> {
     VENUS_to_string_FRIEND(Image::Config);
   };
   /// Image views allow us to define how image's memory is accessed and
@@ -202,11 +203,92 @@ private:
   VENUS_to_string_FRIEND(Image);
 };
 
+template <typename Derived, typename Type>
+Derived Image::Setup<Derived, Type>::defaults(const VkExtent3D &extent,
+                                              VkFormat format) {
+  return Image::Setup<Derived, Type>()
+      .addCreateFlags({})
+      .setImageType(VK_IMAGE_TYPE_2D)
+      .setFormat(format)
+      .setExtent(extent)
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setSamples(VK_SAMPLE_COUNT_1_BIT)
+      .setTiling(VK_IMAGE_TILING_LINEAR)
+      .addUsage(VK_IMAGE_USAGE_SAMPLED_BIT)
+      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
+      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
+      .addAspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
+}
+
+template <typename Derived, typename Type>
+Derived Image::Setup<Derived, Type>::defaults(const VkExtent2D &extent,
+                                              VkFormat format) {
+  return Image::Config::defaults(VkExtent3D(extent.width, extent.height, 1),
+                                 format);
+}
+
+template <typename Derived, typename Type>
+Derived Image::Setup<Derived, Type>::forDepthBuffer(const VkExtent2D &extent,
+                                                    VkFormat format) {
+  return Image::Config()
+      .addCreateFlags({})
+      .setImageType(VK_IMAGE_TYPE_2D)
+      .setFormat(format)
+      .setExtent(VkExtent3D(extent.width, extent.height, 1))
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setSamples(VK_SAMPLE_COUNT_1_BIT)
+      .setTiling(VK_IMAGE_TILING_OPTIMAL)
+      .addUsage(VK_IMAGE_USAGE_SAMPLED_BIT |
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
+      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
+      .addAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT);
+}
+
+template <typename Derived, typename Type>
+VkImageCreateInfo Image::Setup<Derived, Type>::createInfo() const {
+  auto info = info_;
+  info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  info.pQueueFamilyIndices = queue_family_indices_.data();
+  info.queueFamilyIndexCount = queue_family_indices_.size();
+  return info;
+}
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setInfo, VkImageCreateInfo, info_)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, addCreateFlags, VkImageCreateFlags,
+                                    info_.flags)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setImageType, VkImageType,
+                                    info_.imageType)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setFormat, VkFormat, info_.format)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setExtent, VkExtent3D, info_.extent)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setMipLevels, u32, info_.mipLevels)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setArrayLayers, u32,
+                                    info_.arrayLayers)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setSamples, VkSampleCountFlagBits,
+                                    info_.samples)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setTiling, VkImageTiling,
+                                    info_.tiling)
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(Image, addUsage, VkImageUsageFlags,
+                                    info_.usage)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setSharingMode, VkSharingMode,
+                                    info_.sharingMode)
+VENUS_DEFINE_SETUP_METHOD(Image, addQueueFamilyIndex, u32,
+                          queue_family_indices_.emplace_back(value))
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Image, setInitialLayout, VkImageLayout,
+                                    info_.initialLayout)
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(Image, addAspectMask, VkImageAspectFlags,
+                                    aspect_mask_)
+VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(Image, addFormatFeatures,
+                                    VkFormatFeatureFlagBits, format_features_)
+
 /// \brief Holds a self-allocated vulkan image object.
 /// The AllocatedImage owns the device memory used by the buffer.
 class AllocatedImage : public Image, public DeviceMemory {
 public:
-  struct Config {
+  struct Config : public Image::Setup<Config, AllocatedImage>,
+                  public DeviceMemory::Setup<Config, AllocatedImage> {
     Config &setImageConfig(const Image::Config &config);
     Config &setMemoryConfig(const DeviceMemory::Config &config);
 

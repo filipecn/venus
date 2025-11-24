@@ -129,21 +129,19 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       model.storage_.vertices,
-      mem::AllocatedBuffer::Config()
-          .setBufferConfig(mem::Buffer::Config::forStorage(vertex_buffer_size)
-                               .addUsage(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
-                               .enableShaderDeviceAddress())
-          .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
+      mem::AllocatedBuffer::Config ::forStorage(
+          vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+          .enableShaderDeviceAddress()
+          .setDeviceLocal()
           .build(*gd));
 
   if (index_buffer_size) {
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         model.storage_.indices,
-        mem::AllocatedBuffer::Config()
-            .setBufferConfig(mem::Buffer::Config::forStorage(index_buffer_size)
-                                 .addUsage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
-                                 .enableShaderDeviceAddress())
-            .setMemoryConfig(mem::DeviceMemory::Config().setDeviceLocal())
+        mem::AllocatedBuffer::Config ::forStorage(
+            index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+            .enableShaderDeviceAddress()
+            .setDeviceLocal()
             .build(*gd));
   }
 

@@ -30,7 +30,7 @@
 #include <venus/engine/graphics_engine.h>
 #include <venus/scene/scene_graph.h>
 
-namespace venus::engine {
+namespace venus::engine::deprecated {
 
 class Rasterizer {
 public:
@@ -70,4 +70,4 @@ private:
   pipeline::DescriptorSet global_descriptor_set_;
 };
 
-} // namespace venus::engine
+} // namespace venus::engine::deprecated

@@ -226,7 +226,7 @@ GraphicsDevice::Config::build(const core::Instance &instance) const {
                               .addUsage(VK_IMAGE_USAGE_STORAGE_BIT)
                               .addUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
           .setMemoryConfig(
-              mem::DeviceMemory::Config().setDeviceLocal().setUsage(
+              mem::DeviceMemory::Config().setDeviceLocal().setMemoryUsage(
                   VMA_MEMORY_USAGE_GPU_ONLY))
           .build(*gd));
 
@@ -250,7 +250,7 @@ GraphicsDevice::Config::build(const core::Instance &instance) const {
           .setImageConfig(mem::Image::Config::forDepthBuffer(gd.surface_extent_)
                               .setFormat(VK_FORMAT_D32_SFLOAT))
           .setMemoryConfig(
-              mem::DeviceMemory::Config().setDeviceLocal().setUsage(
+              mem::DeviceMemory::Config().setDeviceLocal().setMemoryUsage(
                   VMA_MEMORY_USAGE_GPU_ONLY))
           .build(*gd));
 

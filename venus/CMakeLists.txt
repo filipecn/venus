@@ -12,8 +12,6 @@ set(VENUS_HEADERS
   engine/frame_loop.h
   engine/graphics_device.h
   engine/graphics_engine.h
-  engine/rasterizer.h
-  engine/ray_tracer.h
   engine/renderers.h
   engine/shapes.h
 
@@ -32,6 +30,7 @@ set(VENUS_HEADERS
   pipeline/framebuffer.h
   pipeline/pipeline.h
   pipeline/rasterizer.h
+  pipeline/ray_tracer.h
   pipeline/renderpass.h
   pipeline/shader_module.h
 
@@ -64,8 +63,6 @@ set(VENUS_SOURCES
   engine/frame_loop.cpp
   engine/graphics_device.cpp
   engine/graphics_engine.cpp
-  engine/rasterizer.cpp
-  engine/ray_tracer.cpp
   engine/renderers.cpp
   engine/shapes.cpp
 
@@ -83,6 +80,7 @@ set(VENUS_SOURCES
   pipeline/framebuffer.cpp
   pipeline/pipeline.cpp
   pipeline/rasterizer.cpp
+  pipeline/ray_tracer.cpp
   pipeline/renderpass.cpp
   pipeline/shader_module.cpp
 
