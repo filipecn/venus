@@ -110,10 +110,13 @@ public:
                                         const GeometryData &geometry_data,
                                         u32 primitive_count,
                                         u32 transform_offset);
+  AccelerationStructure &setType(VkAccelerationStructureTypeKHR type);
 
   VeResult build(const engine::GraphicsDevice &gd, VkQueue vk_queue,
                  VkBuildAccelerationStructureFlagsKHR flags,
                  VkBuildAccelerationStructureModeKHR mode);
+
+  VkDeviceAddress deviceAddress() const;
 
 private:
   struct Geometry {

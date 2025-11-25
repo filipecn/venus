@@ -188,11 +188,14 @@ public:
   VkFormat format() const;
   /// \return Associated device.
   VkDevice device() const;
+  /// \return Image extents
+  VkExtent3D resolution() const;
 
 protected:
   VkImage vk_image_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
   VkFormat vk_format_;
+  VkExtent3D extents_;
 
 private:
   bool ownership_{true};
@@ -289,22 +292,21 @@ class AllocatedImage : public Image, public DeviceMemory {
 public:
   struct Config : public Image::Setup<Config, AllocatedImage>,
                   public DeviceMemory::Setup<Config, AllocatedImage> {
-    Config &setImageConfig(const Image::Config &config);
-    Config &setMemoryConfig(const DeviceMemory::Config &config);
+    static Config forColorAttachment(VkExtent2D extent);
+    static Config forDepthBuffer(VkExtent2D extent);
+    static Config forTexture(VkExtent2D extent);
+    static Config forTexture(VkExtent3D extent);
+    static Config forStorage(VkExtent2D extent);
 
     Result<AllocatedImage> build(const core::Device &device) const;
-
-  private:
-    Image::Config image_config_;
-    DeviceMemory::Config mem_config_;
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(AllocatedImage)
 
   /// Frees memory and destroy buffer/memory objects.
   void destroy() noexcept override;
-  //
   void swap(AllocatedImage &rhs) noexcept;
+  operator bool() const;
 
 private:
   VENUS_to_string_FRIEND(AllocatedImage);

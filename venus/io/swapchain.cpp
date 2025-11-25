@@ -217,9 +217,7 @@ Result<Swapchain> Swapchain::Config::build(const core::Device &device) const {
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       swapchain.depth_buffer_,
-      mem::AllocatedImage::Config()
-          .setImageConfig(mem::Image::Config::forDepthBuffer(extent))
-          .build(device));
+      mem::AllocatedImage::Config::forDepthBuffer(extent).build(device));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       swapchain.depth_buffer_view_,

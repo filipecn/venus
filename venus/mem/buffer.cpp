@@ -251,12 +251,26 @@ AllocatedBuffer::Config::forStorage(u32 size_in_bytes,
       .setDeviceLocal();
 }
 
-AllocatedBuffer::Config forAccelerationStructure(u32 size_in_bytes) {
+AllocatedBuffer::Config
+AllocatedBuffer::Config::forAccelerationStructure(u32 size_in_bytes) {
   return AllocatedBuffer::Config::forStorage(
              size_in_bytes,
              VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR)
+      .setMemoryUsage(VMA_MEMORY_USAGE_CPU_TO_GPU)
       .enableShaderDeviceAddress()
       .setDeviceLocal();
+}
+
+AllocatedBuffer::Config
+AllocatedBuffer::Config::forShaderBindingTable(u32 size_in_bytes) {
+  return AllocatedBuffer::Config()
+      // buffer
+      .addUsage(VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR)
+      .addUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
+      .enableShaderDeviceAddress()
+      .setSize(size_in_bytes)
+      // memory
+      .setMemoryUsage(VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
 Result<AllocatedBuffer>
@@ -302,6 +316,8 @@ void AllocatedBuffer::swap(AllocatedBuffer &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vma_allocator_);
   VENUS_SWAP_FIELD_WITH_RHS(vma_allocation_);
 }
+
+AllocatedBuffer::operator bool() const { return vk_buffer_ != VK_NULL_HANDLE; }
 
 void AllocatedBuffer::destroy() noexcept {
   if (vma_allocator_ && vma_allocation_)

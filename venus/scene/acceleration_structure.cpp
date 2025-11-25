@@ -185,6 +185,16 @@ AccelerationStructure &AccelerationStructure::updateGeometry(
   return *this;
 }
 
+AccelerationStructure &
+AccelerationStructure::setType(VkAccelerationStructureTypeKHR type) {
+  type_ = type;
+  return *this;
+}
+
+VkDeviceAddress AccelerationStructure::deviceAddress() const {
+  return device_address_;
+}
+
 VeResult
 AccelerationStructure::build(const engine::GraphicsDevice &gd, VkQueue vk_queue,
                              VkBuildAccelerationStructureFlagsKHR flags,

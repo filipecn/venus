@@ -328,6 +328,31 @@ const VkPhysicalDeviceFeatures &PhysicalDevice::features() const {
   return vk_features_;
 }
 
+HERMES_NODISCARD VkPhysicalDeviceRayTracingPipelinePropertiesKHR
+PhysicalDevice::rayTracingProperties() const {
+  VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_properties{};
+  rt_properties.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+  VkPhysicalDeviceProperties2 device_properties{};
+  device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+  device_properties.pNext = &rt_properties;
+  vkGetPhysicalDeviceProperties2(vk_physical_device_, &device_properties);
+  return rt_properties;
+}
+
+HERMES_NODISCARD VkPhysicalDeviceAccelerationStructureFeaturesKHR
+PhysicalDevice::accelerationStructureFeatures() const {
+  VkPhysicalDeviceAccelerationStructureFeaturesKHR
+      acceleration_structure_features{};
+  acceleration_structure_features.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+  VkPhysicalDeviceFeatures2 device_features{};
+  device_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+  device_features.pNext = &acceleration_structure_features;
+  vkGetPhysicalDeviceFeatures2(vk_physical_device_, &device_features);
+  return acceleration_structure_features;
+}
+
 [[maybe_unused]] VkSampleCountFlagBits
 PhysicalDevice::maxUsableSampleCount(bool include_depth_buffer) const {
   VkSampleCountFlags counts =

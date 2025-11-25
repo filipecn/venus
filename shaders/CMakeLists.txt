@@ -5,6 +5,9 @@ file(GLOB_RECURSE GLSL_SOURCE_FILES
   "${CMAKE_CURRENT_LIST_DIR}/*.frag"
   "${CMAKE_CURRENT_LIST_DIR}/*.vert"
   "${CMAKE_CURRENT_LIST_DIR}/*.comp"
+  "${CMAKE_CURRENT_LIST_DIR}/*.rgen"
+  "${CMAKE_CURRENT_LIST_DIR}/*.rmiss"
+  "${CMAKE_CURRENT_LIST_DIR}/*.rchit"
     )
 
 foreach(GLSL ${GLSL_SOURCE_FILES})
@@ -12,10 +15,10 @@ foreach(GLSL ${GLSL_SOURCE_FILES})
   get_filename_component(FILE_NAME ${GLSL} NAME)
   set(SPIRV "${CMAKE_CURRENT_LIST_DIR}/${FILE_NAME}.spv")
   message(STATUS ${GLSL})
-  message(STATUS COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV})
+  message(STATUS COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV} --target-env vulkan1.4)
   add_custom_command(
     OUTPUT ${SPIRV}
-    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
+    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV} --target-env vulkan1.4
     DEPENDS ${GLSL})
   list(APPEND SPIRV_BINARY_FILES ${SPIRV})
 endforeach(GLSL)

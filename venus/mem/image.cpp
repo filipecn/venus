@@ -122,6 +122,7 @@ Image::Setup<Image::Config, Image>::build(const core::Device &device) const {
   VENUS_VK_RETURN_BAD_RESULT(
       vkCreateImage(*device, &info, nullptr, &image.vk_image_));
 
+  image.extents_ = info.extent;
   image.vk_device_ = *device;
   image.vk_format_ = info.format;
 #ifdef VENUS_DEBUG
@@ -225,25 +226,109 @@ VkFormat Image::format() const { return vk_format_; }
 
 VkDevice Image::device() const { return vk_device_; }
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedImage, setImageConfig,
-                                     const Image::Config &,
-                                     image_config_ = value)
+VkExtent3D Image::resolution() const { return extents_; }
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(AllocatedImage, setMemoryConfig,
-                                     const DeviceMemory::Config &,
-                                     mem_config_ = value)
+AllocatedImage::Config
+AllocatedImage::Config::forColorAttachment(VkExtent2D extent) {
+  return AllocatedImage::Config()
+      .addCreateFlags({})
+      .setImageType(VK_IMAGE_TYPE_2D)
+      .setFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
+      .setExtent(VkExtent3D(extent.width, extent.height, 1))
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setSamples(VK_SAMPLE_COUNT_1_BIT)
+      .setTiling(VK_IMAGE_TILING_LINEAR)
+      .addUsage(VK_IMAGE_USAGE_SAMPLED_BIT)
+      .addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+      .addUsage(VK_IMAGE_USAGE_STORAGE_BIT)
+      .addUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
+      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
+      .addAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+      // memory
+      .setDeviceLocal()
+      .setMemoryUsage(VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+AllocatedImage::Config
+AllocatedImage::Config::forDepthBuffer(VkExtent2D extent) {
+  return AllocatedImage::Config()
+      .addCreateFlags({})
+      .setImageType(VK_IMAGE_TYPE_2D)
+      .setFormat(VK_FORMAT_D32_SFLOAT)
+      .setExtent(VkExtent3D(extent.width, extent.height, 1))
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setSamples(VK_SAMPLE_COUNT_1_BIT)
+      .setTiling(VK_IMAGE_TILING_OPTIMAL)
+      .addUsage(VK_IMAGE_USAGE_SAMPLED_BIT |
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
+      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
+      .addAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT)
+      // memory
+      .setDeviceLocal()
+      .setMemoryUsage(VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+AllocatedImage::Config AllocatedImage::Config::forTexture(VkExtent2D extent) {
+  return AllocatedImage::Config::forTexture({extent.width, extent.height, 1});
+}
+
+AllocatedImage::Config AllocatedImage::Config::forTexture(VkExtent3D extent) {
+  return AllocatedImage::Config()
+      .addCreateFlags({})
+      .setImageType(VK_IMAGE_TYPE_2D)
+      .setFormat(VK_FORMAT_R8G8B8A8_UNORM)
+      .setExtent(extent)
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setSamples(VK_SAMPLE_COUNT_1_BIT)
+      .setTiling(VK_IMAGE_TILING_LINEAR)
+      .addUsage(VK_IMAGE_USAGE_SAMPLED_BIT)
+      .addUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+      .addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
+      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
+      .addAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+      // memory
+      .setDeviceLocal()
+      .setMemoryUsage(VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+AllocatedImage::Config AllocatedImage::Config::forStorage(VkExtent2D extent) {
+  return AllocatedImage::Config()
+      .addCreateFlags({})
+      .setImageType(VK_IMAGE_TYPE_2D)
+      .setFormat(VK_FORMAT_R8G8B8A8_UNORM)
+      .setExtent({extent.width, extent.height, 1})
+      .setMipLevels(1)
+      .setArrayLayers(1)
+      .setSamples(VK_SAMPLE_COUNT_1_BIT)
+      .setTiling(VK_IMAGE_TILING_OPTIMAL)
+      .addUsage(VK_IMAGE_USAGE_STORAGE_BIT)
+      .addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
+      .setSharingMode(VK_SHARING_MODE_EXCLUSIVE)
+      .setInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
+      .addAspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+      // memory
+      .setDeviceLocal()
+      .setMemoryUsage(VMA_MEMORY_USAGE_GPU_ONLY);
+}
 
 Result<AllocatedImage>
 AllocatedImage::Config::build(const core::Device &device) const {
-  auto info = image_config_.createInfo();
+  auto info = createInfo();
 
-  auto alloc_info = vma_allocation_create_info_; // mem_config_.allocationInfo();
+  auto alloc_info = vma_allocation_create_info_;
   VkImage vk_image{VK_NULL_HANDLE};
   VmaAllocation vma_allocation{VK_NULL_HANDLE};
   VENUS_VK_RETURN_BAD_RESULT(vmaCreateImage(device.allocator(), &info,
                                             &alloc_info, &vk_image,
                                             &vma_allocation, nullptr));
   AllocatedImage image;
+  image.extents_ = info.extent;
   image.vma_allocator_ = device.allocator();
   image.vma_allocation_ = vma_allocation;
   image.vk_format_ = info.format;
@@ -272,6 +357,8 @@ void AllocatedImage::swap(AllocatedImage &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vma_allocator_);
   VENUS_SWAP_FIELD_WITH_RHS(vma_allocation_);
 }
+
+AllocatedImage::operator bool() const { return vk_image_ != VK_NULL_HANDLE; }
 
 void AllocatedImage::destroy() noexcept {
   if (vk_image_ && vma_allocator_ && vma_allocation_) {

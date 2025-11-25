@@ -128,7 +128,10 @@ public:
 
 protected:
   /// Base config for pipelines.
-  struct Config {
+  template <typename Derived, typename Type> struct Setup {
+    /// \param shader_stage
+    Derived &addShaderStage(VkPipelineShaderStageCreateInfo shader_stage);
+
   protected:
     // shaders
     std::vector<VkPipelineShaderStageCreateInfo> stages_;
@@ -140,6 +143,10 @@ protected:
 
   VENUS_to_string_FRIEND(Pipeline);
 };
+
+VENUS_DEFINE_SETUP_METHOD(Pipeline, addShaderStage,
+                          VkPipelineShaderStageCreateInfo,
+                          stages_.emplace_back(value))
 
 /// Specialized pipeline for compute.
 class ComputePipeline : public Pipeline {};
@@ -264,18 +271,13 @@ public:
   };
 
   /// Builder for GraphicsPipeline
-  struct Config : public Pipeline::Config {
+  struct Config : public Pipeline::Setup<Config, GraphicsPipeline> {
 
     static Config defaults(const VkExtent2D &viewport_extent);
 
     static Config forDynamicRendering(const io::Swapchain &swapchain);
 
     Config() noexcept;
-
-    // shader stages state
-
-    /// \param shader_stage
-    Config &addShaderStage(VkPipelineShaderStageCreateInfo shader_stage);
 
     // vertex input state
 
@@ -390,9 +392,7 @@ public:
   };
 
   /// Builder for RayTracingPipeline
-  struct Config : public Pipeline::Config {
-    /// \param shader_stage
-    Config &addShaderStage(VkPipelineShaderStageCreateInfo shader_stage);
+  struct Config : public Pipeline::Setup<Config, RayTracingPipeline> {
     /// \param shader_group
     Config &addShaderGroup(const ShaderGroup &shader_group);
 
@@ -405,7 +405,11 @@ public:
     VENUS_to_string_FRIEND(RayTracingPipeline::Config);
   };
 
+  const std::vector<VkRayTracingShaderGroupCreateInfoKHR> &shaderGroups() const;
+
 private:
+  std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups_{};
+
 #ifdef VENUS_DEBUG
   Config config_;
 #endif

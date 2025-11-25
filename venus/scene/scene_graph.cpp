@@ -334,12 +334,9 @@ GLTF_Node::ImageData loadImage(const engine::GraphicsDevice &gd,
     size.height = height;
     size.depth = 1;
 
-    auto image_r =
-        mem::AllocatedImage::Config()
-            .setImageConfig(mem::Image::Config::defaults(size).addUsage(
-                VK_IMAGE_USAGE_TRANSFER_DST_BIT))
-            .setMemoryConfig(mem::DeviceMemory::Config::forTexture())
-            .build(*gd);
+    auto image_r = mem::AllocatedImage::Config::forTexture(size)
+                       .addUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                       .build(*gd);
 
     if (image_r) {
 

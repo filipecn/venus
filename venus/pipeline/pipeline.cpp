@@ -616,12 +616,6 @@ GraphicsPipeline::Config::Config() noexcept {
   depth_stencil_ = GraphicsPipeline::DepthStencil::none();
 }
 
-GraphicsPipeline::Config &GraphicsPipeline::Config::addShaderStage(
-    VkPipelineShaderStageCreateInfo shader_stage) {
-  stages_.emplace_back(shader_stage);
-  return *this;
-}
-
 GraphicsPipeline::Config &GraphicsPipeline::Config::setVertexInputState(
     const mem::VertexLayout &vertex_layout) {
   vertex_input_ =
@@ -829,12 +823,6 @@ RayTracingPipeline::ShaderGroup::operator*() const {
   return info_;
 }
 
-RayTracingPipeline::Config &RayTracingPipeline::Config::addShaderStage(
-    VkPipelineShaderStageCreateInfo shader_stage) {
-  stages_.emplace_back(shader_stage);
-  return *this;
-}
-
 RayTracingPipeline::Config &
 RayTracingPipeline::Config::addShaderGroup(const ShaderGroup &shader_group) {
   shader_groups_.emplace_back(*shader_group);
@@ -858,6 +846,7 @@ RayTracingPipeline::Config::build(VkDevice vk_device,
 
   RayTracingPipeline pipeline;
   pipeline.vk_device_ = vk_device;
+  pipeline.shader_groups_ = shader_groups_;
 
   VENUS_VK_RETURN_BAD_RESULT(vkCreateRayTracingPipelinesKHR(
       vk_device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1,
@@ -868,6 +857,11 @@ RayTracingPipeline::Config::build(VkDevice vk_device,
 #endif
 
   return Result<RayTracingPipeline>(std::move(pipeline));
+}
+
+const std::vector<VkRayTracingShaderGroupCreateInfoKHR> &
+RayTracingPipeline::shaderGroups() const {
+  return shader_groups_;
 }
 
 } // namespace venus::pipeline

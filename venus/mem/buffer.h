@@ -274,6 +274,7 @@ public:
     static Config forUniform(u32 size_in_bytes);
     static Config forStorage(u32 size_in_bytes, VkBufferUsageFlags usage);
     static Config forAccelerationStructure(u32 size_in_bytes);
+    static Config forShaderBindingTable(u32 size_in_bytes);
 
     Result<AllocatedBuffer> build(const core::Device &device) const;
 
@@ -290,6 +291,7 @@ public:
   void destroy() noexcept override;
   //
   void swap(AllocatedBuffer &rhs) noexcept;
+  operator bool() const;
 
 private:
   VENUS_to_string_FRIEND(AllocatedBuffer);

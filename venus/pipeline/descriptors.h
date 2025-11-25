@@ -183,16 +183,17 @@ public:
   /// \param size
   /// \param offset
   /// \param type Descriptor type.
-  DescriptorWriter &writeBuffer(i32 binding, VkBuffer buffer, u32 size,
+  DescriptorWriter &writeBuffer(i32 binding, VkBuffer vk_buffer, u32 size,
                                 u32 offset, VkDescriptorType type);
   /// \brief Registers VkWriteDescriptorSet for a given image.
   /// \param binding
-  /// \param image
-  /// \param sampler
-  /// \param layout
+  /// \param vk_image_view
+  /// \param vk_sampler
+  /// \param vk_image_layout
   /// \param type Descriptor type.
-  DescriptorWriter &writeImage(i32 binding, VkImageView image,
-                               VkSampler sampler, VkImageLayout layout,
+  DescriptorWriter &writeImage(i32 binding, VkImageView vk_image_view,
+                               VkSampler vk_sampler,
+                               VkImageLayout vk_image_layout,
                                VkDescriptorType type);
   /// \brief Registers VkWriteDescriptorSet for a given set of images.
   /// \param binding
@@ -201,6 +202,11 @@ public:
   DescriptorWriter &
   writeImages(i32 binding, const std::vector<VkDescriptorImageInfo> &images,
               VkDescriptorType type);
+  /// Registers VkWriteDescriptorSetAccelerationStructure for a given AS.
+  /// \param binding
+  /// \param vk_acceleration_structure
+  DescriptorWriter &writeAccelerationStructure(
+      i32 binding, VkAccelerationStructureKHR vk_acceleration_structure);
   /// Clears all registered writes.
   void clear();
   /// \brief Updates the descriptor set with all registered writes.
@@ -211,6 +217,9 @@ public:
 private:
   std::deque<VkDescriptorImageInfo> image_infos_;
   std::deque<VkDescriptorBufferInfo> buffer_infos_;
+  // TODO: support multiple acceleration structure writes
+  VkAccelerationStructureKHR acceleration_structure_{VK_NULL_HANDLE};
+  VkWriteDescriptorSetAccelerationStructureKHR acceleration_structure_info_{};
   std::vector<VkWriteDescriptorSet> writes_;
 };
 

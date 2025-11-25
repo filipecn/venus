@@ -175,14 +175,7 @@ VeResult GraphicsEngine::Globals::Defaults::init(GraphicsDevice &gd) {
     }
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         error_image_,
-        mem::AllocatedImage::Config()
-            .setImageConfig(mem::Image::Config::defaults(image_size)
-                                .addUsage(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-                                .addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT))
-            .setMemoryConfig(
-                mem::DeviceMemory::Config().setDeviceLocal().setMemoryUsage(
-                    VMA_MEMORY_USAGE_GPU_ONLY))
-            .build(*gd));
+        mem::AllocatedImage::Config::forTexture(image_size).build(*gd));
 
     VENUS_RETURN_BAD_RESULT(
         pipeline::ImageWritter()

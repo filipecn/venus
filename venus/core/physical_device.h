@@ -180,6 +180,12 @@ public:
   HERMES_NODISCARD const VkPhysicalDeviceProperties &properties() const;
   ///
   HERMES_NODISCARD const VkPhysicalDeviceFeatures &features() const;
+  ///
+  HERMES_NODISCARD VkPhysicalDeviceRayTracingPipelinePropertiesKHR
+  rayTracingProperties() const;
+  ///
+  HERMES_NODISCARD VkPhysicalDeviceAccelerationStructureFeaturesKHR
+  accelerationStructureFeatures() const;
   /// \param  include_depth_buffer **[def = true]** if true, computes
   ///         the highest sample count supported by both the color and depth
   ///         buffers

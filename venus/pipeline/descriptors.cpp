@@ -342,6 +342,29 @@ DescriptorWriter &DescriptorWriter::writeImages(
   return *this;
 }
 
+DescriptorWriter &DescriptorWriter::writeAccelerationStructure(
+    i32 binding, VkAccelerationStructureKHR vk_acceleration_structure) {
+
+  acceleration_structure_ = vk_acceleration_structure;
+
+  acceleration_structure_info_.sType =
+      VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+  acceleration_structure_info_.accelerationStructureCount = 1;
+  acceleration_structure_info_.pAccelerationStructures =
+      &acceleration_structure_;
+
+  VkWriteDescriptorSet acceleration_structure_write{};
+  acceleration_structure_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  acceleration_structure_write.dstBinding = binding;
+  acceleration_structure_write.descriptorCount = 1;
+  acceleration_structure_write.descriptorType =
+      VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+  // The acceleration structure descriptor has to be chained via pNext
+  acceleration_structure_write.pNext = &acceleration_structure_info_;
+  writes_.push_back(acceleration_structure_write);
+  return *this;
+}
+
 void DescriptorWriter::clear() {
   image_infos_.clear();
   buffer_infos_.clear();

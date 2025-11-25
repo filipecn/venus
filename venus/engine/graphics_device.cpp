@@ -219,15 +219,7 @@ GraphicsDevice::Config::build(const core::Instance &instance) const {
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.output_.color,
-      mem::AllocatedImage::Config()
-          .setImageConfig(mem::Image::Config::defaults(gd.surface_extent_)
-                              .setFormat(VK_FORMAT_R16G16B16A16_SFLOAT)
-                              .addUsage(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
-                              .addUsage(VK_IMAGE_USAGE_STORAGE_BIT)
-                              .addUsage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT))
-          .setMemoryConfig(
-              mem::DeviceMemory::Config().setDeviceLocal().setMemoryUsage(
-                  VMA_MEMORY_USAGE_GPU_ONLY))
+      mem::AllocatedImage::Config::forColorAttachment(gd.surface_extent_)
           .build(*gd));
 
   VkImageSubresourceRange subresource_range;
@@ -246,12 +238,7 @@ GraphicsDevice::Config::build(const core::Instance &instance) const {
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.output_.depth,
-      mem::AllocatedImage::Config()
-          .setImageConfig(mem::Image::Config::forDepthBuffer(gd.surface_extent_)
-                              .setFormat(VK_FORMAT_D32_SFLOAT))
-          .setMemoryConfig(
-              mem::DeviceMemory::Config().setDeviceLocal().setMemoryUsage(
-                  VMA_MEMORY_USAGE_GPU_ONLY))
+      mem::AllocatedImage::Config::forDepthBuffer(gd.surface_extent_)
           .build(*gd));
 
   subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
