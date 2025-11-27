@@ -85,6 +85,26 @@ RayTracer &RayTracer::add(const RayTracer::TracerObject &tracer_object) {
   vertex_data_device_address.deviceAddress = tracer_object.vertex_data;
   index_data_device_address.deviceAddress = tracer_object.index_data;
   transform_matrix_device_address.deviceAddress = tracer_object.transform_data;
+
+  auto triangles_data =
+      scene::AccelerationStructure::TrianglesData()
+          // vertex
+          .setVertexData(vertex_data_device_address)
+          .setVertexFormat(
+              tracer_object.vertex_layout
+                  .componentFormat(mem::VertexLayout::ComponentType::Position)
+                  .value())
+          .setVertexStride(tracer_object.vertex_layout.stride())
+          .setMaxVertex(tracer_object.max_vertex)
+          // transform
+          .setTransformData(transform_matrix_device_address);
+
+  if (index_data_device_address.deviceAddress) {
+    // index
+    triangles_data.setIndexData(index_data_device_address)
+        .setIndexType(VK_INDEX_TYPE_UINT32);
+  }
+
   blas_.addGeometry(
       scene::AccelerationStructure::GeometryData()
           // AABB
@@ -92,22 +112,7 @@ RayTracer &RayTracer::add(const RayTracer::TracerObject &tracer_object) {
           // Instances
           //.setInstancesData(scene::AccelerationStructure::InstancesData())
           // Triangles
-          .setTrianglesData(
-              scene::AccelerationStructure::TrianglesData()
-                  // index
-                  .setIndexData(index_data_device_address)
-                  .setIndexType(VK_INDEX_TYPE_UINT32)
-                  // vertex
-                  .setVertexData(vertex_data_device_address)
-                  .setVertexFormat(
-                      tracer_object.vertex_layout
-                          .componentFormat(
-                              mem::VertexLayout::ComponentType::Position)
-                          .value())
-                  .setVertexStride(tracer_object.vertex_layout.stride())
-                  .setMaxVertex(tracer_object.max_vertex)
-                  // transform
-                  .setTransformData(transform_matrix_device_address))
+          .setTrianglesData(triangles_data)
           // Flags
           .setFlags(VK_GEOMETRY_OPAQUE_BIT_KHR)
           // Geometry Type
@@ -146,7 +151,7 @@ VeResult RayTracer::createPipeline(VkDevice vk_device) {
                 .build(vk_device));
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       chit, ShaderModule::Config()
-                .fromSpvFile(shaders_path / "closesthit.chit.spv")
+                .fromSpvFile(shaders_path / "closesthit.rchit.spv")
                 .build(vk_device));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -180,13 +185,12 @@ VeResult RayTracer::createPipeline(VkDevice vk_device) {
 }
 
 VeResult RayTracer::createShaderBindingTable(const core::Device &device) {
-  auto ray_tracing_pipeline_properties =
-      device.physical().rayTracingProperties();
+  ray_tracing_pipeline_properties_ = device.physical().rayTracingProperties();
   const uint32_t handle_size =
-      ray_tracing_pipeline_properties.shaderGroupHandleSize;
+      ray_tracing_pipeline_properties_.shaderGroupHandleSize;
   const uint32_t handle_size_aligned = hermes::mem::alignment::alignedSize(
-      ray_tracing_pipeline_properties.shaderGroupHandleSize,
-      ray_tracing_pipeline_properties.shaderGroupHandleAlignment);
+      ray_tracing_pipeline_properties_.shaderGroupHandleSize,
+      ray_tracing_pipeline_properties_.shaderGroupHandleAlignment);
   // const uint32_t handle_alignment =
   //     ray_tracing_pipeline_properties.shaderGroupHandleAlignment;
   const uint32_t group_count =
@@ -247,7 +251,6 @@ VeResult RayTracer::createDescriptorSets(VkDevice vk_device) {
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       descriptor_set_, descriptor_allocator_.allocate(*descriptor_set_layout_));
-
   // Setup the descriptor for binding our top level acceleration structure to
   // the ray tracing shaders
 
@@ -275,7 +278,7 @@ VeResult RayTracer::prepare(const engine::GraphicsDevice &gd,
         mem::Image::View::Config()
             .setViewType(VK_IMAGE_VIEW_TYPE_2D)
             .setFormat(image_.format())
-            .setSubresourceRange({VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1})
+            .setSubresourceRange({VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1})
             .build(image_));
     // transition image to GENERAL
     VENUS_RETURN_BAD_RESULT(
@@ -311,9 +314,12 @@ VeResult RayTracer::prepare(const engine::GraphicsDevice &gd,
 
   mem::AllocatedBuffer instances_buffer;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      instances_buffer, mem::AllocatedBuffer::Config::forAccelerationStructure(
-                            sizeof(VkAccelerationStructureInstanceKHR))
-                            .build(*gd));
+      instances_buffer,
+      mem::AllocatedBuffer::Config::forAccelerationStructure(
+          sizeof(VkAccelerationStructureInstanceKHR))
+          .addUsage(
+              VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
+          .build(*gd));
   VENUS_RETURN_BAD_RESULT(
       instances_buffer.copy(&acceleration_structure_instance,
                             sizeof(VkAccelerationStructureInstanceKHR)));
@@ -348,6 +354,94 @@ VeResult RayTracer::prepare(const engine::GraphicsDevice &gd,
   VENUS_RETURN_BAD_RESULT(createPipeline(**gd));
   VENUS_RETURN_BAD_RESULT(createShaderBindingTable(*gd));
   VENUS_RETURN_BAD_RESULT(createDescriptorSets(**gd));
+
+  // update ubo
+  scene::Camera camera =
+      scene::Camera::perspective(60.f).setPosition({0.f, 0.f, -2.5f});
+  camera.projection()->setNear(0.1f).setFar(512.f);
+  RayTracer::UniformBuffer ubo_data;
+  ubo_data.proj_inverse = hermes::math::transpose(
+      hermes::math::inverse(camera.projectionTransform().matrix()));
+  ubo_data.view_inverse = hermes::math::transpose(
+      hermes::math::inverse(camera.viewTransform().matrix()));
+  {
+    VENUS_DECLARE_OR_RETURN_BAD_RESULT(mem::DeviceMemory::ScopedMap, m,
+                                       ubo_.scopedMap());
+    memcpy(m.get<void *>(), &ubo_data, sizeof(RayTracer::UniformBuffer));
+  }
+  return VeResult::noError();
+}
+
+VeResult RayTracer::record(const CommandBuffer &cb,
+                           VkImage vk_color_image) const {
+  /*
+      Setup the strided device address regions pointing at the shader
+     identifiers in the shader binding table
+  */
+
+  const uint32_t handle_size_aligned = hermes::mem::alignment::alignedSize(
+      ray_tracing_pipeline_properties_.shaderGroupHandleSize,
+      ray_tracing_pipeline_properties_.shaderGroupHandleAlignment);
+
+  VkStridedDeviceAddressRegionKHR raygen_shader_sbt_entry{};
+  raygen_shader_sbt_entry.deviceAddress = raygen_sbt_.deviceAddress();
+  raygen_shader_sbt_entry.stride = handle_size_aligned;
+  raygen_shader_sbt_entry.size = handle_size_aligned;
+
+  VkStridedDeviceAddressRegionKHR miss_shader_sbt_entry{};
+  miss_shader_sbt_entry.deviceAddress = miss_sbt_.deviceAddress();
+  miss_shader_sbt_entry.stride = handle_size_aligned;
+  miss_shader_sbt_entry.size = handle_size_aligned;
+
+  VkStridedDeviceAddressRegionKHR hit_shader_sbt_entry{};
+  hit_shader_sbt_entry.deviceAddress = hit_sbt_.deviceAddress();
+  hit_shader_sbt_entry.stride = handle_size_aligned;
+  hit_shader_sbt_entry.size = handle_size_aligned;
+
+  VkStridedDeviceAddressRegionKHR callable_shader_sbt_entry{};
+
+  cb.bindPipeline(*pipeline_, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR);
+  cb.bind(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, *pipeline_layout_, 0,
+          {*descriptor_set_}, {});
+
+  cb.traceRays(&raygen_shader_sbt_entry, &miss_shader_sbt_entry,
+               &hit_shader_sbt_entry, &callable_shader_sbt_entry,
+               image_.resolution().width, image_.resolution().height, 1);
+
+  VkImageSubresourceRange subresource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1,
+                                               0, 1};
+
+  // Prepare current swap chain image as transfer destination
+  cb.transitionImageLayout(
+      vk_color_image, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      VK_PIPELINE_STAGE_TRANSFER_BIT, {}, VK_ACCESS_TRANSFER_WRITE_BIT,
+      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+      subresource_range);
+
+  // Prepare ray tracing output image as transfer source
+  cb.transitionImageLayout(*image_, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT, {},
+                           VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           subresource_range);
+
+  VkImageCopy copy_region{};
+  copy_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+  copy_region.srcOffset = {0, 0, 0};
+  copy_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+  copy_region.dstOffset = {0, 0, 0};
+  copy_region.extent = image_.resolution();
+
+  cb.copy(*image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, vk_color_image,
+          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, {copy_region});
+
+  cb.transitionImage(vk_color_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                     VK_IMAGE_LAYOUT_GENERAL);
+  cb.transitionImage(vk_color_image, VK_IMAGE_LAYOUT_GENERAL,
+                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+  cb.transitionImage(*image_, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                     VK_IMAGE_LAYOUT_GENERAL);
 
   return VeResult::noError();
 }

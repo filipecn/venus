@@ -69,7 +69,7 @@ static inline std::uint32_t swapEndianness(std::uint32_t word) {
 Result<std::vector<std::uint32_t>> readFile(const std::string &filename) {
   std::ifstream file(filename, std::ios::ate | std::ios::binary);
   if (!file.is_open()) {
-    HERMES_ERROR("failed to open file");
+    HERMES_ERROR("failed to open file {}", filename);
     return VeResult::ioError();
   }
   auto fileSize = file.tellg();

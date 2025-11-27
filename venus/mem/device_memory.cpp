@@ -51,10 +51,8 @@ HERMES_TO_STRING_DEBUG_METHOD_END
   //
 namespace venus::mem {
 
-template <>
 Result<DeviceMemory>
-DeviceMemory::Setup<DeviceMemory::Config, DeviceMemory>::build(
-    const core::Device &device) const {
+DeviceMemory::Config::build(const core::Device &device) const {
   if (!requirements_.size)
     return VeResult::badAllocation();
 

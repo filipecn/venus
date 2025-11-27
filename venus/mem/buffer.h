@@ -50,7 +50,7 @@ public:
   /// \tparam Type type of the object build by this setup.
   /// \note The builder considers device local buffers by default and that data
   ///       will be transferred through staging buffers.
-  template <typename Derived, typename Type> struct Setup {
+  template <typename Derived> struct Setup {
     friend class Buffer;
     /// \brief Config for staging buffers
     /// \note This sets usage flag as eTransferSrc
@@ -109,10 +109,6 @@ public:
     Derived &addCreateFlags(VkBufferCreateFlags flags);
     ///
     HERMES_NODISCARD VkBufferCreateInfo createInfo() const;
-    /// \brief Creates a buffer object from this configuration.
-    /// \param device
-    /// \return Buffer object or error.
-    HERMES_NODISCARD Result<Type> build(const core::Device &device) const;
 
   protected:
     VkDeviceSize size_{};                                   //< size in bytes
@@ -120,7 +116,12 @@ public:
     VkSharingMode sharing_mode_{VK_SHARING_MODE_EXCLUSIVE}; //< sharing mode
     VkBufferCreateFlags flags_{};
   };
-  struct Config : public Setup<Config, Buffer> {
+  struct Config : public Setup<Config> {
+    /// \brief Creates a buffer object from this configuration.
+    /// \param device
+    /// \return Buffer object or error.
+    HERMES_NODISCARD Result<Buffer> build(const core::Device &device) const;
+
     VENUS_to_string_FRIEND(Buffer::Config);
   };
   /// Buffer views allow us to define how buffer's memory is accessed and
@@ -195,39 +196,35 @@ private:
   VENUS_to_string_FRIEND(Buffer);
 };
 
-template <typename Derived, typename Type>
-Buffer::Setup<Derived, Type>::Setup() noexcept {}
+template <typename Derived> Buffer::Setup<Derived>::Setup() noexcept {}
 
-template <typename Derived, typename Type>
-Derived
-Buffer::Setup<Derived, Type>::forStaging(const VkDeviceSize &size_in_bytes) {
-  return Buffer::Setup<Derived, Type>()
+template <typename Derived>
+Derived Buffer::Setup<Derived>::forStaging(const VkDeviceSize &size_in_bytes) {
+  return Buffer::Setup<Derived>()
       .addUsage(VK_BUFFER_USAGE_TRANSFER_SRC_BIT)
       .setSize(size_in_bytes);
 }
 
-template <typename Derived, typename Type>
-Derived
-Buffer::Setup<Derived, Type>::forUniform(const VkDeviceSize &size_in_bytes) {
-  return Buffer::Setup<Derived, Type>()
+template <typename Derived>
+Derived Buffer::Setup<Derived>::forUniform(const VkDeviceSize &size_in_bytes) {
+  return Buffer::Setup<Derived>()
       .addUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
       .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
       .setSize(size_in_bytes);
 }
 
-template <typename Derived, typename Type>
-Derived
-Buffer::Setup<Derived, Type>::forStorage(const VkDeviceSize &size_in_bytes) {
-  return Buffer::Setup<Derived, Type>()
+template <typename Derived>
+Derived Buffer::Setup<Derived>::forStorage(const VkDeviceSize &size_in_bytes) {
+  return Buffer::Setup<Derived>()
       .addUsage(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
       .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
       .setSize(size_in_bytes);
 }
 
-template <typename Derived, typename Type>
-Derived Buffer::Setup<Derived, Type>::forIndices(u32 index_count,
-                                                 VkIndexType index_type) {
-  return Buffer::Setup<Derived, Type>()
+template <typename Derived>
+Derived Buffer::Setup<Derived>::forIndices(u32 index_count,
+                                           VkIndexType index_type) {
+  return Buffer::Setup<Derived>()
       .addUsage(VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
       .addUsage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
       .setSize(index_count * core::vk::indexSize(index_type));
@@ -244,14 +241,14 @@ VENUS_DEFINE_SETUP_SET_FIELD_METHOD(Buffer, setSharingMode, VkSharingMode,
 VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(Buffer, addCreateFlags, VkBufferCreateFlags,
                                     flags_)
 
-template <typename Derived, typename Type>
-Derived &Buffer::Setup<Derived, Type>::enableShaderDeviceAddress() {
+template <typename Derived>
+Derived &Buffer::Setup<Derived>::enableShaderDeviceAddress() {
   usage_ |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
   return static_cast<Derived &>(*this);
 }
 
-template <typename Derived, typename Type>
-VkBufferCreateInfo Buffer::Setup<Derived, Type>::createInfo() const {
+template <typename Derived>
+VkBufferCreateInfo Buffer::Setup<Derived>::createInfo() const {
   VkBufferCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   info.pNext = nullptr;
@@ -268,8 +265,8 @@ VkBufferCreateInfo Buffer::Setup<Derived, Type>::createInfo() const {
 /// The AllocatedBuffer owns the device memory used by the buffer.
 class AllocatedBuffer : public Buffer, public DeviceMemory {
 public:
-  struct Config : public Buffer::Setup<Config, AllocatedBuffer>,
-                  public DeviceMemory::Setup<Config, AllocatedBuffer> {
+  struct Config : public Buffer::Setup<Config>,
+                  public DeviceMemory::Setup<Config> {
     static Config forStaging(u32 size_in_bytes);
     static Config forUniform(u32 size_in_bytes);
     static Config forStorage(u32 size_in_bytes, VkBufferUsageFlags usage);

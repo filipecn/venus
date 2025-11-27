@@ -63,7 +63,7 @@
 
 namespace venus {
 
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::RenderObject)
+HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::RasterContext::RenderObject)
 HERMES_PUSH_DEBUG_TITLE
 HERMES_PUSH_DEBUG_HERMES_FIELD(bounds)
 HERMES_PUSH_DEBUG_HERMES_FIELD(transform)
@@ -201,25 +201,55 @@ void ModelNode::draw(const hermes::geo::Transform &top_matrix,
   if (!visible_)
     return;
   auto model_matrix = top_matrix * world_matrix_;
-  for (const auto &shape : model_->shapes()) {
-    RenderObject render_object;
-    // scene
-    render_object.bounds = shape.bounds;
-    render_object.transform = model_matrix;
-    // mesh
-    render_object.first_index = shape.index_base;
-    render_object.count =
-        shape.index_count ? shape.index_count : shape.vertex_count;
-    if (model_->vertexBuffer()) {
-      render_object.vertex_buffer = model_->vertexBuffer();
-      render_object.vertex_buffer_address = model_->deviceAddress();
-    }
-    if (model_->indexBuffer())
-      render_object.index_buffer = model_->indexBuffer();
-    //  shading
-    render_object.material_instance = shape.material;
-    context.objects.push_back(render_object);
-  }
+
+  std::visit(
+      DrawContextOverloaded{
+          [&](RasterContext &ctx) {
+            for (const auto &shape : model_->shapes()) {
+              RasterContext::RenderObject render_object;
+              // scene
+              render_object.bounds = shape.bounds;
+              render_object.transform = model_matrix;
+              // mesh
+              render_object.first_index = shape.index_base;
+              render_object.count =
+                  shape.index_count ? shape.index_count : shape.vertex_count;
+              if (model_->vertexBuffer()) {
+                render_object.vertex_buffer = model_->vertexBuffer();
+                render_object.vertex_buffer_address =
+                    model_->vertexBufferAddress();
+              }
+              if (model_->indexBuffer())
+                render_object.index_buffer = model_->indexBuffer();
+              //  shading
+              render_object.material_instance = shape.material;
+              ctx.objects.push_back(render_object);
+            }
+          },
+          [&](TracerContext &ctx) {
+            for (const auto &shape : model_->shapes()) {
+              TracerContext::RenderObject render_object;
+              // scene
+              render_object.transform = model_matrix;
+              render_object.transform_buffer_address =
+                  model_->transformBufferAddress();
+              // mesh
+              render_object.vertex_layout = model_->vertexLayout();
+              render_object.primitive_count =
+                  (shape.index_count ? shape.index_count : shape.vertex_count) /
+                  3;
+              render_object.vertex_buffer_address =
+                  model_->vertexBufferAddress();
+              render_object.index_buffer_address = model_->indexBufferAddress();
+              render_object.max_vertex = shape.vertex_count;
+              // transform
+              //  shading
+              ctx.objects.push_back(render_object);
+            }
+          },
+      },
+      context);
+
   Node::draw(model_matrix, context);
 }
 
@@ -609,7 +639,7 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
         model,
         model_config
             .setVertices(*storage.vertices, storage.vertices.deviceAddress())
-            .setIndices(*storage.indices)
+            .setIndices(*storage.indices, storage.indices.deviceAddress())
             .build());
 
     auto mesh_key = mesh.name.c_str();
@@ -1008,30 +1038,40 @@ Result<VDB_Node::Ptr> VDB_Node::from(const std::filesystem::path &vdb_file_path,
 VDB_Node::~VDB_Node() noexcept { destroy(); }
 
 void VDB_Node::draw(const hermes::geo::Transform &top_matrix,
-                    DrawContext &ctx) {
+                    DrawContext &draw_ctx) {
   if (!visible_)
     return;
   auto model_matrix = top_matrix * world_matrix_;
-  for (const auto &shape : bounds_model_.shapes()) {
-    RenderObject render_object;
-    // scene
-    render_object.bounds = shape.bounds;
-    render_object.transform = model_matrix;
-    // mesh
-    render_object.first_index = shape.index_base;
-    render_object.count =
-        shape.index_count ? shape.index_count : shape.vertex_count;
-    if (bounds_model_.vertexBuffer()) {
-      render_object.vertex_buffer = bounds_model_.vertexBuffer();
-      render_object.vertex_buffer_address = bounds_model_.deviceAddress();
-    }
-    if (bounds_model_.indexBuffer())
-      render_object.index_buffer = bounds_model_.indexBuffer();
-    //  shading
-    render_object.material_instance = shape.material;
-    ctx.objects.push_back(render_object);
-  }
-  Node::draw(model_matrix, ctx);
+
+  std::visit(DrawContextOverloaded{
+                 [&](RasterContext &ctx) {
+                   for (const auto &shape : bounds_model_.shapes()) {
+                     RasterContext::RenderObject render_object;
+                     // scene
+                     render_object.bounds = shape.bounds;
+                     render_object.transform = model_matrix;
+                     // mesh
+                     render_object.first_index = shape.index_base;
+                     render_object.count = shape.index_count
+                                               ? shape.index_count
+                                               : shape.vertex_count;
+                     if (bounds_model_.vertexBuffer()) {
+                       render_object.vertex_buffer =
+                           bounds_model_.vertexBuffer();
+                       render_object.vertex_buffer_address =
+                           bounds_model_.vertexBufferAddress();
+                     }
+                     if (bounds_model_.indexBuffer()) {
+                       render_object.index_buffer = bounds_model_.indexBuffer();
+                     }
+                     //  shading
+                     render_object.material_instance = shape.material;
+                     ctx.objects.push_back(render_object);
+                   }
+                 },
+                 [&](TracerContext &ctx) { HERMES_UNUSED_VARIABLE(ctx); }},
+             draw_ctx);
+  Node::draw(model_matrix, draw_ctx);
 }
 
 void VDB_Node::destroy() noexcept {

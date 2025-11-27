@@ -40,8 +40,7 @@ class Image {
 public:
   /// Builder for image.
   /// \tparam Derived return type of configuration methods.
-  /// \tparam Type type of the object build by this setup.
-  template <typename Derived, typename Type> struct Setup {
+  template <typename Derived> struct Setup {
     friend class Image;
     /// \brief Creates defaults config for images.
     /// Default values are:
@@ -98,15 +97,6 @@ public:
     Derived &addFormatFeatures(VkFormatFeatureFlagBits features);
     //
     VkImageCreateInfo createInfo() const;
-    /// Create image from this configuration.
-    /// \param device
-    /// \return image or error.
-    HERMES_NODISCARD Result<Type> build(const core::Device &device) const;
-    /// \brief Creates an image from an already existent image.
-    /// \note The newly created image gains ownership over the given vk_image
-    ///       and will destroy it with destroy() is called.
-    HERMES_NODISCARD Result<Type> build(VkDevice vk_device,
-                                        VkImage vk_image) const;
     /// Create an initialized image from this configuration.
     /// \note This copies data into image's buffer memory.
     /// \param gd Graphics device with access to a command buffer.
@@ -123,7 +113,16 @@ public:
     VkImageCreateInfo info_;
     std::vector<u32> queue_family_indices_;
   };
-  struct Config : public Setup<Config, Image> {
+  struct Config : public Setup<Config> {
+    /// Create image from this configuration.
+    /// \param device
+    /// \return image or error.
+    HERMES_NODISCARD Result<Image> build(const core::Device &device) const;
+    /// \brief Creates an image from an already existent image.
+    /// \note The newly created image gains ownership over the given vk_image
+    ///       and will destroy it with destroy() is called.
+    HERMES_NODISCARD Result<Image> build(VkDevice vk_device,
+                                         VkImage vk_image) const;
     VENUS_to_string_FRIEND(Image::Config);
   };
   /// Image views allow us to define how image's memory is accessed and
@@ -195,7 +194,7 @@ protected:
   VkImage vk_image_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
   VkFormat vk_format_;
-  VkExtent3D extents_;
+  VkExtent3D vk_extents_;
 
 private:
   bool ownership_{true};
@@ -206,10 +205,10 @@ private:
   VENUS_to_string_FRIEND(Image);
 };
 
-template <typename Derived, typename Type>
-Derived Image::Setup<Derived, Type>::defaults(const VkExtent3D &extent,
-                                              VkFormat format) {
-  return Image::Setup<Derived, Type>()
+template <typename Derived>
+Derived Image::Setup<Derived>::defaults(const VkExtent3D &extent,
+                                        VkFormat format) {
+  return Image::Setup<Derived>()
       .addCreateFlags({})
       .setImageType(VK_IMAGE_TYPE_2D)
       .setFormat(format)
@@ -224,16 +223,16 @@ Derived Image::Setup<Derived, Type>::defaults(const VkExtent3D &extent,
       .addAspectMask(VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-template <typename Derived, typename Type>
-Derived Image::Setup<Derived, Type>::defaults(const VkExtent2D &extent,
-                                              VkFormat format) {
+template <typename Derived>
+Derived Image::Setup<Derived>::defaults(const VkExtent2D &extent,
+                                        VkFormat format) {
   return Image::Config::defaults(VkExtent3D(extent.width, extent.height, 1),
                                  format);
 }
 
-template <typename Derived, typename Type>
-Derived Image::Setup<Derived, Type>::forDepthBuffer(const VkExtent2D &extent,
-                                                    VkFormat format) {
+template <typename Derived>
+Derived Image::Setup<Derived>::forDepthBuffer(const VkExtent2D &extent,
+                                              VkFormat format) {
   return Image::Config()
       .addCreateFlags({})
       .setImageType(VK_IMAGE_TYPE_2D)
@@ -250,8 +249,8 @@ Derived Image::Setup<Derived, Type>::forDepthBuffer(const VkExtent2D &extent,
       .addAspectMask(VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-template <typename Derived, typename Type>
-VkImageCreateInfo Image::Setup<Derived, Type>::createInfo() const {
+template <typename Derived>
+VkImageCreateInfo Image::Setup<Derived>::createInfo() const {
   auto info = info_;
   info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   info.pQueueFamilyIndices = queue_family_indices_.data();
@@ -290,8 +289,8 @@ VENUS_DEFINE_SETUP_ADD_FLAGS_METHOD(Image, addFormatFeatures,
 /// The AllocatedImage owns the device memory used by the buffer.
 class AllocatedImage : public Image, public DeviceMemory {
 public:
-  struct Config : public Image::Setup<Config, AllocatedImage>,
-                  public DeviceMemory::Setup<Config, AllocatedImage> {
+  struct Config : public Image::Setup<Config>,
+                  public DeviceMemory::Setup<Config> {
     static Config forColorAttachment(VkExtent2D extent);
     static Config forDepthBuffer(VkExtent2D extent);
     static Config forTexture(VkExtent2D extent);

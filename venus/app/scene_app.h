@@ -29,7 +29,8 @@
 
 #include <venus/app/display_app.h>
 #include <venus/app/scene.h>
-#include <venus/engine/renderers.h>
+#include <venus/pipeline/rasterizer.h>
+#include <venus/pipeline/ray_tracer.h>
 #include <venus/ui/camera.h>
 
 namespace venus::app {
@@ -45,28 +46,27 @@ public:
     /// \param startup_callback Function called during frame preparation.
     Derived &setUpdateSceneFn(
         const std::function<VeResult(Scene &)> &update_scene_callback);
-    ///
-    Result<Type> build() const;
 
   protected:
     std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
-    engine::SceneRenderer::Ptr renderer_;
   };
 
   struct Config : public Setup<Config, SceneApp> {};
 
   VENUS_DECLARE_RAII_FUNCTIONS(SceneApp)
-  void destroy() noexcept;
+  virtual void destroy() noexcept;
   void swap(SceneApp &rhs);
 
-  /// Start the application
   Scene &scene();
   void selectCamera(const std::string &label);
 
   i32 run() override;
 
 protected:
-  VeResult init();
+  VeResult setupCallbacks();
+  virtual VeResult init() = 0;
+  virtual VeResult render(const engine::FrameLoop::Iteration::Frame &frame) = 0;
+  virtual VeResult shutdown() = 0;
 
   Scene scene_;
   std::string selected_camera_;
@@ -75,23 +75,58 @@ protected:
   // scene app callbacks
   std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
   // display app callbacks
-  std::function<VeResult(SceneApp &)> sa_startup_callback_{nullptr};
   std::function<VeResult()> sa_shutdown_callback_{nullptr};
   std::function<VeResult(const engine::FrameLoop::Iteration::Frame &)>
       sa_render_callback_{nullptr};
+};
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(SceneApp, setUpdateSceneFn,
+                                      const std::function<VeResult(Scene &)> &,
+                                      update_scene_callback_)
+
+class RA_SceneApp : public SceneApp {
+public:
+  struct Config : public SceneApp::Setup<Config, RA_SceneApp> {
+    Result<RA_SceneApp> build() const;
+  };
+
+  VENUS_DECLARE_RAII_FUNCTIONS(RA_SceneApp)
+  void destroy() noexcept override;
+  void swap(RA_SceneApp &rhs);
+
+protected:
+  VeResult init() override;
+  VeResult render(const engine::FrameLoop::Iteration::Frame &frame) override;
+  VeResult shutdown() override;
 
 private:
+  std::function<VeResult(RA_SceneApp &)> sa_startup_callback_{nullptr};
+
   /// Global descriptor allocator
   pipeline::DescriptorAllocator descriptor_allocator_;
   /// The global descriptor set is bound at the beginning of the array of
   /// descriptor sets accessed by all render objects.
   pipeline::DescriptorSet global_descriptor_set_;
-
-  engine::SceneRenderer::Ptr renderer_;
 };
 
-VENUS_DEFINE_SETUP_SET_FIELD_METHOD(SceneApp, setUpdateSceneFn,
-                                    const std::function<VeResult(Scene &)> &,
-                                    update_scene_callback_)
+class RT_SceneApp : public SceneApp {
+public:
+  struct Config : public SceneApp::Setup<Config, RT_SceneApp> {
+    Result<RT_SceneApp> build() const;
+  };
+
+  VENUS_DECLARE_RAII_FUNCTIONS(RT_SceneApp)
+  void destroy() noexcept override;
+  void swap(RT_SceneApp &rhs);
+
+protected:
+  VeResult init() override;
+  VeResult render(const engine::FrameLoop::Iteration::Frame &frame) override;
+  VeResult shutdown() override;
+
+private:
+  std::function<VeResult(RT_SceneApp &)> sa_startup_callback_{nullptr};
+  pipeline::RayTracer ray_tracer_;
+};
 
 } // namespace venus::app

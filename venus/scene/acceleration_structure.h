@@ -63,8 +63,9 @@ public:
   /// structure
   /// Default values are:
   /// vertex_format = VK_FORMAT_R32G32B32_SFLOAT
-  /// index_type    = VK_INDEX_TYPE_UINT32
+  /// index_type    = VK_INDEX_TYPE_NONE
   /// \note Wrapper for VkAccelerationStructureGeometryTrianglesDataKHR
+  /// \note If index buffer if given, then index_type must be defined.
   struct TrianglesData {
     TrianglesData() noexcept;
     TrianglesData &setVertexFormat(VkFormat vertex_format);

@@ -69,7 +69,7 @@ AccelerationStructure::TrianglesData::TrianglesData() noexcept {
       VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
   info_.pNext = nullptr;
   info_.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-  info_.indexType = VK_INDEX_TYPE_UINT32;
+  info_.indexType = VK_INDEX_TYPE_NONE_KHR;
 }
 
 VENUS_DEFINE_SET_INFO_FIELD_METHOD(AccelerationStructure::TrianglesData,
@@ -202,6 +202,7 @@ AccelerationStructure::build(const engine::GraphicsDevice &gd, VkQueue vk_queue,
   HERMES_UNUSED_VARIABLE(vk_queue);
 
   const auto &device = *gd;
+  vk_device_ = *device;
 
   std::vector<VkAccelerationStructureGeometryKHR>
       acceleration_structure_geometries;

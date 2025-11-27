@@ -37,7 +37,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, setSurface, VkSurfaceKHR,
                                      surface_ = value)
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, setFeatures,
                                      const core::vk::DeviceFeatures &,
-                                     features_ = value)
+                                     device_features_ = value)
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsDevice, addExtension,
                                      const std::string_view &,
                                      extensions_.emplace_back(value))
@@ -46,7 +46,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(
     extensions_.insert(extensions_.end(), value.begin(), value.end()))
 
 bool GraphicsDevice::Config::useDynamicRendering() const {
-  return features_.v13_f.dynamicRendering;
+  return device_features_.v13_f.dynamicRendering;
 }
 
 Result<GraphicsDevice>
@@ -77,7 +77,7 @@ GraphicsDevice::Config::build(const core::Instance &instance) const {
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gd.device_,
       core::Device::Config()
-          .setFeatures(features_)
+          .setFeatures(device_features_)
           .addAllocationFlags(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT)
           .addQueueFamily(indices.graphics_queue_family_index, {1.f})
           .addQueueFamily(indices.present_queue_family_index, {1.f})

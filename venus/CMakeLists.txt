@@ -12,7 +12,6 @@ set(VENUS_HEADERS
   engine/frame_loop.h
   engine/graphics_device.h
   engine/graphics_engine.h
-  engine/renderers.h
   engine/shapes.h
 
   io/display.h
@@ -63,7 +62,6 @@ set(VENUS_SOURCES
   engine/frame_loop.cpp
   engine/graphics_device.cpp
   engine/graphics_engine.cpp
-  engine/renderers.cpp
   engine/shapes.cpp
 
   io/glfw_display.cpp

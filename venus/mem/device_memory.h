@@ -37,8 +37,7 @@ class DeviceMemory {
 public:
   /// Builder for DeviceMemory.
   /// \tparam Derived return type of configuration methods.
-  /// \tparam Type type of the object build by this setup.
-  template <typename Derived, typename Type> struct Setup {
+  template <typename Derived> struct Setup {
     /// This sets:
     ///  - device local
     ///  - gpu usage only
@@ -66,17 +65,19 @@ public:
     /// Set memory host visible.
     /// \note This sets memory properties eDeviceLocal.
     Derived &setDeviceLocal();
-    /// Creates a new DeviceMemory from this configuration.
-    /// \param device Device holding the new allocated memory.
-    /// \return a new DeviceMemory, or error.
-    HERMES_NODISCARD Result<Type> build(const core::Device &device) const;
 
   protected:
     VkMemoryRequirements requirements_{};
     VmaAllocationCreateInfo vma_allocation_create_info_{};
   };
 
-  struct Config : public Setup<Config, DeviceMemory> {
+  struct Config : public Setup<Config> {
+    /// Creates a new DeviceMemory from this configuration.
+    /// \param device Device holding the new allocated memory.
+    /// \return a new DeviceMemory, or error.
+    HERMES_NODISCARD Result<DeviceMemory>
+    build(const core::Device &device) const;
+
     VENUS_to_string_FRIEND(DeviceMemory::Config);
   };
 
@@ -182,22 +183,21 @@ private:
   VENUS_to_string_FRIEND(DeviceMemory);
 };
 
-template <typename Derived, typename Type>
-Derived DeviceMemory::Setup<Derived, Type>::forTexture() {
-  return DeviceMemory::Setup<Derived, Type>().setDeviceLocal().setMemoryUsage(
+template <typename Derived> Derived DeviceMemory::Setup<Derived>::forTexture() {
+  return DeviceMemory::Setup<Derived>().setDeviceLocal().setMemoryUsage(
       VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
-template <typename Derived, typename Type>
-Derived &DeviceMemory::Setup<Derived, Type>::setHostVisible() {
+template <typename Derived>
+Derived &DeviceMemory::Setup<Derived>::setHostVisible() {
   vma_allocation_create_info_.requiredFlags |=
       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
   return static_cast<Derived &>(*this);
 }
 
-template <typename Derived, typename Type>
-Derived &DeviceMemory::Setup<Derived, Type>::setDeviceLocal() {
+template <typename Derived>
+Derived &DeviceMemory::Setup<Derived>::setDeviceLocal() {
   vma_allocation_create_info_.requiredFlags |=
       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
   return static_cast<Derived &>(*this);

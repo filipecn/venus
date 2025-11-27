@@ -26,6 +26,7 @@
 
 #include <venus/app/scene_app.h>
 #include <venus/engine/graphics_engine.h>
+#include <venus/engine/shapes.h>
 #include <venus/io/glfw_display.h>
 
 VeResult init(venus::app::SceneApp &app) {
@@ -46,7 +47,19 @@ VeResult init(venus::app::SceneApp &app) {
           std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box_textured.glb",
           venus::engine::GraphicsEngine::device()));
 
-  app.scene().graph().add("box", gltf);
+  // app.scene().graph().add("box", gltf);
+
+  VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
+      venus::scene::AllocatedModel, triangle_model_ptr,
+      venus::scene::AllocatedModel::Config::fromShape(
+          venus::scene::shapes::triangle, //
+          hermes::geo::point3(1.f, 1.f, 0.f),
+          hermes::geo::point3(-1.f, 1.f, 0.f),
+          hermes::geo::point3(0.f, -1.f, 0.0f),
+          venus::scene::shape_option_bits::none)
+          .build(venus::engine::GraphicsEngine::device()));
+
+  app.scene().graph().addModel("triangle", triangle_model_ptr);
 
   auto camera = venus::scene::Camera::Ptr::shared();
   *camera = venus::scene::Camera::perspective(90).setPosition({2.f, 0.f, 0.f});
@@ -60,9 +73,9 @@ VeResult init(venus::app::SceneApp &app) {
 int main() {
   VENUS_CHECK_VE_RESULT(venus::core::vk::init());
 
-  venus::app::SceneApp app;
+  venus::app::RT_SceneApp app;
   VENUS_ASSIGN_OR(app,
-                  venus::app::SceneApp::Config()
+                  venus::app::RT_SceneApp::Config()
                       .setDisplay<venus::io::GLFW_Window>(
                           "Hello Vulkan Display App", {1024, 1024})
                       .setStartupFn(init)

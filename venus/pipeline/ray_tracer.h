@@ -39,13 +39,13 @@ class RayTracer {
 public:
   struct TracerObject {
     // mesh
-    u32 primitive_count;
-    u32 transform_offset;
-    u32 max_vertex;
+    u32 primitive_count{0};
+    u32 transform_offset{0};
+    u32 max_vertex{0};
     // data
-    VkDeviceAddress vertex_data;
-    VkDeviceAddress index_data;
-    VkDeviceAddress transform_data;
+    VkDeviceAddress vertex_data{0};
+    VkDeviceAddress index_data{0};
+    VkDeviceAddress transform_data{0};
     mem::VertexLayout vertex_layout;
   };
   struct UniformBuffer {
@@ -69,10 +69,8 @@ public:
   /// is draw into the given image.
   /// \param cb Command buffer being recorded.
   /// \param vk_color_image
-  /// \param vk_color_image_view
   HERMES_NODISCARD VeResult record(const CommandBuffer &cb,
-                                   VkImage vk_color_image,
-                                   VkImageView vk_color_image_view) const;
+                                   VkImage vk_color_image) const;
 
 private:
   VeResult createPipeline(VkDevice vk_device);
@@ -88,6 +86,8 @@ private:
   RayTracingPipeline pipeline_;
   Pipeline::Layout pipeline_layout_;
 
+  VkPhysicalDeviceRayTracingPipelinePropertiesKHR
+      ray_tracing_pipeline_properties_;
   mem::AllocatedBuffer raygen_sbt_;
   mem::AllocatedBuffer miss_sbt_;
   mem::AllocatedBuffer hit_sbt_;

@@ -49,7 +49,7 @@ public:
 
   struct Mesh {
     enum class PrimitiveType { TRIANGLES, POINTS, LINES };
-    mem::VertexLayout layout;
+    mem::VertexLayout vertex_layout;
     hermes::mem::AoS aos;
     std::vector<u32> indices;
     PrimitiveType primitive_type{PrimitiveType::TRIANGLES};
@@ -60,6 +60,7 @@ public:
   template <typename BufferType> struct Storage {
     BufferType vertices;
     BufferType indices;
+    BufferType transform;
   };
 
   /// Model surface/piece that may be treated as a separate mesh.
@@ -71,32 +72,40 @@ public:
     scene::Material::Instance::Ptr material; //< material for this shape.
     u32 index_base{0};   //< where this shape starts in the index buffer.
     u32 index_count{0};  //< index count of this shape in the index buffer.
-    u32 vertex_count{0}; //< if this contains an index buffer or not
+    u32 vertex_count{0}; //< vertex count of this shape in the vertex buffer
 
     VENUS_to_string_FRIEND(Shape);
   };
 
   /// Builder for model.
-  struct Config {
+  ///
+  template <typename Derived> struct Setup {
     /// Define the memory section of a shape.
     /// \param shape
-    Config &addShape(const Shape &shape);
+    Derived &addShape(const Shape &shape);
     /// Append a vertex component type.
     /// \note Vertex components follow the same order they are pushed.
     /// \param format
-    Config &pushVertexComponent(mem::VertexLayout::ComponentType component,
-                                VkFormat format);
-    Config &setVertices(VkBuffer vk_vertex_buffer, VkDeviceAddress vk_address);
-    Config &setIndices(VkBuffer vk_index_buffer);
+    Derived &pushVertexComponent(mem::VertexLayout::ComponentType component,
+                                 VkFormat format);
+    Derived &setVertices(VkBuffer vk_vertex_buffer, VkDeviceAddress vk_address);
+    Derived &setIndices(VkBuffer vk_index_buffer, VkDeviceAddress vk_address);
+    Derived &setTransform(VkBuffer vk_transform_buffer,
+                          VkDeviceAddress vk_address);
 
-    Result<Model> build() const;
-
-  private:
+  protected:
     VkBuffer vk_vertex_buffer_{VK_NULL_HANDLE};
     VkBuffer vk_index_buffer_{VK_NULL_HANDLE};
-    VkDeviceAddress vk_address_{0};
+    VkBuffer vk_transform_buffer_{VK_NULL_HANDLE};
+    VkDeviceAddress vk_vertex_buffer_address_{0};
+    VkDeviceAddress vk_index_buffer_address_{0};
+    VkDeviceAddress vk_transform_buffer_address_{0};
     std::vector<Shape> shapes_;
     mem::VertexLayout vertex_layout_;
+  };
+
+  struct Config : public Setup<Config> {
+    Result<Model> build() const;
   };
 
   /// \return Model shapes.
@@ -106,17 +115,57 @@ public:
                        const scene::Material::Instance::Ptr &material);
   VkBuffer vertexBuffer() const;
   VkBuffer indexBuffer() const;
-  VkDeviceAddress deviceAddress() const;
+  VkDeviceAddress vertexBufferAddress() const;
+  VkDeviceAddress indexBufferAddress() const;
+  VkDeviceAddress transformBufferAddress() const;
+  const mem::VertexLayout &vertexLayout() const;
 
 protected:
   std::vector<Shape> shapes_;
   VkBuffer vk_vertex_buffer_{VK_NULL_HANDLE};
   VkBuffer vk_index_buffer_{VK_NULL_HANDLE};
-  VkDeviceAddress vk_address_{0};
+  VkBuffer vk_transform_buffer_{VK_NULL_HANDLE};
+  VkDeviceAddress vk_vertex_buffer_address_{0};
+  VkDeviceAddress vk_index_buffer_address_{0};
+  VkDeviceAddress vk_transform_buffer_address_{0};
   mem::VertexLayout vertex_layout_;
 
   VENUS_to_string_FRIEND(Model);
 };
+
+VENUS_DEFINE_SETUP_METHOD(Model, addShape, const Model::Shape &,
+                          shapes_.emplace_back(value));
+
+template <typename Derived>
+Derived &Model::Setup<Derived>::setVertices(VkBuffer vk_vertex_buffer,
+                                            VkDeviceAddress vk_address) {
+  vk_vertex_buffer_ = vk_vertex_buffer;
+  vk_vertex_buffer_address_ = vk_address;
+  return static_cast<Derived &>(*this);
+}
+
+template <typename Derived>
+Derived &Model::Setup<Derived>::setIndices(VkBuffer vk_index_buffer,
+                                           VkDeviceAddress vk_address) {
+  vk_index_buffer_ = vk_index_buffer;
+  vk_index_buffer_address_ = vk_address;
+  return static_cast<Derived &>(*this);
+}
+
+template <typename Derived>
+Derived &Model::Setup<Derived>::setTransform(VkBuffer vk_transform_buffer,
+                                             VkDeviceAddress vk_address) {
+  vk_transform_buffer_ = vk_transform_buffer;
+  vk_transform_buffer_address_ = vk_address;
+  return static_cast<Derived &>(*this);
+}
+
+template <typename Derived>
+Derived &Model::Setup<Derived>::pushVertexComponent(
+    mem::VertexLayout::ComponentType component, VkFormat format) {
+  vertex_layout_.pushComponent(component, format);
+  return static_cast<Derived &>(*this);
+}
 
 class AllocatedModel : public Model {
 public:

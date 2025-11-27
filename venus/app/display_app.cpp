@@ -31,9 +31,7 @@
 
 namespace venus::app {
 
-template <>
-Result<DisplayApp>
-DisplayApp::Setup<DisplayApp::Config, DisplayApp>::build() const {
+Result<DisplayApp> DisplayApp::Config::build() const {
 
   DisplayApp app;
 

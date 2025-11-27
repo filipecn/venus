@@ -125,8 +125,14 @@ Device::Config::build(const PhysicalDevice &physical_device) const {
   features.f2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   features.v13_f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
   features.v12_f.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+  features.rt_pipeline_f.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+  features.acceleration_structures_f.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
 
-  features.v13_f.pNext = nullptr;
+  features.acceleration_structures_f.pNext = nullptr;
+  features.rt_pipeline_f.pNext = &features.acceleration_structures_f;
+  features.v13_f.pNext = &features.rt_pipeline_f;
   features.v12_f.pNext = &features.v13_f;
   features.f2.pNext = &features.v12_f;
 

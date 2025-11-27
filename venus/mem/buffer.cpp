@@ -83,9 +83,7 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 
 namespace venus::mem {
 
-template <>
-Result<Buffer>
-Buffer::Setup<Buffer::Config, Buffer>::build(const core::Device &device) const {
+Result<Buffer> Buffer::Config::build(const core::Device &device) const {
   auto info = createInfo();
 
   VkBuffer vk_buffer{VK_NULL_HANDLE};
@@ -279,7 +277,6 @@ AllocatedBuffer::Config::build(const core::Device &device) const {
 
   VkBuffer vk_buffer{VK_NULL_HANDLE};
   VmaAllocation vma_allocation{VK_NULL_HANDLE};
-  HERMES_WARN("{:x}", vma_allocation_create_info_.flags);
   VENUS_VK_RETURN_BAD_RESULT(
       vmaCreateBuffer(device.allocator(), &info, &vma_allocation_create_info_,
                       &vk_buffer, &vma_allocation, nullptr));

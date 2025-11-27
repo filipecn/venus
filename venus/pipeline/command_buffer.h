@@ -297,12 +297,27 @@ public:
                              u32 first_instance = 0) const;
   void drawIndexed(u32 index_count, u32 instance_count = 1, u32 first_index = 0,
                    i32 vertex_offset = 0, u32 first_instance = 0) const;
+  ///
+  void traceRays(
+      const VkStridedDeviceAddressRegionKHR *raygen_shader_binding_table,
+      const VkStridedDeviceAddressRegionKHR *miss_shader_binding_table,
+      const VkStridedDeviceAddressRegionKHR *hit_shader_binding_table,
+      const VkStridedDeviceAddressRegionKHR *callable_shader_binding_table,
+      u32 width, u32 height, u32 depth) const;
   /// \param barrier
   /// \param src_stages
   /// \param dst_stages
   void transitionImageLayout(VkImageMemoryBarrier barrier,
                              VkPipelineStageFlags src_stages,
                              VkPipelineStageFlags dst_stages) const;
+  ///
+  void
+  transitionImageLayout(VkImage image, VkPipelineStageFlags src_stage_mask,
+                        VkPipelineStageFlags dst_stage_mask,
+                        VkAccessFlags src_access_mask,
+                        VkAccessFlags dst_access_mask, VkImageLayout old_layout,
+                        VkImageLayout new_layout,
+                        VkImageSubresourceRange const &subresource_range) const;
   /// \param src_image
   /// \param src_image_layout
   /// \param dst_image

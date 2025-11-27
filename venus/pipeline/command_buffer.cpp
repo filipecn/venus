@@ -371,11 +371,45 @@ void CommandBuffer::drawIndexed(u32 index_count, u32 instance_count,
                    vertex_offset, first_instance);
 }
 
+void CommandBuffer::traceRays(
+    const VkStridedDeviceAddressRegionKHR *raygen_shader_binding_table,
+    const VkStridedDeviceAddressRegionKHR *miss_shader_binding_table,
+    const VkStridedDeviceAddressRegionKHR *hit_shader_binding_table,
+    const VkStridedDeviceAddressRegionKHR *callable_shader_binding_table,
+    u32 width, u32 height, u32 depth) const {
+  vkCmdTraceRaysKHR(vk_command_buffer_, raygen_shader_binding_table,
+                    miss_shader_binding_table, hit_shader_binding_table,
+                    callable_shader_binding_table, width, height, depth);
+}
+
 void CommandBuffer::transitionImageLayout(
     VkImageMemoryBarrier barrier, VkPipelineStageFlags src_stages,
     VkPipelineStageFlags dst_stages) const {
   vkCmdPipelineBarrier(vk_command_buffer_, src_stages, dst_stages, 0, 0,
                        nullptr, 0, nullptr, 1, &barrier);
+}
+
+void CommandBuffer::transitionImageLayout(
+    VkImage image, VkPipelineStageFlags src_stage_mask,
+    VkPipelineStageFlags dst_stage_mask, VkAccessFlags src_access_mask,
+    VkAccessFlags dst_access_mask, VkImageLayout old_layout,
+    VkImageLayout new_layout,
+    VkImageSubresourceRange const &subresource_range) const {
+  // Create an image barrier object
+  VkImageMemoryBarrier image_memory_barrier{};
+  image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  image_memory_barrier.srcAccessMask = src_access_mask;
+  image_memory_barrier.dstAccessMask = dst_access_mask;
+  image_memory_barrier.oldLayout = old_layout;
+  image_memory_barrier.newLayout = new_layout;
+  image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  image_memory_barrier.image = image;
+  image_memory_barrier.subresourceRange = subresource_range;
+
+  // Put barrier inside setup command buffer
+  vkCmdPipelineBarrier(vk_command_buffer_, src_stage_mask, dst_stage_mask, 0, 0,
+                       nullptr, 0, nullptr, 1, &image_memory_barrier);
 }
 
 void CommandBuffer::blit(VkImage src_image, VkImageLayout src_image_layout,

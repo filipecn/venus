@@ -128,7 +128,7 @@ public:
 
 protected:
   /// Base config for pipelines.
-  template <typename Derived, typename Type> struct Setup {
+  template <typename Derived> struct Setup {
     /// \param shader_stage
     Derived &addShaderStage(VkPipelineShaderStageCreateInfo shader_stage);
 
@@ -271,7 +271,7 @@ public:
   };
 
   /// Builder for GraphicsPipeline
-  struct Config : public Pipeline::Setup<Config, GraphicsPipeline> {
+  struct Config : public Pipeline::Setup<Config> {
 
     static Config defaults(const VkExtent2D &viewport_extent);
 
@@ -392,7 +392,7 @@ public:
   };
 
   /// Builder for RayTracingPipeline
-  struct Config : public Pipeline::Setup<Config, RayTracingPipeline> {
+  struct Config : public Pipeline::Setup<Config> {
     /// \param shader_group
     Config &addShaderGroup(const ShaderGroup &shader_group);
 

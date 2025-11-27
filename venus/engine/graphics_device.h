@@ -59,7 +59,7 @@ public:
   struct Config {
     Config &setSurfaceExtent(const VkExtent2D &extent);
     Config &setSurface(VkSurfaceKHR surface);
-    Config &setFeatures(const core::vk::DeviceFeatures &features);
+    Config &setFeatures(const core::vk::DeviceFeatures &device_features);
     Config &addExtension(const std::string_view &extension);
     Config &addExtensions(const std::vector<std::string> &extensions);
 
@@ -70,7 +70,7 @@ public:
 
     VkExtent2D surface_extent_{};
     VkSurfaceKHR surface_{VK_NULL_HANDLE};
-    core::vk::DeviceFeatures features_{};
+    core::vk::DeviceFeatures device_features_{};
     std::vector<std::string> extensions_;
   };
 

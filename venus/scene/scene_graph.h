@@ -34,6 +34,8 @@
 #include <hermes/geometry/bounds.h>
 #include <hermes/geometry/transform.h>
 
+#include <variant>
+
 #ifdef VENUS_INCLUDE_GLTF
 #include <venus/scene/texture.h>
 #endif // VENUS_INCLUDE_GLTF
@@ -44,26 +46,43 @@ namespace venus::scene {
 //                                                               Render Object
 // *****************************************************************************
 
-/// Holds the data and information necessary to draw a shape.
-struct RenderObject {
-  // scene
+struct RasterContext {
+  /// Holds the data and information necessary to draw a shape.
+  struct RenderObject {
+    // scene
 
-  hermes::geo::bounds::bsphere3 bounds;
-  hermes::geo::Transform transform;
+    hermes::geo::bounds::bsphere3 bounds;
+    hermes::geo::Transform transform;
 
-  // mesh
+    // mesh
 
-  u32 count{0}; //< index count or vertex count
-  u32 first_index{0};
-  VkBuffer index_buffer{VK_NULL_HANDLE};
-  VkBuffer vertex_buffer{VK_NULL_HANDLE};
-  VkDeviceAddress vertex_buffer_address{0};
+    u32 count{0}; //< index count or vertex count
+    u32 first_index{0};
+    VkBuffer index_buffer{VK_NULL_HANDLE};
+    VkBuffer vertex_buffer{VK_NULL_HANDLE};
+    VkDeviceAddress vertex_buffer_address{0};
 
-  // shading
+    // shading
 
-  Material::Instance::Ptr material_instance;
+    Material::Instance::Ptr material_instance;
 
-  VENUS_to_string_FRIEND(RenderObject);
+    VENUS_to_string_FRIEND(RenderObject);
+  };
+
+  std::vector<RenderObject> objects;
+};
+
+struct TracerContext {
+  struct RenderObject {
+    mem::VertexLayout vertex_layout;
+    hermes::geo::Transform transform;
+    VkDeviceAddress vertex_buffer_address;
+    VkDeviceAddress index_buffer_address;
+    VkDeviceAddress transform_buffer_address;
+    u32 primitive_count;
+    u32 max_vertex;
+  };
+  std::vector<RenderObject> objects;
 };
 
 // *****************************************************************************
@@ -71,9 +90,12 @@ struct RenderObject {
 // *****************************************************************************
 
 /// Auxiliary struct that gathers objects to be drawn during render time.
-struct DrawContext {
-  std::vector<RenderObject> objects;
+using DrawContext = std::variant<RasterContext, TracerContext>;
+template <class... Ts> struct DrawContextOverloaded : Ts... {
+  using Ts::operator()...;
 };
+template <class... Ts>
+DrawContextOverloaded(Ts...) -> DrawContextOverloaded<Ts...>;
 
 // *****************************************************************************
 //                                                       Renderable Interface

@@ -100,10 +100,7 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 
 namespace venus::mem {
 
-template <>
-Result<Image>
-Image::Setup<Image::Config, Image>::build(VkDevice vk_device,
-                                          VkImage vk_image) const {
+Result<Image> Image::Config::build(VkDevice vk_device, VkImage vk_image) const {
   Image image;
   image.vk_device_ = vk_device;
   image.vk_image_ = vk_image;
@@ -112,9 +109,7 @@ Image::Setup<Image::Config, Image>::build(VkDevice vk_device,
   return Result<Image>(std::move(image));
 }
 
-template <>
-Result<Image>
-Image::Setup<Image::Config, Image>::build(const core::Device &device) const {
+Result<Image> Image::Config::build(const core::Device &device) const {
 
   Image image;
   auto info = createInfo();
@@ -122,7 +117,7 @@ Image::Setup<Image::Config, Image>::build(const core::Device &device) const {
   VENUS_VK_RETURN_BAD_RESULT(
       vkCreateImage(*device, &info, nullptr, &image.vk_image_));
 
-  image.extents_ = info.extent;
+  image.vk_extents_ = info.extent;
   image.vk_device_ = *device;
   image.vk_format_ = info.format;
 #ifdef VENUS_DEBUG
@@ -204,6 +199,7 @@ void Image::swap(Image &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vk_image_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_format_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_extents_);
   VENUS_SWAP_FIELD_WITH_RHS(ownership_);
 #ifdef VENUS_DEBUG
   VENUS_SWAP_FIELD_WITH_RHS(config_);
@@ -226,7 +222,7 @@ VkFormat Image::format() const { return vk_format_; }
 
 VkDevice Image::device() const { return vk_device_; }
 
-VkExtent3D Image::resolution() const { return extents_; }
+VkExtent3D Image::resolution() const { return vk_extents_; }
 
 AllocatedImage::Config
 AllocatedImage::Config::forColorAttachment(VkExtent2D extent) {
@@ -328,7 +324,7 @@ AllocatedImage::Config::build(const core::Device &device) const {
                                             &alloc_info, &vk_image,
                                             &vma_allocation, nullptr));
   AllocatedImage image;
-  image.extents_ = info.extent;
+  image.vk_extents_ = info.extent;
   image.vma_allocator_ = device.allocator();
   image.vma_allocation_ = vma_allocation;
   image.vk_format_ = info.format;
@@ -351,11 +347,8 @@ AllocatedImage &AllocatedImage::operator=(AllocatedImage &&rhs) noexcept {
 }
 
 void AllocatedImage::swap(AllocatedImage &rhs) noexcept {
-  VENUS_SWAP_FIELD_WITH_RHS(vk_image_);
-  VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
-  VENUS_SWAP_FIELD_WITH_RHS(vk_format_);
-  VENUS_SWAP_FIELD_WITH_RHS(vma_allocator_);
-  VENUS_SWAP_FIELD_WITH_RHS(vma_allocation_);
+  DeviceMemory::swap(rhs);
+  Image::swap(rhs);
 }
 
 AllocatedImage::operator bool() const { return vk_image_ != VK_NULL_HANDLE; }

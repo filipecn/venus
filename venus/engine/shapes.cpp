@@ -41,8 +41,9 @@ Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
   mesh.aos.valueAt<hermes::geo::point3>(0, 0) = a;
   mesh.aos.valueAt<hermes::geo::point3>(0, 1) = b;
   mesh.aos.valueAt<hermes::geo::point3>(0, 2) = c;
-  // mesh.layout.pushComponent(mem::VertexLayout::ComponentType::Position,
-  //                           VK_FORMAT_R32G32B32_SFLOAT);
+  mesh.indices = {0, 1, 2};
+  mesh.vertex_layout.pushComponent(mem::VertexLayout::ComponentType::Position,
+                                   VK_FORMAT_R32G32B32_SFLOAT);
   return Result<Model::Mesh>(std::move(mesh));
 }
 

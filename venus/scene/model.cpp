@@ -28,6 +28,8 @@
 #include <venus/utils/macros.h>
 #include <venus/utils/vk_debug.h>
 
+#include <hermes/geometry/transform.h>
+
 namespace venus {
 
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model::Shape)
@@ -42,7 +44,8 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model)
 HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_vertex_buffer_)
 HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_index_buffer_)
-HERMES_PUSH_DEBUG_FIELD(vk_address_)
+HERMES_PUSH_DEBUG_FIELD(vk_vertex_buffer_address_)
+HERMES_PUSH_DEBUG_FIELD(vk_index_buffer_address_)
 HERMES_PUSH_DEBUG_VENUS_FIELD(vertex_layout_)
 HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(shapes_, shape)
 HERMES_UNUSED_VARIABLE(shape);
@@ -63,31 +66,13 @@ hermes::geo::bounds::bsphere3 Model::Mesh::computeBounds() const {
   return bounds;
 }
 
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Model, addShape, const Model::Shape &,
-                                     shapes_.emplace_back(value));
-
-Model::Config &Model::Config::setVertices(VkBuffer vk_vertex_buffer,
-                                          VkDeviceAddress vk_address) {
-  vk_vertex_buffer_ = vk_vertex_buffer;
-  vk_address_ = vk_address;
-  return *this;
-}
-
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Model, setIndices, VkBuffer,
-                                     vk_index_buffer_ = value);
-Model::Config &
-Model::Config::pushVertexComponent(mem::VertexLayout::ComponentType component,
-                                   VkFormat format) {
-  vertex_layout_.pushComponent(component, format);
-  return *this;
-}
-
 Result<Model> Model::Config::build() const {
   Model model;
   model.vk_vertex_buffer_ = vk_vertex_buffer_;
   model.vk_index_buffer_ = vk_index_buffer_;
   model.vertex_layout_ = vertex_layout_;
-  model.vk_address_ = vk_address_;
+  model.vk_vertex_buffer_address_ = vk_vertex_buffer_address_;
+  model.vk_index_buffer_address_ = vk_index_buffer_address_;
   model.shapes_ = shapes_;
   return Result<Model>(std::move(model));
 }
@@ -107,7 +92,19 @@ VkBuffer Model::vertexBuffer() const { return vk_vertex_buffer_; }
 
 VkBuffer Model::indexBuffer() const { return vk_index_buffer_; }
 
-VkDeviceAddress Model::deviceAddress() const { return vk_address_; }
+VkDeviceAddress Model::vertexBufferAddress() const {
+  return vk_vertex_buffer_address_;
+}
+
+VkDeviceAddress Model::indexBufferAddress() const {
+  return vk_index_buffer_address_;
+}
+
+VkDeviceAddress Model::transformBufferAddress() const {
+  return vk_transform_buffer_address_;
+}
+
+const mem::VertexLayout &Model::vertexLayout() const { return vertex_layout_; }
 
 AllocatedModel::Config AllocatedModel::Config::fromMesh(const Mesh &mesh) {
   AllocatedModel::Config config;
@@ -132,6 +129,8 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
       mem::AllocatedBuffer::Config ::forStorage(
           vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
           .enableShaderDeviceAddress()
+          .addUsage(
+              VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
           .setDeviceLocal()
           .build(*gd));
 
@@ -141,9 +140,21 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
         mem::AllocatedBuffer::Config ::forStorage(
             index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
             .enableShaderDeviceAddress()
+            .addUsage(
+                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
             .setDeviceLocal()
             .build(*gd));
   }
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      model.storage_.transform,
+      mem::AllocatedBuffer::Config ::forStorage(
+          sizeof(hermes::geo::Transform), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+          .enableShaderDeviceAddress()
+          .addUsage(
+              VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
+          .setDeviceLocal()
+          .build(*gd));
 
   // copy data
 
@@ -156,12 +167,20 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
                              index_buffer_size);
   }
 
+  hermes::geo::Transform identity;
+  buffer_writter.addBuffer(*model.storage_.transform, &identity,
+                           sizeof(hermes::geo::Transform));
+
   VENUS_RETURN_BAD_RESULT(buffer_writter.immediateSubmit(gd));
 
   model.mesh_ = mesh_;
   model.vk_vertex_buffer_ = *model.storage_.vertices;
   model.vk_index_buffer_ = *model.storage_.indices;
-  model.vk_address_ = model.storage_.vertices.deviceAddress();
+  model.vk_transform_buffer_ = *model.storage_.transform;
+  model.vk_vertex_buffer_address_ = model.storage_.vertices.deviceAddress();
+  model.vk_index_buffer_address_ = model.storage_.indices.deviceAddress();
+  model.vk_transform_buffer_address_ = model.storage_.transform.deviceAddress();
+  model.vertex_layout_ = mesh_.vertex_layout;
 
   // setup single shape for whole model
 
@@ -192,7 +211,7 @@ void AllocatedModel::destroy() noexcept {
   storage_.indices.destroy();
   HERMES_CHECK_HE_RESULT(mesh_.aos.clear());
   mesh_.indices.clear();
-  mesh_.layout.clear();
+  mesh_.vertex_layout.clear();
 }
 
 void AllocatedModel::swap(AllocatedModel &rhs) {
@@ -202,7 +221,8 @@ void AllocatedModel::swap(AllocatedModel &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(shapes_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_vertex_buffer_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_index_buffer_);
-  VENUS_SWAP_FIELD_WITH_RHS(vk_address_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_vertex_buffer_address_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_index_buffer_address_);
   VENUS_SWAP_FIELD_WITH_RHS(vertex_layout_);
 }
 
