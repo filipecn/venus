@@ -197,7 +197,6 @@ VeResult RayTracer::createShaderBindingTable(const core::Device &device) {
       static_cast<uint32_t>(pipeline_.shaderGroups().size());
   const uint32_t sbt_size = group_count * handle_size_aligned;
 
-  // Raygen
   // Create binding table buffers for each shader type
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       raygen_sbt_,
@@ -374,10 +373,8 @@ VeResult RayTracer::prepare(const engine::GraphicsDevice &gd,
 
 VeResult RayTracer::record(const CommandBuffer &cb,
                            VkImage vk_color_image) const {
-  /*
-      Setup the strided device address regions pointing at the shader
-     identifiers in the shader binding table
-  */
+  // Setup the strided device address regions pointing at the shader identifiers
+  // in the shader binding table
 
   const uint32_t handle_size_aligned = hermes::mem::alignment::alignedSize(
       ray_tracing_pipeline_properties_.shaderGroupHandleSize,

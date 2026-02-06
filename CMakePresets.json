@@ -1,0 +1,98 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base-preset",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "VENUS_INCLUDE_TO_STRING": "ON",
+        "VENUS_BUILD_TESTS": "ON",
+        "VENUS_BUILD_EXAMPLES": "ON"
+      }
+    },
+    {
+      "name": "docs",
+      "inherits": "base-preset",
+      "cacheVariables": {
+        "VENUS_BUILD_DOCS": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "base-preset",
+      "binaryDir": "${sourceDir}/build/Debug",
+      "displayName": "Debug Build",
+      "description": "Configures a debug build.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "debug-cuda",
+      "inherits": "debug",
+      "binaryDir": "${sourceDir}/build/Debug_Cuda",
+      "cacheVariables": {
+        "VENUS_ENABLE_CUDA": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base-preset",
+      "binaryDir": "${sourceDir}/build/Release",
+      "displayName": "Release Build",
+      "description": "Configures a release build.",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "release-cuda",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/build/Release_Cuda",
+      "cacheVariables": {
+        "VENUS_ENABLE_CUDA": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug-build",
+      "configurePreset": "debug",
+      "displayName": "Build Debug",
+      "description": "Builds the debug configuration."
+    },
+    {
+      "name": "debug-cuda-build",
+      "configurePreset": "debug-cuda",
+      "displayName": "Build Debug Cuda",
+      "description": "Builds the debug configuration with CUDA."
+    },
+    {
+      "name": "release-build",
+      "configurePreset": "release",
+      "displayName": "Build Release",
+      "description": "Builds the release configuration."
+    },
+    {
+      "name": "release-cuda-build",
+      "configurePreset": "release-cuda",
+      "displayName": "Build Release Cuda",
+      "description": "Builds the release configuration with CUDA."
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default-tests",
+      "configurePreset": "debug",
+      "displayName": "Run Default Tests",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "stopOnFailure": true
+      }
+    }
+  ]
+}
+

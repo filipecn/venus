@@ -427,7 +427,6 @@ VeResult RT_SceneApp::init() {
           [&](scene::RasterContext &ctx) { HERMES_UNUSED_VARIABLE(ctx); },
           [&](scene::TracerContext &ctx) {
             for (const auto &o : ctx.objects) {
-              HERMES_UNUSED_VARIABLE(o);
               pipeline::RayTracer::TracerObject to;
               to.primitive_count = o.primitive_count;
               to.transform_offset = 0;

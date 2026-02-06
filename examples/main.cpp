@@ -30,22 +30,20 @@
 #include <venus/io/glfw_display.h>
 
 VeResult init(venus::app::SceneApp &app) {
+  // venus::scene::graph::VDB_Node::Ptr vdb;
+  // VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+  //     vdb,
+  //     venus::scene::graph::VDB_Node::from(
+  //         std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) /
+  //         "box_textured.glb", venus::engine::GraphicsEngine::device()));
+  //  app.scene().graph().add("sphere", vdb);
 
-  venus::scene::graph::VDB_Node::Ptr vdb;
-  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      vdb,
-      venus::scene::graph::VDB_Node::from(
-          std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box_textured.glb",
-          venus::engine::GraphicsEngine::device()));
-
-  // app.scene().graph().add("sphere", vdb);
-
-  venus::scene::graph::GLTF_Node::Ptr gltf;
-  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      gltf,
-      venus::scene::graph::GLTF_Node::from(
-          std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "box_textured.glb",
-          venus::engine::GraphicsEngine::device()));
+  // venus::scene::graph::GLTF_Node::Ptr gltf;
+  // VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+  //     gltf,
+  //     venus::scene::graph::GLTF_Node::from(
+  //         std::filesystem::path(VENUS_EXAMPLE_ASSETS_PATH) / "teapot.gltf",
+  //         venus::engine::GraphicsEngine::device()));
 
   // app.scene().graph().add("box", gltf);
 
