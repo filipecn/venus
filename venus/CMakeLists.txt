@@ -34,8 +34,8 @@ set(VENUS_HEADERS
   pipeline/renderpass.h
   pipeline/shader_module.h
 
-  scene/helpers/cartesian_grid.h
-  scene/helpers/sky_background.h
+  scene/models/cartesian_grid.h
+  scene/models/sky_background.h
   scene/acceleration_structure.h
   scene/camera.h
   scene/material.h
@@ -87,8 +87,8 @@ set(VENUS_SOURCES
   pipeline/renderpass.cpp
   pipeline/shader_module.cpp
 
-  scene/helpers/cartesian_grid.cpp
-  scene/helpers/sky_background.cpp
+  scene/models/cartesian_grid.cpp
+  scene/models/sky_background.cpp
   scene/acceleration_structure.cpp
   scene/camera.cpp
   scene/material.cpp

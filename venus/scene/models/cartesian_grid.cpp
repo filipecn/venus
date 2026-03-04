@@ -24,14 +24,14 @@
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2026-02-17
 
-#include <venus/scene/helpers/cartesian_grid.h>
+#include <venus/scene/models/cartesian_grid.h>
 
 #include <venus/engine/graphics_engine.h>
 #include <venus/engine/shapes.h>
 
 #include <hermes/geometry/transform.h>
 
-namespace venus::scene::helpers {
+namespace venus::scene::models {
 
 Result<Material> createMaterial(const engine::GraphicsDevice &gd) {
   // setup shaders
@@ -241,4 +241,4 @@ void CartesianGrid::swap(CartesianGrid &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(material_);
 }
 
-} // namespace venus::scene::helpers
+} // namespace venus::scene::models

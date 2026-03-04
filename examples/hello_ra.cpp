@@ -28,9 +28,9 @@
 #include <venus/engine/graphics_engine.h>
 #include <venus/engine/shapes.h>
 #include <venus/io/glfw_display.h>
-#include <venus/scene/helpers/cartesian_grid.h>
-#include <venus/scene/helpers/sky_background.h>
 #include <venus/scene/materials.h>
+#include <venus/scene/models/cartesian_grid.h>
+#include <venus/scene/models/sky_background.h>
 
 auto camera = venus::scene::Camera::perspective(
                   90, hermes::geo::transform_option_bits::right_handed |
@@ -46,12 +46,12 @@ VeResult init(venus::app::RA_SceneApp &app) {
   auto &globals = venus::engine::GraphicsEngine::globals();
 
   VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
-      venus::scene::helpers::SkyBackground, sky,
-      venus::scene::helpers::SkyBackground::Config().build(
+      venus::scene::models::SkyBackground, sky,
+      venus::scene::models::SkyBackground::Config().build(
           venus::engine::GraphicsEngine::device()));
   VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
-      venus::scene::helpers::CartesianGrid, grid,
-      venus::scene::helpers::CartesianGrid::Config().build(
+      venus::scene::models::CartesianGrid, grid,
+      venus::scene::models::CartesianGrid::Config().build(
           venus::engine::GraphicsEngine::device()));
 
   VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(

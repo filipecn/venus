@@ -24,14 +24,14 @@
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2026-02-17
 
-#include <venus/scene/helpers/sky_background.h>
+#include <venus/scene/models/sky_background.h>
 
 #include <venus/engine/graphics_engine.h>
 #include <venus/engine/shapes.h>
 
 #include <hermes/geometry/transform.h>
 
-namespace venus::scene::helpers {
+namespace venus::scene::models {
 
 Result<Material> createSkyMaterial(const engine::GraphicsDevice &gd) {
   // setup shaders
@@ -147,4 +147,4 @@ void SkyBackground::swap(SkyBackground &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(material_);
 }
 
-} // namespace venus::scene::helpers
+} // namespace venus::scene::models

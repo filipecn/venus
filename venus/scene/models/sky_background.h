@@ -20,7 +20,7 @@
  * IN THE SOFTWARE.
  */
 
-/// \file   cartesian_grid.h
+/// \file   sky_background.h
 /// \author FilipeCN (filipedecn@gmail.com)
 /// \date   2026-02-17
 
@@ -28,31 +28,24 @@
 
 #include <venus/scene/model.h>
 
-namespace venus::scene::helpers {
+namespace venus::scene::models {
 
-class CartesianGrid : public Model {
+class SkyBackground : public Model {
 public:
-  using Ptr = hermes::Ref<CartesianGrid>;
+  using Ptr = hermes::Ref<SkyBackground>;
 
   struct Config {
-    Config() noexcept;
-    Config &setBounds(const hermes::geo::bounds::bbox3 &bounds);
-    Result<CartesianGrid> build(const engine::GraphicsDevice &gd) const;
-
-  private:
-    hermes::geo::bounds::bbox3 bounds_;
+    Result<SkyBackground> build(const engine::GraphicsDevice &gd) const;
   };
 
-  VENUS_DECLARE_RAII_FUNCTIONS(CartesianGrid);
+  VENUS_DECLARE_RAII_FUNCTIONS(SkyBackground);
 
   void destroy() noexcept;
-  void swap(CartesianGrid &rhs);
+  void swap(SkyBackground &rhs);
 
 private:
-  // data
-  Model::Storage<mem::AllocatedBuffer> storage_;
   // material
   Material::Ptr material_;
 };
 
-} // namespace venus::scene::helpers
+} // namespace venus::scene::models
