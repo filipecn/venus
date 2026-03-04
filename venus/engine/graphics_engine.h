@@ -70,7 +70,7 @@ public:
         VkDeviceAddress vertex_buffer;
       };
       /// Common scene data for shaders.
-      struct SceneData {
+      struct CameraData {
         hermes::geo::Transform view;
         hermes::geo::Transform proj;
         hermes::geo::point3 eye;
@@ -101,6 +101,7 @@ public:
       scene::Material gltf_metallic_roughness;
       scene::Material vdb;
       scene::Material color;
+      scene::Material empty;
 
     private:
       friend struct Globals;
@@ -110,14 +111,23 @@ public:
 
     /// \brief Set of descriptors provided by the graphics engine.
     struct Descriptors {
+      /// Uniform buffer containing a single struct with:
+      /// mat4 view;
+      /// mat4 proj;
+      /// vec3 eye;
+      VkDescriptorSetLayout camera_data_layout{VK_NULL_HANDLE};
       VkDescriptorSetLayout scene_data_layout{VK_NULL_HANDLE};
+
+      pipeline::DescriptorAllocator &allocator();
 
     private:
       friend struct Globals;
       VeResult init(GraphicsDevice &graphics_device);
       void clear();
 
+      pipeline::DescriptorSet::Layout camera_data_layout_;
       pipeline::DescriptorSet::Layout scene_data_layout_;
+      pipeline::DescriptorAllocator allocator_;
     };
 
     // *************************************************************************
@@ -200,6 +210,7 @@ public:
   struct Config {
     Config &setSynchronization2();
     Config &setBindless();
+    Config &setShaderDemoteToHelperInvocation();
     Config &setDynamicRendering();
     Config &setRayTracing();
     Config &enableUI();

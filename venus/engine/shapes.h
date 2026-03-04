@@ -32,6 +32,8 @@
 #include <hermes/base/flags.h>
 #include <hermes/storage/memory.h>
 
+#include <hermes/geometry/plane.h>
+
 namespace venus::scene {
 
 /// Shape's mesh attributes and configurations
@@ -87,5 +89,11 @@ Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
 
 Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
                         shape_options options = shape_option_bits::none);
+
+Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
+                          const hermes::geo::vec2 &scale,
+                          shape_options options = shape_option_bits::none);
+
+Result<Model::Mesh> merge(const Model::Mesh &a, const Model::Mesh &b);
 
 } // namespace venus::scene::shapes

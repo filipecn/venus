@@ -27,184 +27,7 @@
 
 #include <venus/pipeline/pipeline.h>
 
-#include <venus/utils/vk_debug.h>
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline::ShaderStage)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_STRING(VkShaderStageFlagBits, stages_);
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(specialization_map_entries_, entry)
-HERMES_PUSH_DEBUG_LINE("constantID {} offset {} size {}\n", entry.constantID,
-                       entry.offset, entry.size)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_FIELD(specialization_data_size_)
-HERMES_PUSH_DEBUG_FIELD(specialization_data_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline::Layout::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_STRING(VkPipelineLayoutCreateFlags, flags_);
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(ranges_, range)
-HERMES_PUSH_DEBUG_LINE("stageFlags: {} offset {} size {}\n",
-                       string_VkShaderStageFlags(range.stageFlags),
-                       range.offset, range.size)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(set_layouts_, set_layout)
-HERMES_UNUSED_VARIABLE(set_layout);
-HERMES_PUSH_DEBUG_ADDRESS_FIELD(set_layouts_[i]);
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline::Layout)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_layout_);
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::Pipeline)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_pipeline_);
-HERMES_PUSH_DEBUG_VK_FIELD(vk_pipeline_cache_);
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
-    venus::pipeline::GraphicsPipeline::VertexInput)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(binding_descriptions_, d)
-HERMES_PUSH_DEBUG_LINE("binding {} stride {} inputRage {}\n", d.binding,
-                       d.stride, string_VkVertexInputRate(d.inputRate))
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(attribute_descriptions_, a)
-HERMES_PUSH_DEBUG_LINE("location {} binding {} format {} offset {}\n",
-                       a.location, a.binding, string_VkFormat(a.format),
-                       a.offset)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
-    venus::pipeline::GraphicsPipeline::Rasterizer)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(info_.depthClampEnable)
-HERMES_PUSH_DEBUG_FIELD(info_.rasterizerDiscardEnable)
-HERMES_PUSH_DEBUG_FIELD(info_.depthBiasEnable)
-HERMES_PUSH_DEBUG_FIELD(info_.depthBiasConstantFactor)
-HERMES_PUSH_DEBUG_FIELD(info_.depthBiasClamp)
-HERMES_PUSH_DEBUG_FIELD(info_.depthBiasSlopeFactor)
-HERMES_PUSH_DEBUG_FIELD(info_.lineWidth)
-HERMES_PUSH_DEBUG_VK_STRING(VkPolygonMode, info_.polygonMode)
-HERMES_PUSH_DEBUG_VK_STRING(VkCullModeFlags, info_.cullMode)
-HERMES_PUSH_DEBUG_VK_STRING(VkFrontFace, info_.frontFace)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
-    venus::pipeline::GraphicsPipeline::Multisample)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_STRING(VkSampleCountFlagBits, info_.rasterizationSamples)
-HERMES_PUSH_DEBUG_FIELD(info_.sampleShadingEnable)
-HERMES_PUSH_DEBUG_FIELD(info_.minSampleShading)
-HERMES_PUSH_DEBUG_FIELD(info_.pSampleMask)
-HERMES_PUSH_DEBUG_FIELD(info_.alphaToCoverageEnable)
-HERMES_PUSH_DEBUG_FIELD(info_.alphaToOneEnable)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(sample_masks_, s)
-HERMES_PUSH_DEBUG_LINE("{} ", (uintptr_t)s);
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
-    venus::pipeline::GraphicsPipeline::ColorBlend)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(info_.logicOpEnable)
-HERMES_PUSH_DEBUG_VK_STRING(VkLogicOp, info_.logicOp)
-HERMES_PUSH_DEBUG_FIELD(info_.attachmentCount)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(color_blend_attachments_, a)
-HERMES_PUSH_DEBUG_LINE("[{}].blendEnable         {}\n", i, a.blendEnable);
-HERMES_PUSH_DEBUG_LINE("[{}].srcColorBlendFactor {}\n", i,
-                       string_VkBlendFactor(a.srcColorBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].dstColorBlendFactor {}\n", i,
-                       string_VkBlendFactor(a.dstColorBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].colorBlendOp        {}\n", i,
-                       string_VkBlendOp(a.colorBlendOp))
-HERMES_PUSH_DEBUG_LINE("[{}].srcAlphaBlendFactor {}\n", i,
-                       string_VkBlendFactor(a.srcAlphaBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].dstAlphaBlendFactor {}\n", i,
-                       string_VkBlendFactor(a.dstAlphaBlendFactor))
-HERMES_PUSH_DEBUG_LINE("[{}].alphaBlendOp        {}\n", i,
-                       string_VkBlendOp(a.alphaBlendOp))
-HERMES_PUSH_DEBUG_LINE("[{}].colorWriteMask      {}\n", i,
-                       string_VkColorComponentFlags(a.colorWriteMask))
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
-    venus::pipeline::GraphicsPipeline::DepthStencil)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(info_.depthTestEnable)
-HERMES_PUSH_DEBUG_FIELD(info_.depthWriteEnable)
-HERMES_PUSH_DEBUG_VK_STRING(VkCompareOp, info_.depthCompareOp)
-HERMES_PUSH_DEBUG_FIELD(info_.depthBoundsTestEnable)
-HERMES_PUSH_DEBUG_FIELD(info_.stencilTestEnable)
-HERMES_PUSH_DEBUG_LINE("info_.front = failOp {} passOp {} compareOp {} "
-                       "compareMask {} writeMask {} reference {}\n",
-                       string_VkStencilOp(object.info_.front.failOp),
-                       string_VkStencilOp(object.info_.front.passOp),
-                       string_VkStencilOp(object.info_.front.depthFailOp),
-                       string_VkCompareOp(object.info_.front.compareOp),
-                       object.info_.front.compareMask,
-                       object.info_.front.writeMask,
-                       object.info_.front.reference)
-HERMES_PUSH_DEBUG_LINE("info_.back = failOp {} passOp {} compareOp {} "
-                       "compareMask {} writeMask {} reference {}\n",
-                       string_VkStencilOp(object.info_.back.failOp),
-                       string_VkStencilOp(object.info_.back.passOp),
-                       string_VkStencilOp(object.info_.back.depthFailOp),
-                       string_VkCompareOp(object.info_.back.compareOp),
-                       object.info_.back.compareMask,
-                       object.info_.back.writeMask, object.info_.back.reference)
-HERMES_PUSH_DEBUG_FIELD(info_.minDepthBounds)
-HERMES_PUSH_DEBUG_FIELD(info_.maxDepthBounds)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::GraphicsPipeline::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(vertex_input_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(rasterization_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(color_blend_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(multisample_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(depth_stencil_)
-HERMES_PUSH_DEBUG_LINE(
-    "input_assembly = topology {} restartEnable {}\n",
-    string_VkPrimitiveTopology(object.input_assembly_.topology),
-    object.input_assembly_.primitiveRestartEnable)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(viewports_, v)
-HERMES_PUSH_DEBUG_LINE("{} {} {} {} {} {}\n", v.x, v.y, v.width, v.height,
-                       v.minDepth, v.maxDepth)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(scissors_, s)
-HERMES_PUSH_DEBUG_LINE("{} {} {} {}\n", s.offset.x, s.offset.y, s.extent.width,
-                       s.extent.height)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_LINE("viewport_ = viewports {} scissors {}\n",
-                       object.viewport_.viewportCount,
-                       object.viewport_.scissorCount)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(color_attachment_formats_, f)
-HERMES_PUSH_DEBUG_LINE("{}\n", string_VkFormat(f))
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(stages_, s)
-HERMES_PUSH_DEBUG_LINE("stage {} module 0x{:x}\n",
-                       string_VkShaderStageFlagBits(s.stage),
-                       (uintptr_t)(s.module));
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::GraphicsPipeline)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
+#include <array>
 
 namespace venus::pipeline {
 
@@ -253,6 +76,15 @@ Pipeline::Layout::Config::addPushConstantRange(VkShaderStageFlags stage_flags,
   range.stageFlags = stage_flags;
   ranges_.emplace_back(range);
   return *this;
+}
+
+const std::vector<VkDescriptorSetLayout> &
+Pipeline::Layout::Config::descriptorSetLayouts() const {
+  return set_layouts_;
+}
+
+const std::vector<VkPushConstantRange> &Pipeline::Layout::Config::ranges() {
+  return ranges_;
 }
 
 Result<Pipeline::Layout>
@@ -540,7 +372,7 @@ GraphicsPipeline::ColorBlend::setBlendingLogicOp(VkLogicOp op) {
 GraphicsPipeline::ColorBlend &
 GraphicsPipeline::ColorBlend::setBlendingConstants(
     const std::array<f32, 4> &constants) {
-  for (int i = 0; i < 4; ++i)
+  for (h_index i = 0; i < 4; ++i)
     info_.blendConstants[i] = constants[i];
   return *this;
 }
@@ -549,7 +381,7 @@ VkPipelineColorBlendStateCreateInfo GraphicsPipeline::ColorBlend::build(
     VkPipelineColorBlendStateCreateFlags flags) const {
   auto info = info_;
   info.flags = flags;
-  info.attachmentCount = color_blend_attachments_.size();
+  info.attachmentCount = static_cast<u32>(color_blend_attachments_.size());
   info.pAttachments = color_blend_attachments_.data();
   return info;
 }
@@ -755,20 +587,25 @@ GraphicsPipeline::Config::build(VkDevice vk_device,
   auto color_blend = color_blend_.build();
   auto dynamic = dynamic_;
   auto viewport = viewport_;
+  auto rendering = rendering_;
 
   dynamic.pDynamicStates = dynamic_states_.data();
-  dynamic.dynamicStateCount = dynamic_states_.size();
+  dynamic.dynamicStateCount = static_cast<u32>(dynamic_states_.size());
 
   viewport.pViewports = viewports_.data();
-  viewport.viewportCount = viewports_.size();
+  viewport.viewportCount = static_cast<u32>(viewports_.size());
   viewport.pScissors = scissors_.data();
-  viewport.scissorCount = scissors_.size();
+  viewport.scissorCount = static_cast<u32>(scissors_.size());
+
+  rendering.colorAttachmentCount =
+      static_cast<u32>(color_attachment_formats_.size());
+  rendering.pColorAttachmentFormats = color_attachment_formats_.data();
 
   VkGraphicsPipelineCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
   create_info.flags = {};
   create_info.pStages = stages_.data();
-  create_info.stageCount = stages_.size();
+  create_info.stageCount = static_cast<u32>(stages_.size());
   create_info.pInputAssemblyState = &input_assembly_;
   create_info.pTessellationState = &tessellation_;
   create_info.pRasterizationState = &rasterization;
@@ -778,7 +615,7 @@ GraphicsPipeline::Config::build(VkDevice vk_device,
   create_info.pVertexInputState = &vertex_input;
   create_info.pViewportState = &viewport;
   create_info.pColorBlendState = &color_blend;
-  create_info.pNext = &rendering_;
+  create_info.pNext = &rendering;
   create_info.layout = vk_pipeline_layout;
   create_info.renderPass = vk_renderpass;
 

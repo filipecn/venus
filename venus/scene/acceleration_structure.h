@@ -105,12 +105,13 @@ public:
   VkDevice device() const;
 
   AccelerationStructure &addGeometry(const GeometryData &geometry_data,
-                                     u32 primitive_count, u32 transform_offset);
+                                     u32 primitive_count,
+                                     h_size transform_offset);
 
-  AccelerationStructure &updateGeometry(u64 index,
+  AccelerationStructure &updateGeometry(h_index index,
                                         const GeometryData &geometry_data,
                                         u32 primitive_count,
-                                        u32 transform_offset);
+                                        h_size transform_offset);
   AccelerationStructure &setType(VkAccelerationStructureTypeKHR type);
 
   VeResult build(const engine::GraphicsDevice &gd, VkQueue vk_queue,
@@ -123,7 +124,7 @@ private:
   struct Geometry {
     VkAccelerationStructureGeometryKHR geometry{};
     u32 primitive_count{};
-    u32 transform_offset{};
+    h_size transform_offset{};
     bool updated = false;
   };
 
@@ -135,9 +136,7 @@ private:
   VkAccelerationStructureBuildSizesInfoKHR build_sizes_info_{};
 
   mem::AllocatedBuffer buffer_;
-  std::unordered_map<u32, Geometry> geometries_;
-
-  VENUS_to_string_FRIEND(AccelerationStructure);
+  std::unordered_map<h_index, Geometry> geometries_;
 };
 
 } // namespace venus::scene

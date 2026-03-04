@@ -97,7 +97,9 @@ public:
     VkDebugUtilsMessageTypeFlagsEXT message_type_flags_;
 #endif
 
-    VENUS_to_string_FRIEND(Instance::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Instance::Config>;
+#endif
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Instance);
@@ -122,7 +124,42 @@ private:
   Config config_{};
 #endif
 
-  VENUS_to_string_FRIEND(Instance);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Instance>;
+#endif
 };
 
 } // namespace venus::core
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::core::Instance::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::core::Instance::Config &data) {
+    return DebugMessage()
+        .addTitle("Instance::Config")
+        .add("App Version", data.app_version_)
+        .add("Engine Version", data.engine_version_)
+        .add("App Name", data.app_name_)
+        .add("Engine Name", data.engine_name_)
+        .addArray("layers", data.layers_)
+        .addArray("extensions", data.extensions_);
+  }
+};
+
+template <> struct DebugTraits<venus::core::Instance> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::core::Instance &data) {
+    return DebugMessage()
+        .addTitle("Instance")
+        .add("vk_instance",
+             VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_instance_))
+        .add("config", data.config_);
+  }
+};
+
+} // namespace hermes
+
+#endif

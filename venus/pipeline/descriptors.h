@@ -29,6 +29,9 @@
 
 #include <venus/core/device.h>
 
+#include <deque>
+#include <span>
+
 namespace venus::pipeline {
 
 /// A descriptor set is a set of resources that are bound into the pipeline
@@ -59,7 +62,9 @@ public:
     private:
       std::vector<VkDescriptorSetLayoutBinding> bindings_;
 
-      VENUS_to_string_FRIEND(Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+      friend struct hermes::DebugTraits<DescriptorSet::Layout::Config>;
+#endif
     };
 
     // raii
@@ -80,7 +85,9 @@ public:
     Config config_;
 #endif
 
-    VENUS_to_string_FRIEND(Layout);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<DescriptorSet::Layout>;
+#endif
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(DescriptorSet)
@@ -99,7 +106,9 @@ private:
   VkDescriptorPool vk_descriptor_pool_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
 
-  VENUS_to_string_FRIEND(DescriptorSet);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<DescriptorSet>;
+#endif
 };
 
 /// Manages the allocation of device memory for storing descriptor sets. The
@@ -110,13 +119,13 @@ private:
 /// \note Pools are created on demand.
 /// \note This uses raii.
 class DescriptorAllocator {
+public:
   /// Describes the distribution of a descriptor type inside a pool.
   struct PoolSizeRatio {
     VkDescriptorType type; //< descriptor type
     f32 ratio;             //< distribution estimate
   };
 
-public:
   /// Builder for descriptor allocator.
   struct Config {
     /// Estimate of sets per created pool.
@@ -133,7 +142,9 @@ public:
     u32 initial_set_count_{0};
     std::vector<PoolSizeRatio> ratios_;
 
-    VENUS_to_string_FRIEND(DescriptorAllocator::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<DescriptorAllocator::Config>;
+#endif
   };
 
   // raii
@@ -168,7 +179,9 @@ private:
   /// Pools capacity
   u32 sets_per_pool_{0};
 
-  VENUS_to_string_FRIEND(DescriptorAllocator);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<DescriptorAllocator>;
+#endif
 };
 
 /// The descriptor writer updates data of allocated descriptors in device
@@ -224,3 +237,81 @@ private:
 };
 
 } // namespace venus::pipeline
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::pipeline::DescriptorSet::Layout::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::DescriptorSet::Layout::Config &data) {
+    return DebugMessage()
+        .addTitle("DescriptorSet Layout Config")
+        .addArray("bindings", data.bindings_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::DescriptorSet::Layout> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::DescriptorSet::Layout &data) {
+    return DebugMessage()
+        .addTitle("DescriptorSet Layout")
+        .add("vk_layout", VENUS_VK_HANDLE_STRING(data.vk_layout_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("config", data.config_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::DescriptorSet> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::pipeline::DescriptorSet &data) {
+    return DebugMessage()
+        .addTitle("DescriptorSet")
+        .add("vk_descriptor_set",
+             VENUS_VK_HANDLE_STRING(data.vk_descriptor_set_))
+        .add("vk_descriptor_pool",
+             VENUS_VK_HANDLE_STRING(data.vk_descriptor_pool_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_));
+  }
+};
+
+template <>
+struct DebugTraits<venus::pipeline::DescriptorAllocator::PoolSizeRatio> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::DescriptorAllocator::PoolSizeRatio &data) {
+    return DebugMessage("({} {})", VENUS_VK_STRING(VkDescriptorType, data.type),
+                        data.ratio);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::DescriptorAllocator::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::DescriptorAllocator::Config &data) {
+    return DebugMessage()
+        .addTitle("Descriptor Allocator Config")
+        .add("initial_set_count", data.initial_set_count_)
+        .addArray("ratios", data.ratios_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::DescriptorAllocator> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::DescriptorAllocator &data) {
+    return DebugMessage()
+        .addTitle("Descriptor Allocator")
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("sets_per_pool", data.sets_per_pool_)
+        .addArray("ratios", data.ratios_)
+        .add("full pools count", data.full_pools_.size())
+        .add("ready pools count", data.ready_pools_.size());
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

@@ -48,6 +48,50 @@ HERMES_TO_STRING_DEBUG_METHOD_END
 
 namespace venus::scene::materials {
 
+Result<Material> MAT_Empty::material(const engine::GraphicsDevice &gd) {
+  auto &globals = engine::GraphicsEngine::globals();
+
+  auto pipeline_layout_config =
+      pipeline::Pipeline::Layout::Config().addDescriptorSetLayout(
+          globals.descriptors.camera_data_layout);
+
+  auto pipeline_config =
+      pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
+          .setVertexInputState(mem::VertexLayout().pushComponent(
+              mem::VertexLayout::ComponentType::Position,
+              VK_FORMAT_R32G32B32_SFLOAT))
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_VERTEX_BIT)
+                              .build(globals.shaders.vert_test))
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                              .build(globals.shaders.frag_flat_color));
+
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      Material, m,
+      Material::Config()
+          .setMaterialPipelineConfig(
+              Material::Pipeline::Config()
+                  .setPipelineConfig(pipeline_config)
+                  .setPipelineLayoutConfig(pipeline_layout_config))
+          .build(**gd, *gd.renderpass()));
+
+  return Result<Material>(std::move(m));
+}
+
+Result<Material::Instance>
+MAT_Empty::write(pipeline::DescriptorAllocator &allocator,
+                 Material::Ptr material) {
+  Material::Instance instance;
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(instance, Material::Instance::Config()
+                                                  .setMaterial(material)
+                                                  .addGlobalSetIndex(0)
+                                                  .build(allocator))
+
+  return Result<Material::Instance>(std::move(instance));
+}
+
 Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
   pipeline::DescriptorSet::Layout l;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -71,11 +115,7 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
           .setVertexInputState(mem::VertexLayout().pushComponent(
               mem::VertexLayout::ComponentType::Position,
-              VK_FORMAT_R32G32B32_SFLOAT)
-                               //.pushComponent(
-                               //    mem::VertexLayout::ComponentType::Color,
-                               //    VK_FORMAT_R32G32B32A32_SFLOAT)
-                               )
+              VK_FORMAT_R32G32B32_SFLOAT))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
                               .build(globals.shaders.vert_test))
@@ -86,7 +126,6 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       Material, m,
       Material::Config()
-          .setDescriptorSetLayout(std::move(l))
           .setMaterialPipelineConfig(
               Material::Pipeline::Config()
                   .setPipelineConfig(pipeline_config)
@@ -98,7 +137,7 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
 
 Result<Material::Instance>
 Material_Test::write(pipeline::DescriptorAllocator &allocator,
-                     const Material *material) {
+                     Material::Ptr material) {
   Material::Instance instance;
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(

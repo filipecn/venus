@@ -31,89 +31,80 @@
 
 #define VENUS_DEBUG
 
-#ifdef VENUS_INCLUDE_TO_STRING
 #include <sstream>
-#endif
+#include <string>
 
-class VeResult;
+struct VeResult;
 namespace venus {
 template <typename T> using Result = hermes::Result<T, VeResult>;
 } // namespace venus
 
 struct VeResult {
   enum class Type {
-    NO_ERROR = 0,         //!< success
-    VK_ERROR = 1,         //!< error from a vulkan call
-    INCOMPATIBLE_API = 2, //!< api version mismatches and incompatibilities
-    NOT_FOUND = 3,        //!< api version mismatches and incompatibilities
-    EXT_ERROR = 4,        //!< third party lib error
-    CHECK_ERROR = 5,      //!< a check error ocurred
-    IO_ERROR = 6,         //!< an io error ocurred
+    NoError = 0,         //!< success
+    VkError = 1,         //!< error from a vulkan call
+    IncompatibleApi = 2, //!< api version mismatches and incompatibilities
+    NotFound = 3,        //!< api version mismatches and incompatibilities
+    ExtError = 4,        //!< third party lib error
+    CheckError = 5,      //!< a check error ocurred
+    IOError = 6,         //!< an io error ocurred
   };
 
-  static VeResult noError() { return {HeError::NO_ERROR, Type::NO_ERROR}; }
+  static VeResult noError() { return {HeError::None, Type::NoError}; }
   static VeResult incompatible() {
-    return {HeError::CUSTOM_ERROR, Type::INCOMPATIBLE_API};
+    return {HeError::Custom, Type::IncompatibleApi};
   }
-  static VeResult notFound() {
-    return {HeError::CUSTOM_ERROR, Type::NOT_FOUND};
-  }
+  static VeResult notFound() { return {HeError::Custom, Type::NotFound}; }
   static VeResult outOfBounds() {
-    return {HeError::OUT_OF_BOUNDS, Type::NO_ERROR};
+    return {HeError::OutOfBounds, Type::NoError};
   }
-  static VeResult vkError() { return {HeError::CUSTOM_ERROR, Type::VK_ERROR}; }
-  static VeResult error() { return {HeError::UNKNOWN_ERROR, Type::NO_ERROR}; }
-  static VeResult extError() {
-    return {HeError::CUSTOM_ERROR, Type::EXT_ERROR};
-  }
-  static VeResult checkError() {
-    return {HeError::CUSTOM_ERROR, Type::CHECK_ERROR};
-  }
+  static VeResult vkError() { return {HeError::Custom, Type::VkError}; }
+  static VeResult error() { return {HeError::Unknown, Type::NoError}; }
+  static VeResult extError() { return {HeError::Custom, Type::ExtError}; }
+  static VeResult checkError() { return {HeError::Custom, Type::CheckError}; }
   static VeResult inputError() {
-    return {HeError::INVALID_INPUT, Type::NO_ERROR};
+    return {HeError::InvalidInput, Type::NoError};
   }
   static VeResult badAllocation() {
-    return {HeError::BAD_ALLOCATION, Type::NO_ERROR};
+    return {HeError::BadAllocation, Type::NoError};
   }
-  static VeResult ioError() { return {HeError::CUSTOM_ERROR, Type::IO_ERROR}; }
-  static VeResult heError(HeError he) { return {he, Type::NO_ERROR}; }
+  static VeResult ioError() { return {HeError::Custom, Type::IOError}; }
+  static VeResult heError(HeError he) { return {he, Type::NoError}; }
 
   VeResult() = default;
-  VeResult(Type type) : base_type(HeError::UNKNOWN_ERROR), type(type) {}
+  VeResult(Type type) : base_type(HeError::Unknown), type(type) {}
   VeResult(HeError base_type, Type type) : base_type(base_type), type(type) {}
 
-  /// \return True if NO_ERROR
-  operator bool() const { return base_type == HeError::NO_ERROR; }
+  /// \return True if HeError::None
+  operator bool() const { return base_type == HeError::None; }
   template <typename T> operator venus::Result<T>() const {
     return venus::Result<T>::error(*this);
   }
 
-  HeError base_type{HeError::NO_ERROR};
-  Type type{Type::NO_ERROR};
+  HeError base_type{HeError::None};
+  Type type{Type::NoError};
 };
 
-namespace venus {
+namespace hermes {
 
-#ifdef VENUS_INCLUDE_TO_STRING
 inline std::string to_string(const VeResult &err) {
   std::stringstream ss;
-  if (err.base_type != HeError::CUSTOM_ERROR)
+  if (err.base_type != HeError::Custom)
     ss << hermes::to_string(err.base_type);
-  if (err.base_type != HeError::NO_ERROR) {
+  if (err.base_type != HeError::None) {
 #define VE_ERROR_TYPE_NAME(E)                                                  \
   if (err.type == VeResult::Type::E)                                           \
   ss << " | " << #E
-    VE_ERROR_TYPE_NAME(NO_ERROR);
-    VE_ERROR_TYPE_NAME(VK_ERROR);
-    VE_ERROR_TYPE_NAME(INCOMPATIBLE_API);
-    VE_ERROR_TYPE_NAME(NOT_FOUND);
-    VE_ERROR_TYPE_NAME(EXT_ERROR);
-    VE_ERROR_TYPE_NAME(CHECK_ERROR);
-    VE_ERROR_TYPE_NAME(IO_ERROR);
+    VE_ERROR_TYPE_NAME(NoError);
+    VE_ERROR_TYPE_NAME(VkError);
+    VE_ERROR_TYPE_NAME(IncompatibleApi);
+    VE_ERROR_TYPE_NAME(NotFound);
+    VE_ERROR_TYPE_NAME(ExtError);
+    VE_ERROR_TYPE_NAME(CheckError);
+    VE_ERROR_TYPE_NAME(IOError);
 #undef VE_ERROR_TYPE_NAME
   }
   return ss.str();
 }
-#endif
 
-} // namespace venus
+} // namespace hermes

@@ -2257,8 +2257,8 @@ INCLUDE_FILE_PATTERNS  =
 
 PREDEFINED             = ENABLE_CUDA               \
                          HERMES_DEVICE_ENABLED \
-                         HERMES_INCLUDE_TO_STRING \
-                         VENUS_INCLUDE_TO_STRING
+                         HERMES_INCLUDE_DEBUG_TRAITS \
+                         VENUS_INCLUDE_DEBUG_TRAITS
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The

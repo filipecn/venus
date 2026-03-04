@@ -27,12 +27,6 @@
 
 #include <venus/app/scene.h>
 
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(app::Scene)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-} // namespace venus
-
 namespace venus::app {
 
 Scene::~Scene() noexcept {}

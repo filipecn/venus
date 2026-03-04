@@ -28,38 +28,6 @@
 
 #include <venus/utils/macros.h>
 
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::OrthographicProjection)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::PerspectiveProjection)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::Camera::Projection)
-// force update
-auto t = *object;
-HERMES_UNUSED_VARIABLE(t);
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(ratio_)
-HERMES_PUSH_DEBUG_FIELD(near_)
-HERMES_PUSH_DEBUG_FIELD(far_)
-HERMES_PUSH_DEBUG_HERMES_FIELD(clip_size_)
-HERMES_PUSH_DEBUG_HERMES_FIELD(options_)
-HERMES_PUSH_DEBUG_HERMES_FIELD(transform_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(scene::Camera)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_HERMES_FIELD(pos_)
-HERMES_PUSH_DEBUG_HERMES_FIELD(target_)
-HERMES_PUSH_DEBUG_HERMES_FIELD(up_)
-HERMES_PUSH_DEBUG_HERMES_FIELD(view_)
-HERMES_PUSH_DEBUG_LINE("{}", venus::to_string(*object.projection_))
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
-
 namespace venus::scene {
 
 hermes::geo::Transform Camera::transform() const {

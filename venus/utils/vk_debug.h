@@ -32,32 +32,35 @@
 
 #include <vulkan/vk_enum_string_helper.h>
 
-#ifdef VENUS_INCLUDE_TO_STRING
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
 
-#ifndef HERMES_PUSH_DEBUG_VK_HANDLE
-#define HERMES_PUSH_DEBUG_VK_HANDLE(F)                                         \
-  debug_fields.add(HERMES_DebugFields::Type::Inline, #F, object.F);
+#ifndef VENUS_VK_STRING
+#define VENUS_VK_STRING(T, O) string_##T(O)
 #endif
 
-#ifndef HERMES_PUSH_DEBUG_VK_STRING
-#define HERMES_PUSH_DEBUG_VK_STRING(T, F)                                      \
-  debug_fields.add(HERMES_DebugFields::Type::Inline, #F, string_##T(object.F));
+// examples of dispatchable objects:
+// VkInstance
+// VkPhysicalDevice
+// VkDevice
+// VkQueue
+// VkCommandBuffer
+#ifndef VENUS_VK_DISPATCHABLE_HANDLE_STRING
+#define VENUS_VK_DISPATCHABLE_HANDLE_STRING(H)                                 \
+  (H == VK_NULL_HANDLE                                                         \
+       ? "VK_NULL_HANDLE"                                                      \
+       : hermes::cstr::format("{:p}", static_cast<void *>(H)).c_str())
 #endif
 
-#ifndef HERMES_PUSH_DEBUG_VK_VARIABLE
-#define HERMES_PUSH_DEBUG_VK_VARIABLE(F)                                       \
-  debug_fields.add(HERMES_DebugFields::Type::Inline, #F, F);
-#endif
-
-#ifndef HERMES_PUSH_DEBUG_VK_FIELD
-#define HERMES_PUSH_DEBUG_VK_FIELD(F)                                          \
-  debug_fields.add(HERMES_DebugFields::Type::Inline, #F, object.F);
+#ifndef VENUS_VK_HANDLE_STRING
+#define VENUS_VK_HANDLE_STRING(H)                                              \
+  (H == VK_NULL_HANDLE                                                         \
+       ? "VK_NULL_HANDLE"                                                      \
+       : hermes::cstr::format("0x{:016X}", reinterpret_cast<uint64_t>(H))      \
+             .c_str())
 #endif
 
 #else
-#define HERMES_PUSH_DEBUG_VK_HANDLE
-#define HERMES_PUSH_DEBUG_VK_VARIABLE
-#define HERMES_PUSH_DEBUG_VK_FIELD
+#define VENUS_VK_STRING
 #endif
 
 namespace venus::core {
@@ -187,6 +190,193 @@ inline std::string_view vulkanResultString(VkResult err) {
 }
 
 } // namespace venus::core
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<VkFormat> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkFormat &data) {
+    return DebugMessage("{}", string_VkFormat(data));
+  }
+};
+
+template <> struct DebugTraits<VkPipelineShaderStageCreateInfo> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkPipelineShaderStageCreateInfo &data) {
+    return DebugMessage("stage {} module 0x{:x}\n",
+                        string_VkShaderStageFlagBits(data.stage),
+                        (uintptr_t)(data.module));
+  }
+};
+
+template <> struct DebugTraits<VkExtent3D> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkExtent3D &data) {
+    return DebugMessage("[{}x{}x{}]", data.width, data.height, data.depth);
+  }
+};
+
+template <> struct DebugTraits<VkExtent2D> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkExtent2D &data) {
+    return DebugMessage("[{}x{}]", data.width, data.height);
+  }
+};
+
+template <> struct DebugTraits<VkOffset3D> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkOffset3D &data) {
+    return DebugMessage("[{}x{}x{}]", data.x, data.y, data.z);
+  }
+};
+
+template <> struct DebugTraits<VkOffset2D> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkOffset2D &data) {
+    return DebugMessage("[{}x{}]", data.x, data.y);
+  }
+};
+
+template <> struct DebugTraits<VkSpecializationMapEntry> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkSpecializationMapEntry &data) {
+    return DebugMessage("constantID {} offset {} size {}", data.constantID,
+                        data.offset, data.size);
+  }
+};
+
+template <> struct DebugTraits<VkVertexInputBindingDescription> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkVertexInputBindingDescription &data) {
+    return DebugMessage("binding {} stride {} inputRage {}", data.binding,
+                        data.stride, string_VkVertexInputRate(data.inputRate));
+  }
+};
+
+template <> struct DebugTraits<VkVertexInputAttributeDescription> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkVertexInputAttributeDescription &data) {
+    return DebugMessage("location {} binding {} format {} offset {}",
+                        data.location, data.binding,
+                        string_VkFormat(data.format), data.offset);
+  }
+};
+
+template <> struct DebugTraits<VkViewport> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkViewport &data) {
+    return DebugMessage("{} {} {} {} {} {}\n", data.x, data.y, data.width,
+                        data.height, data.minDepth, data.maxDepth);
+  }
+};
+
+template <> struct DebugTraits<VkRect2D> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkRect2D &data) {
+    return DebugMessage()
+        .addTitle("VkRect2D")
+        .add("offset", data.offset)
+        .add("extent", data.extent);
+  }
+};
+
+template <> struct DebugTraits<VkStencilOpState> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkStencilOpState &data) {
+    return DebugMessage("info_.front = failOp {} passOp {} compareOp {} "
+                        "compareMask {} writeMask {} reference {}",
+                        string_VkStencilOp(data.failOp),
+                        string_VkStencilOp(data.passOp),
+                        string_VkStencilOp(data.depthFailOp),
+                        string_VkCompareOp(data.compareOp), data.compareMask,
+                        data.writeMask, data.reference);
+  }
+};
+
+template <> struct DebugTraits<VkPushConstantRange> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkPushConstantRange &data) {
+    return DebugMessage("stageFlags: {} offset {} size {}",
+                        string_VkShaderStageFlags(data.stageFlags), data.offset,
+                        data.size);
+  }
+};
+
+template <> struct DebugTraits<VkPipelineColorBlendAttachmentState> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkPipelineColorBlendAttachmentState &data) {
+    return DebugMessage()
+        .addTitle("Blend Attachment State")
+        .add("blendEnable", data.blendEnable)
+        .add("srcColorBlendFactor",
+             string_VkBlendFactor(data.srcColorBlendFactor))
+        .add("dstColorBlendFactor",
+             string_VkBlendFactor(data.dstColorBlendFactor))
+        .add("colorBlendOp", string_VkBlendOp(data.colorBlendOp))
+        .add("srcAlphaBlendFactor",
+             string_VkBlendFactor(data.srcAlphaBlendFactor))
+        .add("dstAlphaBlendFactor",
+             string_VkBlendFactor(data.dstAlphaBlendFactor))
+        .add("alphaBlendOp", string_VkBlendOp(data.alphaBlendOp))
+        .add("colorWriteMask",
+             string_VkColorComponentFlags(data.colorWriteMask));
+  }
+};
+
+template <> struct DebugTraits<VkMemoryRequirements> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkMemoryRequirements &data) {
+    return DebugMessage()
+        .addTitle("Memory Requirements")
+        .add("size", data.size)
+        .add("alignment", data.alignment)
+        .add("memory type bits", data.memoryTypeBits);
+  }
+};
+
+template <> struct DebugTraits<VkDescriptorSetLayout> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkDescriptorSetLayout &data) {
+    return DebugMessage("{}", VENUS_VK_HANDLE_STRING(data));
+  }
+};
+
+template <> struct DebugTraits<VkDescriptorSetLayoutBinding> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkDescriptorSetLayoutBinding &data) {
+    return DebugMessage("{} {} {} {}", data.binding,
+                        VENUS_VK_STRING(VkDescriptorType, data.descriptorType),
+                        data.descriptorCount,
+                        VENUS_VK_STRING(VkShaderStageFlags, data.stageFlags));
+  }
+};
+
+template <> struct DebugTraits<VkImageCreateInfo> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const VkImageCreateInfo &data) {
+    return DebugMessage()
+        .addTitle("VkImageCreateInfo")
+        .add("flags", VENUS_VK_STRING(VkImageCreateFlags, data.flags))
+        .add("imageType", VENUS_VK_STRING(VkImageType, data.imageType))
+        .add("format", VENUS_VK_STRING(VkFormat, data.format))
+        .add("extent", data.extent)
+        .add("mipLevels", data.mipLevels)
+        .add("arrayLayers", data.arrayLayers)
+        .add("samples", VENUS_VK_STRING(VkSampleCountFlagBits, data.samples))
+        .add("tiling", VENUS_VK_STRING(VkImageTiling, data.tiling))
+        .add("usage", VENUS_VK_STRING(VkImageUsageFlags, data.usage))
+        .add("sharingMode", VENUS_VK_STRING(VkSharingMode, data.sharingMode))
+        .add("queueFamilyIndexCount", data.queueFamilyIndexCount)
+        //.add("pQueueFamilyInd",
+        //     VENUS_VK_STRING(const uint32_t *, data.pQueueFamilyIndices))
+        .add("initialLayout",
+             VENUS_VK_STRING(VkImageLayout, data.initialLayout));
+  }
+};
+
+} // namespace hermes
+#endif // VENUS_INCLUDE_DEBUG_TRAITS
 
 #define VENUS_VK_RETURN_BAD_RESULT(A)                                          \
   {                                                                            \

@@ -1,4 +1,4 @@
-add_executable(main main.cpp)
+add_executable(main hello_ra.cpp)
 
 set_target_properties(
   main

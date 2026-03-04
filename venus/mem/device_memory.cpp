@@ -28,27 +28,19 @@
 
 #include <venus/utils/vk_debug.h>
 
+#ifdef HERMES_LINUX
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
+#ifdef HERMES_LINUX
 #pragma GCC diagnostic pop
+#endif
 
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::DeviceMemory::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::DeviceMemory)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
-  //
 namespace venus::mem {
 
 Result<DeviceMemory>

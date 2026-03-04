@@ -123,7 +123,10 @@ public:
     ///       and will destroy it with destroy() is called.
     HERMES_NODISCARD Result<Image> build(VkDevice vk_device,
                                          VkImage vk_image) const;
-    VENUS_to_string_FRIEND(Image::Config);
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Image::Config>;
+#endif
   };
   /// Image views allow us to define how image's memory is accessed and
   /// interpreted. For example, we can choose to look at the buffer as a uniform
@@ -147,7 +150,9 @@ public:
     private:
       VkImageViewCreateInfo info_{};
 
-      VENUS_to_string_FRIEND(Image::View::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+      friend struct hermes::DebugTraits<Image::View::Config>;
+#endif
     };
 
     // raii
@@ -166,13 +171,14 @@ public:
     Config config_{};
 #endif
 
-    VENUS_to_string_FRIEND(Image::View);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Image::View>;
+#endif
   };
   /// Holds image object vk handles
   struct Handle {
     VkImage image;
     VkImageView view;
-    VENUS_to_string_FRIEND(Image::Handle);
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Image);
@@ -202,7 +208,9 @@ private:
   Config config_;
 #endif
 
-  VENUS_to_string_FRIEND(Image);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Image>;
+#endif
 };
 
 template <typename Derived>
@@ -254,7 +262,7 @@ VkImageCreateInfo Image::Setup<Derived>::createInfo() const {
   auto info = info_;
   info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
   info.pQueueFamilyIndices = queue_family_indices_.data();
-  info.queueFamilyIndexCount = queue_family_indices_.size();
+  info.queueFamilyIndexCount = static_cast<u32>(queue_family_indices_.size());
   return info;
 }
 
@@ -308,7 +316,9 @@ public:
   operator bool() const;
 
 private:
-  VENUS_to_string_FRIEND(AllocatedImage);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<AllocatedImage>;
+#endif
 };
 
 /// The image pool holds an set of images and image views that can be accessed
@@ -352,7 +362,108 @@ private:
 
   std::unordered_map<std::string, ImageData> images_;
 
-  VENUS_to_string_FRIEND(ImagePool);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<ImagePool>;
+#endif
 };
 
 } // namespace venus::mem
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::mem::Image::View::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::Image::View::Config &data) {
+    return DebugMessage()
+        .addTitle("Image View Config")
+        .add("flags", VENUS_VK_STRING(VkImageViewCreateFlags, data.info_.flags))
+        .add("image", data.info_.image)
+        .add("view type", VENUS_VK_STRING(VkImageViewType, data.info_.viewType))
+        .add("format", VENUS_VK_STRING(VkFormat, data.info_.format))
+        .add("component r",
+             VENUS_VK_STRING(VkComponentSwizzle, data.info_.components.r))
+        .add("component g",
+             VENUS_VK_STRING(VkComponentSwizzle, data.info_.components.g))
+        .add("compoenent b",
+             VENUS_VK_STRING(VkComponentSwizzle, data.info_.components.b))
+        .add("component a",
+             VENUS_VK_STRING(VkComponentSwizzle, data.info_.components.a))
+        .add("", VENUS_VK_STRING(VkImageAspectFlags,
+                                 data.info_.subresourceRange.aspectMask))
+        .add("base mip level", data.info_.subresourceRange.baseMipLevel)
+        .add("level count", data.info_.subresourceRange.levelCount)
+        .add("base array layer", data.info_.subresourceRange.baseArrayLayer)
+        .add("layer count", data.info_.subresourceRange.layerCount);
+  }
+};
+
+template <> struct DebugTraits<venus::mem::Image::View> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::Image::View &data) {
+    return DebugMessage()
+        .addTitle("Image View")
+        .add("vk_image_view", VENUS_VK_HANDLE_STRING(data.vk_image_view_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("config", data.config_);
+  }
+};
+
+template <> struct DebugTraits<venus::mem::Image::Handle> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::Image::Handle &data) {
+    return DebugMessage()
+        .addTitle("Image Handle")
+        .add("image", VENUS_VK_HANDLE_STRING(data.image))
+        .add("view", VENUS_VK_HANDLE_STRING(data.view));
+  }
+};
+
+template <> struct DebugTraits<venus::mem::Image::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::Image::Config &data) {
+    return DebugMessage()
+        .addTitle("Image Config")
+        .add("format features",
+             VENUS_VK_STRING(VkFormatFeatureFlags, data.format_features_))
+        .add("aspect mask",
+             VENUS_VK_STRING(VkImageAspectFlags, data.aspect_mask_))
+        .add("create info", data.info_);
+  }
+};
+
+template <> struct DebugTraits<venus::mem::Image> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::Image &data) {
+    return DebugMessage()
+        .addTitle("Image")
+        .add("vk_image", VENUS_VK_HANDLE_STRING(data.vk_image_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("vk_format", VENUS_VK_STRING(VkFormat, data.vk_format_));
+  }
+};
+
+template <> struct DebugTraits<venus::mem::AllocatedImage> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::AllocatedImage &data) {
+    return DebugMessage()
+        .addTitle("Allocated Image")
+        .add("vk_image", VENUS_VK_HANDLE_STRING(data.vk_image_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("vk_format", VENUS_VK_STRING(VkFormat, data.vk_format_));
+  }
+};
+
+template <> struct DebugTraits<venus::mem::ImagePool> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::ImagePool &data) {
+    return DebugMessage().addTitle("Image Pool");
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

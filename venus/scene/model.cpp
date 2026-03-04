@@ -26,38 +26,8 @@
 
 #include <venus/scene/model.h>
 #include <venus/utils/macros.h>
-#include <venus/utils/vk_debug.h>
 
 #include <hermes/geometry/transform.h>
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model::Shape)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(index_base)
-HERMES_PUSH_DEBUG_FIELD(index_count)
-HERMES_PUSH_DEBUG_HERMES_FIELD(bounds)
-HERMES_PUSH_DEBUG_LINE("material: 0x{:x}",
-                       object.material ? (uintptr_t)object.material.get() : 0)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Model)
-HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_vertex_buffer_)
-HERMES_PUSH_DEBUG_ADDRESS_FIELD(vk_index_buffer_)
-HERMES_PUSH_DEBUG_FIELD(vk_vertex_buffer_address_)
-HERMES_PUSH_DEBUG_FIELD(vk_index_buffer_address_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(vertex_layout_)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(shapes_, shape)
-HERMES_UNUSED_VARIABLE(shape);
-HERMES_PUSH_DEBUG_VENUS_FIELD(shapes_[i])
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::AllocatedModel)
-HERMES_PUSH_DEBUG_HERMES_FIELD(mesh_.aos)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
 
 namespace venus::scene {
 
@@ -79,13 +49,19 @@ Result<Model> Model::Config::build() const {
 
 const std::vector<Model::Shape> &Model::shapes() const { return shapes_; }
 
-VeResult Model::setMaterial(u32 shape_index,
-                            const scene::Material::Instance::Ptr &material) {
+VeResult Model::setMaterialInstance(
+    u32 shape_index, const scene::Material::Instance::Ptr &material_instance) {
   if (shapes_.size() <= shape_index) {
     return VeResult::outOfBounds();
   }
-  shapes_[shape_index].material = material;
+  shapes_[shape_index].material_instance = material_instance;
   return VeResult::noError();
+}
+
+void Model::setMaterialInstance(
+    const scene::Material::Instance::Ptr &material_instance) {
+  for (auto &shape : shapes_)
+    shape.material_instance = material_instance;
 }
 
 VkBuffer Model::vertexBuffer() const { return vk_vertex_buffer_; }
@@ -129,8 +105,9 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
       mem::AllocatedBuffer::Config ::forStorage(
           vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
           .enableShaderDeviceAddress()
-          .addUsage(
-              VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
+          // TODO this is RT only
+          //.addUsage(
+          //    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
           .setDeviceLocal()
           .build(*gd));
 
@@ -140,8 +117,9 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
         mem::AllocatedBuffer::Config ::forStorage(
             index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
             .enableShaderDeviceAddress()
-            .addUsage(
-                VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
+            // TODO this is RT only
+            //.addUsage(
+            //    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
             .setDeviceLocal()
             .build(*gd));
   }
@@ -151,8 +129,9 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
       mem::AllocatedBuffer::Config ::forStorage(
           sizeof(hermes::geo::Transform), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
           .enableShaderDeviceAddress()
-          .addUsage(
-              VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
+          // TODO this is RT only
+          //.addUsage(
+          //    VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR)
           .setDeviceLocal()
           .build(*gd));
 
@@ -160,11 +139,11 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
 
   pipeline::BufferWritter buffer_writter;
   buffer_writter.addBuffer(*model.storage_.vertices, *mesh_.aos.data(),
-                           vertex_buffer_size);
+                           static_cast<u32>(vertex_buffer_size));
 
   if (index_buffer_size) {
     buffer_writter.addBuffer(*model.storage_.indices, mesh_.indices.data(),
-                             index_buffer_size);
+                             static_cast<u32>(index_buffer_size));
   }
 
   hermes::geo::Transform identity;
@@ -186,10 +165,10 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
 
   Model::Shape shape;
   shape.bounds = model.mesh_.computeBounds();
-  shape.material = {};
-  shape.index_count = model.mesh_.indices.size();
+  shape.material_instance = {};
+  shape.index_count = static_cast<u32>(model.mesh_.indices.size());
   shape.index_base = 0;
-  shape.vertex_count = model.mesh_.aos.size();
+  shape.vertex_count = static_cast<u32>(model.mesh_.aos.size());
 
   model.shapes_.emplace_back(shape);
 
@@ -212,6 +191,14 @@ void AllocatedModel::destroy() noexcept {
   HERMES_CHECK_HE_RESULT(mesh_.aos.clear());
   mesh_.indices.clear();
   mesh_.vertex_layout.clear();
+
+  vk_index_buffer_ = VK_NULL_HANDLE;
+  vk_vertex_buffer_ = VK_NULL_HANDLE;
+  vk_index_buffer_ = VK_NULL_HANDLE;
+  vk_transform_buffer_ = VK_NULL_HANDLE;
+  vk_vertex_buffer_address_ = 0;
+  vk_index_buffer_address_ = 0;
+  vk_transform_buffer_address_ = 0;
 }
 
 void AllocatedModel::swap(AllocatedModel &rhs) {

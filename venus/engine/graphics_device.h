@@ -184,8 +184,8 @@ private:
   ImmediateSubmitResources imm_submit_data_;
   Output output_;
 
-  u32 swapchain_image_count_{0};
-  u32 current_frame_{0};
+  h_size swapchain_image_count_{0};
+  h_index current_frame_{0};
   u32 swapchain_image_index_{0};
   bool using_dynamic_rendering_{false};
 };

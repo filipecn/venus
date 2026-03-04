@@ -27,60 +27,6 @@
 
 #include <venus/mem/buffer.h>
 
-#include <venus/utils/vk_debug.h>
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(size_)
-HERMES_PUSH_DEBUG_VK_STRING(VkBufferUsageFlags, usage_)
-HERMES_PUSH_DEBUG_VK_STRING(VkSharingMode, sharing_mode_)
-HERMES_PUSH_DEBUG_VK_STRING(VkBufferCreateFlags, flags_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::Buffer)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
-HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
-                                          ? object.vk_device_address_.value()
-                                          : 0)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(buffer_config_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(mem_config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::mem::AllocatedBuffer)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.size)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.alignment)
-HERMES_PUSH_DEBUG_FIELD(vk_memory_requirements_.memoryTypeBits)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_buffer_)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
-HERMES_PUSH_DEBUG_LINE("address: {}", object.vk_device_address_.has_value()
-                                          ? object.vk_device_address_.value()
-                                          : 0)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(mem::BufferPool)
-HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(buffers_, name, data)
-HERMES_PUSH_DEBUG_LINE("block offsets: {}\n",
-                       hermes::cstr::join(data.block_offsets, " "))
-HERMES_PUSH_DEBUG_LINE("occupancy: {}\n", data.size)
-HERMES_PUSH_DEBUG_LINE("buffer: {}\n", venus::to_string(data.buffer));
-HERMES_PUSH_DEBUG_MAP_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
-
 namespace venus::mem {
 
 Result<Buffer> Buffer::Config::build(const core::Device &device) const {
@@ -217,7 +163,8 @@ void Buffer::init(VkDevice vk_device, VkBuffer vk_buffer) {
   }
 }
 
-AllocatedBuffer::Config AllocatedBuffer::Config::forStaging(u32 size_in_bytes) {
+AllocatedBuffer::Config
+AllocatedBuffer::Config::forStaging(h_size size_in_bytes) {
   return AllocatedBuffer::Config()
       .setSize(size_in_bytes)
       .setAllocationFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT)
@@ -225,7 +172,8 @@ AllocatedBuffer::Config AllocatedBuffer::Config::forStaging(u32 size_in_bytes) {
       .setMemoryUsage(VMA_MEMORY_USAGE_CPU_ONLY);
 }
 
-AllocatedBuffer::Config AllocatedBuffer::Config::forUniform(u32 size_in_bytes) {
+AllocatedBuffer::Config
+AllocatedBuffer::Config::forUniform(h_size size_in_bytes) {
   return AllocatedBuffer::Config()
       // buffer
       .addUsage(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
@@ -236,7 +184,7 @@ AllocatedBuffer::Config AllocatedBuffer::Config::forUniform(u32 size_in_bytes) {
 }
 
 AllocatedBuffer::Config
-AllocatedBuffer::Config::forStorage(u32 size_in_bytes,
+AllocatedBuffer::Config::forStorage(h_size size_in_bytes,
                                     VkBufferUsageFlags usage) {
   return AllocatedBuffer::Config()
       // buffer
@@ -250,7 +198,7 @@ AllocatedBuffer::Config::forStorage(u32 size_in_bytes,
 }
 
 AllocatedBuffer::Config
-AllocatedBuffer::Config::forAccelerationStructure(u32 size_in_bytes) {
+AllocatedBuffer::Config::forAccelerationStructure(h_size size_in_bytes) {
   return AllocatedBuffer::Config::forStorage(
              size_in_bytes,
              VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR)
@@ -260,7 +208,7 @@ AllocatedBuffer::Config::forAccelerationStructure(u32 size_in_bytes) {
 }
 
 AllocatedBuffer::Config
-AllocatedBuffer::Config::forShaderBindingTable(u32 size_in_bytes) {
+AllocatedBuffer::Config::forShaderBindingTable(h_size size_in_bytes) {
   return AllocatedBuffer::Config()
       // buffer
       .addUsage(VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR)
@@ -374,7 +322,7 @@ Result<u32> BufferPool::allocate(const std::string &name, u32 size_in_bytes,
   u32 offset = data.size;
 
   if (size_in_bytes == 0) {
-    size_in_bytes = data.buffer.sizeInBytes() - data.size;
+    size_in_bytes = static_cast<u32>(data.buffer.sizeInBytes()) - data.size;
   }
 
   if (data.buffer.sizeInBytes() < offset + count * size_in_bytes)

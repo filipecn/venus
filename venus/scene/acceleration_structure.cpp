@@ -171,15 +171,15 @@ VkDevice AccelerationStructure::device() const { return vk_device_; }
 
 AccelerationStructure &AccelerationStructure::addGeometry(
     const AccelerationStructure::GeometryData &geometry_data,
-    u32 primitive_count, u32 transform_offset) {
+    u32 primitive_count, h_size transform_offset) {
   geometries_[geometries_.size()] = {*geometry_data, primitive_count,
                                      transform_offset, false};
   return *this;
 }
 
 AccelerationStructure &AccelerationStructure::updateGeometry(
-    u64 index, const AccelerationStructure::GeometryData &geometry_data,
-    u32 primitive_count, u32 transform_offset) {
+    h_index index, const AccelerationStructure::GeometryData &geometry_data,
+    u32 primitive_count, h_size transform_offset) {
   geometries_[index] = {*geometry_data, primitive_count, transform_offset,
                         true};
   return *this;

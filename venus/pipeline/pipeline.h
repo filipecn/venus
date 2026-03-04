@@ -32,6 +32,8 @@
 #include <venus/mem/layout.h>
 #include <venus/pipeline/shader_module.h>
 
+#include <array>
+
 namespace venus::pipeline {
 
 // The operations recorded in command buffers are processed by the hardware in
@@ -81,16 +83,25 @@ public:
     std::size_t specialization_data_size_{0};
     const void *specialization_data_{nullptr};
 
-    VENUS_to_string_FRIEND(ShaderStage);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Pipeline::ShaderStage>;
+#endif
   };
   /// Pipeline layout.
   class Layout {
   public:
     struct Config {
       Config &addFlags(VkPipelineLayoutCreateFlags flags);
+      /// \brief
+      /// \param vk_set_layout
+      /// \note Set index is assumed to follow the order descriptor set layouts
+      ///       are added.
+      /// \return
       Config &addDescriptorSetLayout(VkDescriptorSetLayout vk_set_layout);
       Config &addPushConstantRange(VkShaderStageFlags stage_flags,
                                    uint32_t offset, uint32_t size);
+      const std::vector<VkDescriptorSetLayout> &descriptorSetLayouts() const;
+      const std::vector<VkPushConstantRange> &ranges();
 
       Result<Layout> build(VkDevice vk_device) const;
 
@@ -99,7 +110,9 @@ public:
       std::vector<VkPushConstantRange> ranges_;
       std::vector<VkDescriptorSetLayout> set_layouts_;
 
-      VENUS_to_string_FRIEND(Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+      friend struct hermes::DebugTraits<Pipeline::Layout::Config>;
+#endif
     };
 
     VENUS_DECLARE_RAII_FUNCTIONS(Layout)
@@ -116,7 +129,9 @@ public:
     Config config_;
 #endif
 
-    VENUS_to_string_FRIEND(Layout);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Pipeline::Layout>;
+#endif
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Pipeline);
@@ -141,7 +156,9 @@ protected:
   VkPipeline vk_pipeline_{VK_NULL_HANDLE};
   VkPipelineCache vk_pipeline_cache_{VK_NULL_HANDLE};
 
-  VENUS_to_string_FRIEND(Pipeline);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Pipeline>;
+#endif
 };
 
 VENUS_DEFINE_SETUP_METHOD(Pipeline, addShaderStage,
@@ -183,7 +200,9 @@ public:
     std::vector<VkVertexInputBindingDescription> binding_descriptions_;
     std::vector<VkVertexInputAttributeDescription> attribute_descriptions_;
 
-    VENUS_to_string_FRIEND(VertexInput);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<GraphicsPipeline::VertexInput>;
+#endif
   };
   /// Builder for Rasterization state configuration.
   struct Rasterizer {
@@ -205,7 +224,10 @@ public:
   private:
     VkPipelineRasterizationStateCreateInfo info_{};
 
-    VENUS_to_string_FRIEND(Rasterizer);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<
+        venus::pipeline::GraphicsPipeline::Rasterizer>;
+#endif
   };
   /// Builder for Multisample state configuration.
   struct Multisample {
@@ -227,7 +249,9 @@ public:
     VkPipelineMultisampleStateCreateInfo info_{};
     std::vector<VkSampleMask> sample_masks_;
 
-    VENUS_to_string_FRIEND(Multisample);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<GraphicsPipeline::Multisample>;
+#endif
   };
   /// Builder for Color Blend state configuration.
   struct ColorBlend {
@@ -249,7 +273,9 @@ public:
     VkPipelineColorBlendStateCreateInfo info_{};
     std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments_;
 
-    VENUS_to_string_FRIEND(ColorBlend);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<GraphicsPipeline::ColorBlend>;
+#endif
   };
   /// Builder for Depth Stencil state configuration.
   struct DepthStencil {
@@ -267,7 +293,9 @@ public:
   private:
     VkPipelineDepthStencilStateCreateInfo info_{};
 
-    VENUS_to_string_FRIEND(DepthStencil);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<GraphicsPipeline::DepthStencil>;
+#endif
   };
 
   /// Builder for GraphicsPipeline
@@ -363,7 +391,9 @@ public:
     std::vector<VkFormat> color_attachment_formats_{};
     VkPipelineRenderingCreateInfo rendering_{};
 
-    VENUS_to_string_FRIEND(GraphicsPipeline::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<GraphicsPipeline::Config>;
+#endif
   };
 
 private:
@@ -371,7 +401,9 @@ private:
   Config config_;
 #endif
 
-  VENUS_to_string_FRIEND(GraphicsPipeline);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<GraphicsPipeline>;
+#endif
 };
 
 /// Specialized pipeline for ray tracing.
@@ -402,7 +434,9 @@ public:
   private:
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups_{};
 
-    VENUS_to_string_FRIEND(RayTracingPipeline::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<RayTracingPipeline::Config>;
+#endif
   };
 
   const std::vector<VkRayTracingShaderGroupCreateInfoKHR> &shaderGroups() const;
@@ -414,7 +448,178 @@ private:
   Config config_;
 #endif
 
-  VENUS_to_string_FRIEND(RayTracingPipeline);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<RayTracingPipeline>;
+#endif
 };
 
 } // namespace venus::pipeline
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::pipeline::Pipeline::ShaderStage> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::Pipeline::ShaderStage &data) {
+    return DebugMessage()
+        .addTitle("Pipeline Shader Stage")
+        .add("stages", VENUS_VK_STRING(VkShaderStageFlagBits, data.stages_))
+        .addArray("specialization map entries",
+                  data.specialization_map_entries_)
+        .add("specialization data size", data.specialization_data_size_)
+        .addAddress("specialization data", data.specialization_data_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::Pipeline::Layout::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::Pipeline::Layout::Config &data) {
+    return DebugMessage()
+        .addTitle("Pipeline Layout Config")
+        .add("flags", VENUS_VK_STRING(VkPipelineLayoutCreateFlags, data.flags_))
+        .addArray("ranges", data.ranges_)
+        .addArray("set_layouts", data.set_layouts_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::Pipeline::Layout> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::pipeline::Pipeline::Layout &data) {
+    return DebugMessage()
+        .addTitle("Pipeline Layout")
+        .add("vk_layout", VENUS_VK_HANDLE_STRING(data.vk_layout_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("config", data.config_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::Pipeline> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::pipeline::Pipeline &data) {
+    return DebugMessage()
+        .addTitle("Pipeline")
+        .add("vk_pipeline", VENUS_VK_HANDLE_STRING(data.vk_pipeline_))
+        .add("vk_pipeline_cache",
+             VENUS_VK_HANDLE_STRING(data.vk_pipeline_cache_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_));
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::GraphicsPipeline::VertexInput> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::GraphicsPipeline::VertexInput &data) {
+    return DebugMessage()
+        .addTitle("Graphics Pipeline Vertex Input")
+        .addArray("binding descriptions", data.binding_descriptions_)
+        .addArray("attribute descriptions", data.binding_descriptions_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::GraphicsPipeline::Rasterizer> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::GraphicsPipeline::Rasterizer &data) {
+    return DebugMessage()
+        .addTitle("Graphics Pipeline Rasterizer")
+        .add("depth clamp enable", data.info_.depthClampEnable)
+        .add("rasterizer discard enable", data.info_.rasterizerDiscardEnable)
+        .add("depth bias enable", data.info_.depthBiasEnable)
+        .add("depth bias constant factor", data.info_.depthBiasConstantFactor)
+        .add("depth bias clamp", data.info_.depthBiasClamp)
+        .add("depth bias slope factor", data.info_.depthBiasSlopeFactor)
+        .add("line width", data.info_.lineWidth)
+        .add("polygon mode",
+             VENUS_VK_STRING(VkPolygonMode, data.info_.polygonMode))
+        .add("cull mode", VENUS_VK_STRING(VkCullModeFlags, data.info_.cullMode))
+        .add("front face", VENUS_VK_STRING(VkFrontFace, data.info_.frontFace));
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::GraphicsPipeline::Multisample> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::GraphicsPipeline::Multisample &data) {
+    return DebugMessage()
+        .addTitle("Graphics Pipeline Vertex Multisample")
+        .add("rasterization samples",
+             VENUS_VK_STRING(VkSampleCountFlagBits,
+                             data.info_.rasterizationSamples))
+        .add("sample shading enable", data.info_.sampleShadingEnable)
+        .add("min sample shading", data.info_.minSampleShading)
+        .add("pSample mask", data.info_.pSampleMask)
+        .add("alpha to coverage enable", data.info_.alphaToCoverageEnable)
+        .add("alpha to one enable", data.info_.alphaToOneEnable)
+        .addArray("sample masks", data.sample_masks_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::GraphicsPipeline::ColorBlend> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::GraphicsPipeline::ColorBlend &data) {
+    return DebugMessage()
+        .addTitle("Graphics Pipeline Vertex Color Blend")
+        .add("logic op enable", data.info_.logicOpEnable)
+        .add("logic op", VENUS_VK_STRING(VkLogicOp, data.info_.logicOp))
+        .add("attachment count", data.info_.attachmentCount)
+        .addArray("color blend attachments", data.color_blend_attachments_);
+  }
+};
+
+template <>
+struct DebugTraits<venus::pipeline::GraphicsPipeline::DepthStencil> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::GraphicsPipeline::DepthStencil &data) {
+    return DebugMessage()
+        .addTitle("Graphics Pipeline Vertex Depth Stencil")
+        .add("depth test enable", data.info_.depthTestEnable)
+        .add("depth write enable", data.info_.depthWriteEnable)
+        .add("depth compare op",
+             VENUS_VK_STRING(VkCompareOp, data.info_.depthCompareOp))
+        .add("depth bounds test enable", data.info_.depthBoundsTestEnable)
+        .add("stencil test eblane", data.info_.stencilTestEnable)
+        .add("front", data.info_.front)
+        .add("back", data.info_.back)
+        .add("min depth bounds", data.info_.minDepthBounds)
+        .add("max depth bounds", data.info_.maxDepthBounds);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::GraphicsPipeline::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::GraphicsPipeline::Config &data) {
+    return DebugMessage()
+        .addTitle("Graphics Pipeline Config")
+        .add("vertex input", data.vertex_input_)
+        .add("rasterization", data.rasterization_)
+        .add("color blend", data.color_blend_)
+        .add("multisample", data.multisample_)
+        .add("depth stencil", data.depth_stencil_)
+        .addFmt("input_assembly = topology {} restartEnable {}",
+                string_VkPrimitiveTopology(data.input_assembly_.topology),
+                data.input_assembly_.primitiveRestartEnable)
+        .addArray("viewports", data.viewports_)
+        .addArray("scissors", data.scissors_)
+        .addFmt("viewport_ = viewports {} scissors {}",
+                data.viewport_.viewportCount, data.viewport_.scissorCount)
+        .addArray("color attachment formats", data.color_attachment_formats_)
+        .addArray("stages", data.stages_);
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::GraphicsPipeline> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::pipeline::GraphicsPipeline &data) {
+    return DebugMessage()
+        .addTitle("Graphics Pipeline")
+        .add("config", data.config_);
+  }
+};
+
+} // namespace hermes
+#endif

@@ -66,23 +66,36 @@ GraphicsDevice::Config::build(const core::Instance &instance) const {
       physical_device,
       physical_devices.select(
           core::PhysicalDevices::Selector().forGraphics(surface_)));
-  HERMES_INFO("\n{}", venus::to_string(physical_devices));
+  HERMES_INFO("\n{}", VENUS_TO_STRING(physical_devices));
 
   core::vk::GraphicsQueueFamilyIndices indices;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       indices, physical_device.selectGraphicsQueueFamilyIndices(surface_));
 
   // create logical device
-
-  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      gd.device_,
+  auto device_config =
       core::Device::Config()
           .setFeatures(device_features_)
           .addAllocationFlags(VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT)
-          .addQueueFamily(indices.graphics_queue_family_index, {1.f})
-          .addQueueFamily(indices.present_queue_family_index, {1.f})
-          .addExtensions(extensions_)
-          .build(physical_device));
+          .addExtensions(extensions_);
+
+  // add one queue for graphics and add another one for present if possible
+  device_config.addQueueFamily(indices.graphics_queue_family_index, {1.f});
+  if (indices.graphics_queue_family_index ==
+      indices.present_queue_family_index) {
+    VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+        VkQueueFamilyProperties, qp,
+        physical_device.queueFamilyProperties(
+            indices.graphics_queue_family_index));
+    if (qp.queueCount > 1)
+      device_config.addQueueFamily(indices.present_queue_family_index, {1.f});
+  } else
+    device_config.addQueueFamily(indices.present_queue_family_index, {1.f});
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(gd.device_,
+                                    device_config.build(physical_device));
+
+  HERMES_INFO("logical device :\n {}", VENUS_TO_STRING(gd.device_));
 
   // get device queues
 

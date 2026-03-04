@@ -29,10 +29,25 @@
 
 #include <venus/pipeline/descriptors.h>
 #include <venus/pipeline/pipeline.h>
+#include <venus/utils/indexed_handle.h>
 
 #include <hermes/core/ref.h>
+#include <hermes/geometry/transform.h>
+#include <hermes/storage/block.h>
+
+#include <set>
 
 namespace venus::scene {
+
+struct PushConstantsContext {
+  hermes::geo::Transform projection;
+  hermes::geo::Transform view;
+  hermes::geo::Transform inv_projection;
+  hermes::geo::Transform inv_view;
+  hermes::geo::Transform proj_view;
+  hermes::geo::Transform model;
+  hermes::geo::point3 eye;
+};
 
 // *****************************************************************************
 //                                                                    Material
@@ -50,12 +65,21 @@ public:
     using Ptr = hermes::Ref<Instance>;
 
     struct Config {
-      Config &setMaterial(const Material *material);
+      Config &setMaterial(Material::Ptr material);
+      Config &addGlobalSetIndex(h_index global_set_index);
+      Config &setWritePushConstants(
+          VkShaderStageFlags stage_flags,
+          const std::function<VeResult(hermes::mem::Block &,
+                                       const PushConstantsContext &)> &f);
       Result<Instance> build(pipeline::DescriptorAllocator &allocator) const;
 
     private:
-      const Material *material_{nullptr};
-      VkDescriptorSetLayout vk_descriptor_set_layout_{VK_NULL_HANDLE};
+      Material::Ptr material_;
+      std::set<h_index> global_set_indices_;
+      VkShaderStageFlags push_constants_stage_flags_;
+      std::function<VeResult(hermes::mem::Block &,
+                             const PushConstantsContext &)>
+          write_push_constants_;
     };
 
     VENUS_DECLARE_RAII_FUNCTIONS(Instance)
@@ -63,21 +87,34 @@ public:
     void swap(Instance &rhs);
     void destroy() noexcept;
 
-    const Material *material() const;
-    const pipeline::DescriptorSet &descriptorSet() const;
+    Material::Ptr material() const;
     const pipeline::GraphicsPipeline &pipeline() const;
     const pipeline::Pipeline::Layout &pipelineLayout() const;
+    bool hasGlobalDescriptors() const;
+    std::unordered_map<h_index, std::vector<VkDescriptorSet>>
+    localDescriptorSetGroups() const;
+    VeResult writePushConstants(hermes::mem::Block &block,
+                                const PushConstantsContext &ctx) const;
+    VkShaderStageFlags pushConstantsStageFlags() const;
 
   private:
-    const Material *material_{nullptr};
-    pipeline::DescriptorSet descriptor_set_;
+    Material::Ptr material_;
+    /// set index -> descriptor set object map
+    std::unordered_map<h_index, pipeline::DescriptorSet> descriptor_sets_;
+    // TODO:
+    std::set<h_index> global_set_indices_;
+    std::function<VeResult(hermes::mem::Block &, const PushConstantsContext &)>
+        write_push_constants_;
+    VkShaderStageFlags push_constants_stage_flags_{VK_SHADER_STAGE_VERTEX_BIT};
 
-    VENUS_to_string_FRIEND(Instance);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Material::Instance>;
+#endif
   };
 
   struct Writer {
     virtual Result<Instance> write(pipeline::DescriptorAllocator &allocator,
-                                   const Material *material) = 0;
+                                   Material::Ptr material);
 
   protected:
     pipeline::DescriptorWriter descriptor_writer_;
@@ -89,15 +126,18 @@ public:
       setPipelineConfig(const pipeline::GraphicsPipeline::Config &config);
       Config &
       setPipelineLayoutConfig(const pipeline::Pipeline::Layout::Config &config);
-
+      const pipeline::Pipeline::Layout::Config &
+      graphicsPipelineLayoutConfig() const;
       Result<Material::Pipeline> build(VkDevice vk_device,
                                        VkRenderPass vk_renderpass) const;
 
     private:
-      pipeline::GraphicsPipeline::Config pipeline_config_;
-      pipeline::Pipeline::Layout::Config layout_config_;
+      pipeline::GraphicsPipeline::Config graphics_pipeline_config_;
+      pipeline::Pipeline::Layout::Config graphics_pipeline_layout_config_;
 
-      VENUS_to_string_FRIEND(Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+      friend struct hermes::DebugTraits<Material::Pipeline::Config>;
+#endif
     };
 
     VENUS_DECLARE_RAII_FUNCTIONS(Pipeline)
@@ -122,22 +162,23 @@ public:
     Config config_;
 #endif
 
-    VENUS_to_string_FRIEND(Pipeline);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Material::Pipeline>;
+#endif
   };
 
   struct Config {
-    Config &setDescriptorSetLayout(
-        pipeline::DescriptorSet::Layout &&descriptor_set_layout);
     Config &setMaterialPipelineConfig(const Pipeline::Config &config);
 
     Result<Material> build(VkDevice vk_device,
                            VkRenderPass vk_renderpass) const;
 
   private:
-    mutable pipeline::DescriptorSet::Layout descriptor_set_layout_;
     Pipeline::Config pipeline_config_;
 
-    VENUS_to_string_FRIEND(Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Material::Config>;
+#endif
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Material)
@@ -145,18 +186,89 @@ public:
   void destroy() noexcept;
   void swap(Material &rhs);
 
-  const pipeline::DescriptorSet::Layout &descriptorSetLayout() const;
   const Pipeline &pipeline() const;
+  void ownDescriptorSetLayout(
+      pipeline::DescriptorSet::Layout &&descriptor_set_layout);
+  const std::unordered_map<h_index, VkDescriptorSetLayout> &
+  descriptorSetLayouts() const;
 
 protected:
   Pipeline pipeline_;
-  pipeline::DescriptorSet::Layout descriptor_set_layout_;
-
+  std::vector<pipeline::DescriptorSet::Layout> owned_descriptor_set_layouts_;
+  std::unordered_map<h_index, VkDescriptorSetLayout> vk_descriptor_set_layouts_;
 #ifdef VENUS_DEBUG
   Config config_;
 #endif
 
-  VENUS_to_string_FRIEND(Material);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Material>;
+#endif
 };
 
 } // namespace venus::scene
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::scene::Material::Pipeline::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::scene::Material::Pipeline::Config &data) {
+    return DebugMessage()
+        .addTitle("Scene Material Pipeline Config")
+        .add("pipeline config", data.graphics_pipeline_config_)
+        .add("layout config", data.graphics_pipeline_layout_config_);
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Material::Pipeline> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Material::Pipeline &data) {
+    return DebugMessage()
+        .addTitle("Scene Material Pipeline")
+        .add("pipeline", data.pipeline_)
+        .add("pipeline layout", data.pipeline_layout_)
+        .add("config", data.config_);
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Material::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Material::Config &data) {
+    return DebugMessage()
+        .addTitle("Scene Material Config")
+        .add("pipeline config", data.pipeline_config_);
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Material> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Material &data) {
+    return DebugMessage()
+        .addTitle("SCene Material")
+        .add("pipeline", data.pipeline_)
+        .add("descriptor set layouts", data.vk_descriptor_set_layouts_.size())
+        .addArray("owned descriptor set layouts",
+                  data.owned_descriptor_set_layouts_)
+        .add("config", data.config_);
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Material::Instance> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Material::Instance &data) {
+    DebugMessage m;
+    m.addTitle("Scene Material Instance")
+        .add("material", *data.material_)
+        .addFmt("Descriptor Sets")
+        .pushTab();
+    for (const auto &item : data.descriptor_sets_)
+      m.addFmt("set index{} -> ds: {}", item.first,
+               hermes::to_string(item.second));
+    return m;
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

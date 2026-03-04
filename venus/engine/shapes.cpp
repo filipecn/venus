@@ -36,11 +36,11 @@ Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
   Model::Mesh mesh;
   mesh.aos.pushField<hermes::geo::point3>("position");
   auto err = mesh.aos.resize(3);
-  if (err != HeError::NO_ERROR)
+  if (err != HeError::None)
     return VeResult::heError(err);
-  mesh.aos.valueAt<hermes::geo::point3>(0, 0) = a;
-  mesh.aos.valueAt<hermes::geo::point3>(0, 1) = b;
-  mesh.aos.valueAt<hermes::geo::point3>(0, 2) = c;
+  mesh.aos.get<hermes::geo::point3>(0, 0) = a;
+  mesh.aos.get<hermes::geo::point3>(0, 1) = b;
+  mesh.aos.get<hermes::geo::point3>(0, 2) = c;
   mesh.indices = {0, 1, 2};
   mesh.vertex_layout.pushComponent(mem::VertexLayout::ComponentType::Position,
                                    VK_FORMAT_R32G32B32_SFLOAT);
@@ -156,7 +156,7 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
     if (generate_wireframe)
       n_vertices = 8 * 6;
   }
-  VENUS_HE_RETURN_BAD_RESULT(mesh.aos.resize(n_vertices));
+  VENUS_RETURN_BAD_HE_RESULT(mesh.aos.resize(n_vertices));
 
   size_t n_indices = 36;
   if (generate_wireframe)
@@ -171,8 +171,7 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
     if (unique_positions) {
     } else {
       for (u32 i = 0; i < n_vertices; ++i)
-        mesh.aos.valueAt<hermes::geo::point3>(position_id, i) =
-            base_vertices[i];
+        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
     }
   } else {
     // tesselate cube
@@ -190,21 +189,176 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
     } else {
       HERMES_ASSERT(n_vertices == 8)
       for (u32 i = 0; i < n_vertices; ++i) {
-        mesh.aos.valueAt<hermes::geo::point3>(position_id, i) =
-            base_vertices[i];
+        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
         if (generate_uvw)
-          mesh.aos.valueAt<hermes::geo::point3>(uvw_id, i) = base_uvw[i];
+          mesh.aos.get<hermes::geo::point3>(uvw_id, i) = base_uvw[i];
         if (generate_uvs)
-          mesh.aos.valueAt<hermes::geo::point2>(uv_id, i) = base_uvs[i % 4];
+          mesh.aos.get<hermes::geo::point2>(uv_id, i) = base_uvs[i % 4];
       }
       if (generate_normals) {
         for (int f = 0; f < 6; ++f)
           for (int i = 0; i < 4; ++i)
-            mesh.aos.valueAt<hermes::geo::vec3>(normal_id, f * 4 + i) =
+            mesh.aos.get<hermes::geo::vec3>(normal_id, f * 4 + i) =
                 flip_normals ? -base_normals[f] : base_normals[f];
       }
     }
   }
+  return Result<Model::Mesh>(std::move(mesh));
+}
+
+Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
+                          const hermes::geo::vec2 &scale,
+                          shape_options options) {
+
+  // check options
+  if (options.contain(shape_option_bits::tangent_space))
+    options =
+        options | shape_option_bits::tangent | shape_option_bits::bitangent;
+  const bool generate_wireframe = options.contain(shape_option_bits::wireframe);
+  const bool only_vertices = options.contain(shape_option_bits::vertices);
+  const bool generate_normals = options.contain(shape_option_bits::normal);
+  const bool generate_tangents = options.contain(shape_option_bits::tangent);
+  const bool generate_bitangents =
+      options.contain(shape_option_bits::bitangent);
+  const bool flip_normals = options.contain(shape_option_bits::flip_normals);
+  const bool flip_faces = options.contain(shape_option_bits::flip_faces);
+  const bool unique_positions =
+      options.contain(shape_option_bits::unique_positions);
+  const bool generate_uvw = options.contain(shape_option_bits::uvw);
+  const bool generate_uvs = options.contain(shape_option_bits::uv);
+  HERMES_UNUSED_VARIABLE(flip_faces)
+
+  // model data
+  Model::Mesh mesh;
+
+  // data fields
+  const u64 position_id = mesh.aos.pushField<hermes::geo::point3>("position");
+  const u64 normal_id =
+      generate_normals ? mesh.aos.pushField<hermes::geo::vec3>("normal") : 0;
+  const u64 uv_id =
+      generate_uvs ? mesh.aos.pushField<hermes::geo::point2>("uvs") : 0;
+  const u64 tangent_id =
+      generate_tangents ? mesh.aos.pushField<hermes::geo::vec3>("tangent") : 0;
+  const u64 bitangent_id =
+      generate_bitangents ? mesh.aos.pushField<hermes::geo::vec3>("bitangent")
+                          : 0;
+
+  // find tangent vectors
+  hermes::geo::vec3 tangent(0.f, 1.f, 0.f);
+  hermes::geo::vec3 bitangent =
+      hermes::geo::cross(tangent, hermes::geo::vec3(plane.normal));
+
+  // if normal and tangent are parallel, pick another tangent base
+  if (hermes::numbers::cmp::is_zero(bitangent.length2(), 1e-6)) {
+    tangent = hermes::geo::vec3(1.f, 0.f, 0.f);
+    bitangent = hermes::geo::cross(tangent, hermes::geo::vec3(plane.normal));
+  }
+
+  tangent.normalize();
+  bitangent.normalize();
+
+  tangent *= scale.x;
+  bitangent *= scale.y;
+
+  auto origin =
+      hermes::geo::point3() + plane.offset * hermes::geo::vec3(plane.normal);
+
+  // base vertices
+  hermes::geo::point3 base_vertices[8] = {{origin - tangent - bitangent},  // 0
+                                          {origin + tangent - bitangent},  // 1
+                                          {origin + tangent + bitangent},  // 2
+                                          {origin - tangent + bitangent}}; // 3
+
+  // base uvs
+  hermes::geo::point2 base_uvs[4] = {
+      {0, 0}, // 0
+      {1, 0}, // 1
+      {1, 1}, // 2
+      {0, 1}, // 3
+  };
+
+  std::vector<i32> base_vertex_indices = {
+      0,
+      1,
+      2,
+      3,
+  };
+
+  // data type
+  mesh.primitive_type = Model::Mesh::PrimitiveType::TRIANGLES;
+  if (only_vertices)
+    mesh.primitive_type = Model::Mesh::PrimitiveType::POINTS;
+  else if (generate_wireframe)
+    mesh.primitive_type = Model::Mesh::PrimitiveType::LINES;
+
+  // compute number of vertices
+  size_t n_vertices = 4;
+  if (unique_positions && !only_vertices) {
+    n_vertices = 6;
+    if (generate_wireframe)
+      n_vertices = 4;
+  }
+  VENUS_RETURN_BAD_HE_RESULT(mesh.aos.resize(n_vertices));
+
+  size_t n_indices = 6;
+  if (generate_wireframe)
+    n_indices = 8; // a line per edge
+
+  HERMES_UNUSED_VARIABLE(n_indices)
+
+  // fill vertex data
+  if (generate_wireframe) {
+    mesh.indices = {0, 1, 1, 2, 2, 3, 3, 0};
+    if (unique_positions) {
+    } else {
+      for (u32 i = 0; i < n_vertices; ++i)
+        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
+    }
+  } else {
+    // tesselate plane
+    for (int f = 0; f < 1; ++f)
+      for (int jump = 0; jump < 2; ++jump) {
+        mesh.indices.emplace_back(base_vertex_indices[f * 4 + 0]);
+        mesh.indices.emplace_back(base_vertex_indices[f * 4 + jump + 1]);
+        mesh.indices.emplace_back(base_vertex_indices[f * 4 + jump + 2]);
+      }
+    if (unique_positions) {
+      // we must duplicate each vertex per index
+      // TODO
+      HERMES_NOT_IMPLEMENTED;
+    } else {
+      HERMES_ASSERT(n_vertices == 4)
+      for (u32 i = 0; i < n_vertices; ++i) {
+        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
+        if (generate_uvs)
+          mesh.aos.get<hermes::geo::point2>(uv_id, i) = base_uvs[i % 4];
+      }
+      if (generate_normals) {
+        for (int f = 0; f < 1; ++f)
+          for (int i = 0; i < 4; ++i)
+            mesh.aos.get<hermes::geo::vec3>(normal_id, f * 4 + i) =
+                hermes::geo::vec3(flip_normals ? -plane.normal : plane.normal);
+      }
+    }
+  }
+
+  return Result<Model::Mesh>(std::move(mesh));
+}
+
+Result<Model::Mesh> merge(const Model::Mesh &a, const Model::Mesh &b) {
+  if (a.vertex_layout != b.vertex_layout)
+    return VeResult::incompatible();
+  if (a.aos.layout() != b.aos.layout())
+    return VeResult::incompatible();
+  if (a.primitive_type != b.primitive_type)
+    return VeResult::incompatible();
+
+  Model::Mesh mesh = a;
+  VENUS_RETURN_BAD_HE_RESULT(mesh.aos.append(b.aos));
+  h_index offset = a.indices.size();
+  for (auto i : b.indices)
+    mesh.indices.emplace_back(i + offset);
+
   return Result<Model::Mesh>(std::move(mesh));
 }
 

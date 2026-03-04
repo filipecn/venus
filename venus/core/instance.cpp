@@ -84,7 +84,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
 
   hermes::cstr message;
 
-  hermes::cstr::format(
+  /*hermes::cstr::format(
       "\t{}", string_VkDebugUtilsMessageSeverityFlagBitsEXT(message_severity));
   // std::cerr << vk::to_string(message_severity) << ": "
   //           << vk::to_string(message_types) << ":\n";
@@ -122,7 +122,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
                                         callback_data->pObjects[i].pObjectName);
       }
     }
-  }
+}
 
   switch (message_severity) {
   case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
@@ -140,7 +140,7 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
   default:
     HERMES_INFO("{}", message.str());
   }
-
+*/
   return VK_FALSE;
 }
 
@@ -274,7 +274,7 @@ Result<Instance> Instance::Config::build() {
   vk::Version max_version(vk_version);
   if (max_version < api_version_) {
     HERMES_ERROR("Incompatible Instance version {} (available {}).",
-                 venus::to_string(api_version_), venus::to_string(max_version));
+                 VENUS_TO_STRING(api_version_), VENUS_TO_STRING(max_version));
     return VeResult::incompatible();
   }
 
@@ -283,7 +283,7 @@ Result<Instance> Instance::Config::build() {
   create_info.pNext = nullptr;
   create_info.flags = flags_;
   create_info.pApplicationInfo = &info;
-  create_info.enabledLayerCount = validation_layers.size();
+  create_info.enabledLayerCount = static_cast<u32>(validation_layers.size());
   create_info.ppEnabledLayerNames =
       (validation_layers.size()) ? validation_layers.data() : nullptr;
   create_info.enabledExtensionCount =
@@ -386,25 +386,3 @@ Result<PhysicalDevices> Instance::physicalDevices() const {
 vk::Version Instance::apiVersion() const { return version_; }
 
 } // namespace venus::core
-
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Instance::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(app_version_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(engine_version_)
-HERMES_PUSH_DEBUG_FIELD(app_name_)
-HERMES_PUSH_DEBUG_FIELD(engine_name_)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(layers_, layer)
-HERMES_PUSH_DEBUG_FIELD_VALUE(layer, layer)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(extensions_, extension)
-HERMES_PUSH_DEBUG_FIELD_VALUE(extension, extension)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Instance)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_instance_);
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-} // namespace venus

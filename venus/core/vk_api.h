@@ -29,18 +29,21 @@
 
 #include <hermes/core/types.h>
 #include <venus/utils/debug.h>
-
+#ifdef HERMES_LINUX
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
-// TODO: this is needed only in debug... shouldn't be necessary!
-#ifndef VK_USE_PLATFORM_XCB_KHR
-#define VK_USE_PLATFORM_XCB_KHR
 #endif
+// TODO: this is needed only in debug... shouldn't be necessary!
+// #ifndef VK_USE_PLATFORM_XCB_KHR
+// #define VK_USE_PLATFORM_XCB_KHR
+// #endif
 #include <volk.h>
+#ifdef HERMES_LINUX
 #pragma GCC diagnostic pop
+#endif
 
 #include <vector>
 
@@ -80,14 +83,14 @@ public:
     u32 patch_version_{0};
 
     /// \return A string in the format "<major version>.<minor version>"
-    VENUS_to_string_FRIEND(vk::Version);
+    friend struct hermes::DebugTraits<venus::core::vk::Version>;
   };
 
   /// Initializes vulkan api
   /// \param required_version [def = 0.0.0]
   /// \return Error status:
-  ///          - NO_ERROR on success.
-  ///          - INCOMPATIBLE_API if required version is not available.
+  ///          - VkResult::NoError on success.
+  ///          - VkResult::IncompatibleApi if required version is not available.
   static VeResult init(const Version &required_version = {});
 
   // Layers
@@ -267,8 +270,27 @@ private:
 
 } // namespace venus::core
 
-namespace venus {
-HERMES_DECLARE_TO_STRING_DEBUG_METHOD(venus::core::vk::Version)
-HERMES_DECLARE_TO_STRING_DEBUG_METHOD(
-    venus::core::vk::GraphicsQueueFamilyIndices)
-} // namespace venus
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::core::vk::Version> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::core::vk::Version &data) {
+    return DebugMessage("{}.{}.{}", data.major_version_, data.minor_version_,
+                        data.patch_version_);
+  }
+};
+
+template <> struct DebugTraits<venus::core::vk::GraphicsQueueFamilyIndices> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::core::vk::GraphicsQueueFamilyIndices &data) {
+    return DebugMessage("P[{}] G[{}]", data.graphics_queue_family_index,
+                        data.present_queue_family_index);
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

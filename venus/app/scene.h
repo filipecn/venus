@@ -58,8 +58,6 @@ public:
   const scene::Material *getMaterial(const std::string &name) const;
 
 private:
-  VENUS_to_string_FRIEND(Scene);
-
   scene::graph::LabeledGraph graph_;
   std::unordered_map<std::string, scene::Material::Ptr> materials_;
 };

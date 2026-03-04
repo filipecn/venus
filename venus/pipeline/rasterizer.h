@@ -27,8 +27,9 @@
 
 #pragma once
 
-#include <hermes/storage/block.h>
 #include <venus/pipeline/command_buffer.h>
+
+#include <hermes/storage/block.h>
 
 namespace venus::pipeline {
 
@@ -39,8 +40,11 @@ public:
     // material
     VkPipeline vk_pipeline{VK_NULL_HANDLE};
     VkPipelineLayout vk_pipeline_layout{VK_NULL_HANDLE};
-    /// binding -> descriptor_sets
-    std::unordered_map<u32, std::vector<VkDescriptorSet>>
+    /// Map of descritptor set groups indexed by the first set index of
+    /// the group.
+    /// The descriptor sets of each group are bound sequentially in the pipeline
+    /// with indices starting at the first set index (the key).
+    std::unordered_map<h_index, std::vector<VkDescriptorSet>>
         global_descriptor_sets;
   };
   struct RasterObject {
@@ -50,9 +54,13 @@ public:
     VkBuffer index_buffer{VK_NULL_HANDLE};
     VkBuffer vertex_buffer{VK_NULL_HANDLE};
     // material
-    /// binding -> descriptor_sets
-    std::unordered_map<u32, std::vector<VkDescriptorSet>> descriptor_sets;
+    /// Map of descritptor set groups indexed by the first set index of
+    /// the group.
+    /// The descriptor sets of each group are bound sequentially in the pipeline
+    /// with indices starting at the first set index (the key).
+    std::unordered_map<h_index, std::vector<VkDescriptorSet>> descriptor_sets;
     hermes::mem::Block push_constants;
+    VkShaderStageFlags push_constants_stage_flags;
   };
 
   /// Raster with dynamic rendering
@@ -77,18 +85,17 @@ public:
   /// \param vk_color_image_view
   /// \param vk_depth_view
   HERMES_NODISCARD VeResult record(const CommandBuffer &cb,
-                                   VkImage vk_color_image,
-                                   VkImageView vk_color_image_view,
-                                   VkImageView vk_depth_view) const;
+                                   const mem::Image::Handle &color_image,
+                                   const mem::Image::Handle &depth_image) const;
 
 private:
   VeResult draw(const CommandBuffer &cb) const;
 
-  std::unordered_map<VkPipeline, std::unordered_map<VkPipelineLayout, u32>>
+  std::unordered_map<VkPipeline, std::unordered_map<VkPipelineLayout, h_index>>
       material_indices_;
   std::vector<RasterMaterial> materials_;
   /// object, material id pairs
-  std::vector<std::pair<RasterObject, u32>> objects_;
+  std::vector<std::pair<RasterObject, h_index>> objects_;
   // config
   VkExtent2D render_area_{};
   VkClearColorValue clear_color_ = {30.0f / 256.0f, 30.0f / 256.0f,
@@ -97,3 +104,52 @@ private:
 };
 
 } // namespace venus::pipeline
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::pipeline::Rasterizer::RasterMaterial> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::Rasterizer::RasterMaterial &data) {
+    DebugMessage m;
+    m.addTitle("Raster Material")
+        .add("vk_pipeline", VENUS_VK_HANDLE_STRING(data.vk_pipeline))
+        .add("vk_pipeline_layout",
+             VENUS_VK_HANDLE_STRING(data.vk_pipeline_layout))
+        .add("global descriptor sets")
+        .pushTab();
+    for (const auto &item : data.global_descriptor_sets) {
+      m.addFmt("first set index {}", item.first);
+      for (auto handle : item.second)
+        m.addFmt("{}", VENUS_VK_HANDLE_STRING(handle));
+    }
+    return m;
+  }
+};
+
+template <> struct DebugTraits<venus::pipeline::Rasterizer::RasterObject> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::pipeline::Rasterizer::RasterObject &data) {
+    DebugMessage m;
+    m.addTitle("Raster Object")
+        .add("index_buffer", VENUS_VK_HANDLE_STRING(data.index_buffer))
+        .add("vertex_buffer", VENUS_VK_HANDLE_STRING(data.vertex_buffer))
+        .add("count", data.count) //< index count or vertex count
+        .add("first_index", data.first_index)
+        .add("push constants", data.push_constants)
+        .add("local descriptor sets")
+        .pushTab();
+    for (const auto &item : data.descriptor_sets) {
+      m.addFmt("first set index {}", item.first);
+      for (auto handle : item.second)
+        m.addFmt("{}", VENUS_VK_HANDLE_STRING(handle));
+    }
+    return m;
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

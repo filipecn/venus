@@ -97,7 +97,9 @@ public:
     VkDeviceCreateFlags flags_;
     VmaAllocatorCreateInfo allocator_info_;
 
-    VENUS_to_string_FRIEND(Device::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Device::Config>;
+#endif
   };
 
   // raii
@@ -119,7 +121,34 @@ protected:
   VkDevice vk_device_{VK_NULL_HANDLE};
   PhysicalDevice physical_device_;
 
-  VENUS_to_string_FRIEND(Device);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Device>;
+#endif
 };
 
 } // namespace venus::core
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::core::Device::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::core::Device::Config &data) {
+    return DebugMessage().addTitle("Device Config");
+  }
+};
+
+template <> struct DebugTraits<venus::core::Device> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::core::Device &data) {
+    return DebugMessage()
+        .addTitle("Device")
+        .add("Allocator", data.allocator_)
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("physical device", data.physical_device_);
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

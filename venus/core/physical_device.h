@@ -28,6 +28,7 @@
 #pragma once
 
 #include <venus/core/vk_api.h>
+#include <venus/utils/vk_debug.h>
 
 #include <vector>
 
@@ -110,6 +111,11 @@ public:
   /// \return A capable queue if found, error otherwise.
   HERMES_NODISCARD Result<u32>
   selectIndexOfQueueFamily(VkSurfaceKHR vk_presentation_surface) const;
+  /// Gets queue family properties.
+  /// \param family_index
+  /// \return Properties vk objecto or error.
+  HERMES_NODISCARD Result<VkQueueFamilyProperties>
+  queueFamilyProperties(h_index family_index) const;
   /// Finds queues with capabilities for graphics.
   /// \note If a queue presents both presentation support for the given surface
   ///       and VK_QUEUE_GRAPHICS_BIT, then it is assigned to both fields.
@@ -194,8 +200,6 @@ public:
   [[maybe_unused]] HERMES_NODISCARD VkSampleCountFlagBits
   maxUsableSampleCount(bool include_depth_buffer = true) const;
 
-  VENUS_to_string_FRIEND(PhysicalDevice);
-
 private:
   friend class PhysicalDevices;
   /// associated instance
@@ -215,7 +219,9 @@ private:
   VkPhysicalDeviceMemoryProperties vk_memory_properties_{};
   std::vector<VkQueueFamilyProperties> vk_queue_families_;
 
-  VENUS_to_string_FRIEND(PhysicalDevice);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<PhysicalDevice>;
+#endif
 };
 
 /// Holds a list of physical devices that can be selected from.
@@ -255,7 +261,97 @@ public:
   Result<PhysicalDevice> select(const Selector &selector) const;
 
 private:
-  VENUS_to_string_FRIEND(PhysicalDevices);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<PhysicalDevices>;
+#endif
 };
 
 } // namespace venus::core
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace venus::detail {
+inline std::string decodeAPIVersion(uint32_t apiVersion) {
+  return std::to_string(VK_VERSION_MAJOR(apiVersion)) + "." +
+         std::to_string(VK_VERSION_MINOR(apiVersion)) + "." +
+         std::to_string(VK_VERSION_PATCH(apiVersion));
+}
+
+inline std::string decodeDriverVersion(uint32_t driver_version,
+                                       uint32_t vendor_id) {
+  switch (vendor_id) {
+  case 0x10DE:
+    return std::to_string((driver_version >> 22) & 0x3FF) + "." +
+           std::to_string((driver_version >> 14) & 0xFF) + "." +
+           std::to_string((driver_version >> 6) & 0xFF) + "." +
+           std::to_string(driver_version & 0x3F);
+  case 0x8086:
+    return std::to_string((driver_version >> 14) & 0x3FFFF) + "." +
+           std::to_string((driver_version & 0x3FFF));
+  default:
+    return decodeAPIVersion(driver_version);
+  }
+}
+
+inline std::string decodeVendorID(uint32_t id) {
+  // below 0x10000 are the PCI vendor IDs
+  // (https://pcisig.com/membership/member-companies)
+  if (id < 0x10000) {
+    switch (id) {
+    case 0x1022:
+      return "Advanced Micro Devices";
+    case 0x10DE:
+      return "NVidia Corporation";
+    case 0x8086:
+      return "Intel Corporation";
+    default:
+      return std::to_string(id);
+    }
+  } else {
+    // above 0x10000 should be vkVendorIDs
+    // TODO: return vk::to_string(vk::VendorId(id));
+    return "unknown";
+  }
+}
+} // namespace venus::detail
+
+namespace hermes {
+template <> struct DebugTraits<venus::core::PhysicalDevice> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::core::PhysicalDevice &data) {
+    DebugMessage m;
+    m.addTitle("Physical Device");
+    m.add("Name", data.vk_properties_.deviceName);
+    m.add("Type", string_VkPhysicalDeviceType(data.vk_properties_.deviceType));
+    m.add("API Version",
+          venus::detail::decodeAPIVersion(data.vk_properties_.apiVersion));
+    m.add("Driver Version",
+          venus::detail::decodeDriverVersion(data.vk_properties_.driverVersion,
+                                             data.vk_properties_.vendorID));
+    m.add("Vendor ID",
+          venus::detail::decodeVendorID(data.vk_properties_.vendorID));
+    m.add("Device ID", data.vk_properties_.deviceID);
+    m.add("#Family Queues", data.vk_extensions_.size());
+    // HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(vk_queue_families_, vk_queue_family);
+    // HERMES_PUSH_DEBUG_LINE("{}",
+    // string_VkQueueFlags(vk_queue_family.queueFlags));
+    // HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+    m.add("#extensions", data.vk_extensions_.size());
+    // HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(vk_extensions_, extension);
+    // HERMES_PUSH_DEBUG_VK_VARIABLE(extension.extensionName);
+    // HERMES_PUSH_DEBUG_ARRAY_FIELD_END
+    m.add("vk_physical_device_",
+          VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_physical_device_));
+    return m;
+  }
+};
+
+template <> struct DebugTraits<venus::core::PhysicalDevices> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::core::PhysicalDevices &data) {
+    return DebugMessage()
+        .addTitle("Physical Devices")
+        .addArray("physical_devices", data);
+  }
+};
+} // namespace hermes
+#endif

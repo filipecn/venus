@@ -122,7 +122,9 @@ public:
     /// \return Buffer object or error.
     HERMES_NODISCARD Result<Buffer> build(const core::Device &device) const;
 
-    VENUS_to_string_FRIEND(Buffer::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Buffer::Config>;
+#endif
   };
   /// Buffer views allow us to define how buffer's memory is accessed and
   /// interpreted. For example, we can choose to look at the buffer as a
@@ -193,7 +195,9 @@ private:
   Config config_{};
 #endif
 
-  VENUS_to_string_FRIEND(Buffer);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Buffer>;
+#endif
 };
 
 template <typename Derived> Buffer::Setup<Derived>::Setup() noexcept {}
@@ -267,11 +271,11 @@ class AllocatedBuffer : public Buffer, public DeviceMemory {
 public:
   struct Config : public Buffer::Setup<Config>,
                   public DeviceMemory::Setup<Config> {
-    static Config forStaging(u32 size_in_bytes);
-    static Config forUniform(u32 size_in_bytes);
-    static Config forStorage(u32 size_in_bytes, VkBufferUsageFlags usage);
-    static Config forAccelerationStructure(u32 size_in_bytes);
-    static Config forShaderBindingTable(u32 size_in_bytes);
+    static Config forStaging(h_size size_in_bytes);
+    static Config forUniform(h_size size_in_bytes);
+    static Config forStorage(h_size size_in_bytes, VkBufferUsageFlags usage);
+    static Config forAccelerationStructure(h_size size_in_bytes);
+    static Config forShaderBindingTable(h_size size_in_bytes);
 
     Result<AllocatedBuffer> build(const core::Device &device) const;
 
@@ -279,7 +283,9 @@ public:
     Buffer::Config buffer_config_;
     DeviceMemory::Config mem_config_;
 
-    VENUS_to_string_FRIEND(Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<AllocatedBuffer::Config>;
+#endif
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(AllocatedBuffer)
@@ -291,7 +297,9 @@ public:
   operator bool() const;
 
 private:
-  VENUS_to_string_FRIEND(AllocatedBuffer);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<AllocatedBuffer>;
+#endif
 };
 
 /// Allocated buffer pools hold multiple allocated buffers that can be labeled
@@ -361,8 +369,6 @@ public:
                                            u32 block_index) const;
 
 private:
-  VENUS_to_string_FRIEND(BufferPool);
-
   struct BufferData {
     AllocatedBuffer buffer;
     std::vector<u32> block_offsets;
@@ -370,6 +376,82 @@ private:
   };
 
   std::unordered_map<std::string, BufferData> buffers_;
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<BufferPool>;
+#endif
 };
 
 } // namespace venus::mem
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::mem::Buffer::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::Buffer::Config &data) {
+    return DebugMessage()
+        .addTitle("Buffer Config")
+        .add("size", data.size_)
+        .add("usage", VENUS_VK_STRING(VkBufferUsageFlags, data.usage_))
+        .add("sharing mode", VENUS_VK_STRING(VkSharingMode, data.sharing_mode_))
+        .add("flags", VENUS_VK_STRING(VkBufferCreateFlags, data.flags_));
+  }
+};
+
+template <> struct DebugTraits<venus::mem::Buffer> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::Buffer &data) {
+    return DebugMessage()
+        .addTitle("Buffer")
+        .add("config", data.config_)
+        .add("vk_memory_requirements", data.vk_memory_requirements_)
+        .add("vk_buffer", VENUS_VK_HANDLE_STRING(data.vk_buffer_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("address = 0x{:x}", data.vk_device_address_.has_value()
+                                     ? data.vk_device_address_.value()
+                                     : 0);
+  }
+};
+
+template <> struct DebugTraits<venus::mem::AllocatedBuffer::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::AllocatedBuffer::Config &data) {
+    return DebugMessage()
+        .addTitle("Allocated Buffer Config")
+        .add("buffer config", data.buffer_config_)
+        .add("mem. config", data.mem_config_);
+  }
+};
+
+template <> struct DebugTraits<venus::mem::AllocatedBuffer> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::AllocatedBuffer &data) {
+    return DebugMessage()
+        .addTitle("Allocated Buffer")
+        .add("vk_memory_requirements", data.vk_memory_requirements_)
+        .add("vk_buffer", VENUS_VK_HANDLE_STRING(data.vk_buffer_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("address = 0x{:x}", data.vk_device_address_.has_value()
+                                     ? data.vk_device_address_.value()
+                                     : 0);
+  }
+};
+
+template <> struct DebugTraits<venus::mem::BufferPool> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::BufferPool &data) {
+    return DebugMessage().addTitle("Allocated Buffer");
+    // HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(buffers_, name, data)
+    // HERMES_PUSH_DEBUG_LINE("block offsets: {}\n",
+    //                        hermes::cstr::join(data.block_offsets, " "))
+    // HERMES_PUSH_DEBUG_LINE("occupancy: {}\n", data.size)
+    // HERMES_PUSH_DEBUG_LINE("buffer: {}\n", venus::to_string(data.buffer));
+    // HERMES_PUSH_DEBUG_MAP_FIELD_END
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

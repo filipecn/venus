@@ -36,6 +36,13 @@
 
 namespace venus::scene::materials {
 
+class MAT_Empty : public Material::Writer {
+public:
+  static Result<Material> material(const engine::GraphicsDevice &gd);
+  Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
+                                   Material::Ptr material) override;
+};
+
 class Material_Test : public Material::Writer {
 public:
   static Result<Material> material(const engine::GraphicsDevice &gd);
@@ -51,7 +58,7 @@ public:
   };
 
   Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
-                                   const Material *material) override;
+                                   Material::Ptr material) override;
 
   Data data;
   Resources resources;

@@ -26,57 +26,40 @@
 
 #include <venus/scene/material.h>
 
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Pipeline::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_config_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(layout_config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Pipeline)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_layout_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_layout_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(pipeline_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_layout_);
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Material::Instance)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_LINE("material: {}", venus::to_string(*object.material_))
-HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_set_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
 namespace venus::scene {
 
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Instance, setMaterial,
-                                     const Material *, material_ = value)
+                                     Material::Ptr, material_ = value)
+
+VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Instance, addGlobalSetIndex,
+                                     h_index, global_set_indices_.insert(value))
+
+Material::Instance::Config &Material::Instance::Config::setWritePushConstants(
+    VkShaderStageFlags stage_flags,
+    const std::function<VeResult(hermes::mem::Block &,
+                                 const PushConstantsContext &)> &f) {
+  push_constants_stage_flags_ = stage_flags;
+  write_push_constants_ = f;
+  return *this;
+}
 
 Result<Material::Instance> Material::Instance::Config::build(
     pipeline::DescriptorAllocator &allocator) const {
   Material::Instance instance;
 
   instance.material_ = material_;
+  instance.write_push_constants_ = write_push_constants_;
+  instance.push_constants_stage_flags_ = push_constants_stage_flags_;
+  instance.global_set_indices_ = global_set_indices_;
 
-  // materials may have no descriptor layout at all
-  if (material_->descriptorSetLayout()) {
-    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-        instance.descriptor_set_,
-        allocator.allocate(*material_->descriptorSetLayout()));
+  // allocate local descriptor sets
+  const auto &all_descriptor_set_layouts = material_->descriptorSetLayouts();
+  for (const auto &item : all_descriptor_set_layouts) {
+    if (global_set_indices_.count(item.first) > 0)
+      continue;
+    VENUS_DECLARE_OR_RETURN_BAD_RESULT(pipeline::DescriptorSet, descriptor_set,
+                                       allocator.allocate(item.second));
+    instance.descriptor_sets_[item.first] = std::move(descriptor_set);
   }
 
   return Result<Material::Instance>(std::move(instance));
@@ -97,15 +80,20 @@ Material::Instance::~Instance() noexcept { destroy(); }
 
 void Material::Instance::swap(Material::Instance &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(material_);
-  VENUS_SWAP_FIELD_WITH_RHS(descriptor_set_);
+  VENUS_SWAP_FIELD_WITH_RHS(descriptor_sets_);
+  VENUS_SWAP_FIELD_WITH_RHS(global_set_indices_);
+  VENUS_SWAP_FIELD_WITH_RHS(write_push_constants_);
+  VENUS_SWAP_FIELD_WITH_RHS(push_constants_stage_flags_);
 }
 
 void Material::Instance::destroy() noexcept {
-  material_ = nullptr;
-  descriptor_set_.destroy();
+  material_.destroy();
+  for (auto &ds : descriptor_sets_)
+    ds.second.destroy();
+  write_push_constants_ = nullptr;
 }
 
-const Material *Material::Instance::material() const { return material_; }
+Material::Ptr Material::Instance::material() const { return material_; }
 
 const pipeline::GraphicsPipeline &Material::Instance::pipeline() const {
   return material_->pipeline().pipeline();
@@ -115,29 +103,73 @@ const pipeline::Pipeline::Layout &Material::Instance::pipelineLayout() const {
   return material_->pipeline().pipelineLayout();
 }
 
-const pipeline::DescriptorSet &Material::Instance::descriptorSet() const {
-  return descriptor_set_;
+bool Material::Instance::hasGlobalDescriptors() const {
+  return global_set_indices_.size();
+}
+
+std::unordered_map<h_index, std::vector<VkDescriptorSet>>
+Material::Instance::localDescriptorSetGroups() const {
+  if (descriptor_sets_.empty())
+    return {};
+  // get all set indices in increasing order so we can create the contiguous
+  // groups
+  std::set<h_index> set_indices;
+  for (const auto &item : descriptor_sets_)
+    set_indices.insert(item.first);
+
+  std::unordered_map<h_index, std::vector<VkDescriptorSet>> groups;
+  h_index last_set_index = 0;
+  for (auto set_index : set_indices) {
+    auto it = descriptor_sets_.find(set_index);
+    if (groups.empty()) {
+      groups[set_index] = {*(it->second)};
+    } else if (last_set_index + 1 == set_index) {
+      groups[set_index].emplace_back(*(it->second));
+    } else {
+      groups[set_index] = {*(it->second)};
+    }
+    last_set_index = set_index;
+  }
+  return groups;
+}
+
+VeResult
+Material::Instance::writePushConstants(hermes::mem::Block &block,
+                                       const PushConstantsContext &ctx) const {
+  if (write_push_constants_)
+    return write_push_constants_(block, ctx);
+  VENUS_RETURN_BAD_HE_RESULT(block.clear());
+  return VeResult::noError();
+}
+
+VkShaderStageFlags Material::Instance::pushConstantsStageFlags() const {
+  return push_constants_stage_flags_;
 }
 
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Pipeline, setPipelineConfig,
                                      const pipeline::GraphicsPipeline::Config &,
-                                     pipeline_config_ = value)
+                                     graphics_pipeline_config_ = value)
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Pipeline,
                                      setPipelineLayoutConfig,
                                      const pipeline::Pipeline::Layout::Config &,
-                                     layout_config_ = value)
+                                     graphics_pipeline_layout_config_ = value)
+
+const pipeline::Pipeline::Layout::Config &
+Material::Pipeline::Config::graphicsPipelineLayoutConfig() const {
+  return graphics_pipeline_layout_config_;
+}
 
 Result<Material::Pipeline>
 Material::Pipeline::Config::build(VkDevice vk_device,
                                   VkRenderPass vk_renderpass) const {
   Material::Pipeline p;
 
-  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(p.pipeline_layout_,
-                                    layout_config_.build(vk_device));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      p.pipeline_layout_, graphics_pipeline_layout_config_.build(vk_device));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      p.pipeline_,
-      pipeline_config_.build(vk_device, *p.pipeline_layout_, vk_renderpass));
+      p.pipeline_, graphics_pipeline_config_.build(
+                       vk_device, *p.pipeline_layout_, vk_renderpass));
 
 #ifdef VENUS_DEBUG
   p.config_ = *this;
@@ -146,21 +178,35 @@ Material::Pipeline::Config::build(VkDevice vk_device,
   return Result<Material::Pipeline>(std::move(p));
 }
 
+Result<Material::Instance>
+Material::Writer::write(pipeline::DescriptorAllocator &allocator,
+                        Material::Ptr material) {
+  Material::Instance instance;
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      instance,
+      Material::Instance::Config().setMaterial(material).build(allocator))
+
+  return Result<Material::Instance>(std::move(instance));
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material, setMaterialPipelineConfig,
                                      const Material::Pipeline::Config &,
                                      pipeline_config_ = value)
-VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material, setDescriptorSetLayout,
-                                     pipeline::DescriptorSet::Layout &&,
-                                     descriptor_set_layout_ = std::move(value))
 
 Result<Material> Material::Config::build(VkDevice vk_device,
                                          VkRenderPass vk_renderpass) const {
 
   Material material;
 
+  // get list of descriptor sets
+  const auto &descriptor_set_layouts =
+      pipeline_config_.graphicsPipelineLayoutConfig().descriptorSetLayouts();
+  for (h_index i = 0; i < descriptor_set_layouts.size(); ++i)
+    material.vk_descriptor_set_layouts_[i] = descriptor_set_layouts[i];
+
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       material.pipeline_, pipeline_config_.build(vk_device, vk_renderpass));
-  material.descriptor_set_layout_ = std::move(descriptor_set_layout_);
 
   return Result<Material>(std::move(material));
 }
@@ -179,6 +225,7 @@ Material::Pipeline::operator=(Material::Pipeline &&rhs) noexcept {
 }
 
 void Material::Pipeline::swap(Material::Pipeline &rhs) {
+
   VENUS_SWAP_FIELD_WITH_RHS(pipeline_);
   VENUS_SWAP_FIELD_WITH_RHS(pipeline_layout_);
 }
@@ -214,18 +261,28 @@ Material &Material::operator=(Material &&rhs) noexcept {
 
 void Material::swap(Material &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(pipeline_);
-  VENUS_SWAP_FIELD_WITH_RHS(descriptor_set_layout_);
+  VENUS_SWAP_FIELD_WITH_RHS(owned_descriptor_set_layouts_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_descriptor_set_layouts_);
 }
 
 void Material::destroy() noexcept {
   pipeline_.destroy();
-  descriptor_set_layout_.destroy();
-}
-
-const pipeline::DescriptorSet::Layout &Material::descriptorSetLayout() const {
-  return descriptor_set_layout_;
+  for (auto &dsl : owned_descriptor_set_layouts_)
+    dsl.destroy();
+  owned_descriptor_set_layouts_.clear();
+  vk_descriptor_set_layouts_.clear();
 }
 
 const Material::Pipeline &Material::pipeline() const { return pipeline_; }
+
+void Material::ownDescriptorSetLayout(
+    pipeline::DescriptorSet::Layout &&descriptor_set_layout) {
+  owned_descriptor_set_layouts_.emplace_back(std::move(descriptor_set_layout));
+}
+
+const std::unordered_map<h_index, VkDescriptorSetLayout> &
+Material::descriptorSetLayouts() const {
+  return vk_descriptor_set_layouts_;
+}
 
 } // namespace venus::scene

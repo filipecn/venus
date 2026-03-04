@@ -68,13 +68,12 @@ public:
   ///       count must be greater than zero. This determines how this shape
   ///       will be rendered.
   struct Shape {
-    hermes::geo::bounds::bsphere3 bounds;    //< spatial bounds of this shape.
-    scene::Material::Instance::Ptr material; //< material for this shape.
-    u32 index_base{0};   //< where this shape starts in the index buffer.
-    u32 index_count{0};  //< index count of this shape in the index buffer.
-    u32 vertex_count{0}; //< vertex count of this shape in the vertex buffer
-
-    VENUS_to_string_FRIEND(Shape);
+    hermes::geo::bounds::bsphere3 bounds; //< spatial bounds of this shape.
+    scene::Material::Instance::Ptr
+        material_instance; //< material for this shape.
+    u32 index_base{0};     //< where this shape starts in the index buffer.
+    u32 index_count{0};    //< index count of this shape in the index buffer.
+    u32 vertex_count{0};   //< vertex count of this shape in the vertex buffer
   };
 
   /// Builder for model.
@@ -111,8 +110,12 @@ public:
   /// \return Model shapes.
   HERMES_NODISCARD const std::vector<Shape> &shapes() const;
   ///
-  VeResult setMaterial(u32 shape_index,
-                       const scene::Material::Instance::Ptr &material);
+  VeResult
+  setMaterialInstance(u32 shape_index,
+                      const scene::Material::Instance::Ptr &material_instance);
+  /// Set the given material to all shapes
+  void
+  setMaterialInstance(const scene::Material::Instance::Ptr &material_instance);
   VkBuffer vertexBuffer() const;
   VkBuffer indexBuffer() const;
   VkDeviceAddress vertexBufferAddress() const;
@@ -130,7 +133,9 @@ protected:
   VkDeviceAddress vk_transform_buffer_address_{0};
   mem::VertexLayout vertex_layout_;
 
-  VENUS_to_string_FRIEND(Model);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Model>;
+#endif
 };
 
 VENUS_DEFINE_SETUP_METHOD(Model, addShape, const Model::Shape &,
@@ -211,7 +216,76 @@ private:
   Model::Storage<mem::AllocatedBuffer> storage_;
   Model::Mesh mesh_;
 
-  VENUS_to_string_FRIEND(AllocatedModel);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<AllocatedModel>;
+#endif
 };
 
 } // namespace venus::scene
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::scene::Model::Mesh::PrimitiveType> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::scene::Model::Mesh::PrimitiveType &data) {
+#define TO_STR(A)                                                              \
+  if (data == A)                                                               \
+  return DebugMessage(#A)
+    TO_STR(venus::scene::Model::Mesh::PrimitiveType::POINTS);
+    TO_STR(venus::scene::Model::Mesh::PrimitiveType::TRIANGLES);
+    TO_STR(venus::scene::Model::Mesh::PrimitiveType::LINES);
+#undef TO_STR
+    return DebugMessage("<invalid primitive type>");
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Model::Mesh> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Model::Mesh &data) {
+    return DebugMessage()
+        .addTitle("Model Mesh")
+        .add("vertex layout", data.vertex_layout)
+        .add("aos", data.aos)
+        .addArray("indices", data.indices)
+        .add("type", data.primitive_type);
+  }
+};
+template <> struct DebugTraits<venus::scene::Model::Shape> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Model::Shape &data) {
+    return DebugMessage()
+        .addTitle("Model Shape")
+        .add("index base", data.index_base)
+        .add("index count", data.index_count)
+        .add("bounds", data.bounds)
+        .addFmt("material: 0x{:x}", (uintptr_t)data.material_instance.get());
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Model> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Model &data) {
+    return DebugMessage()
+        .addTitle("Model")
+        .add("vk_vertex_buffer", data.vk_vertex_buffer_)
+        .add("vk_vertex_buffer", data.vk_index_buffer_)
+        .add("vk_vertex_buffer_address", data.vk_vertex_buffer_address_)
+        .add("vk_index_buffer_address", data.vk_index_buffer_address_)
+        .add("vertex layout", data.vertex_layout_)
+        .addArray("shapes", data.shapes_);
+  }
+};
+
+template <> struct DebugTraits<venus::scene::AllocatedModel> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::AllocatedModel &data) {
+    return DebugMessage()
+        .addTitle("Allocated Model")
+        .add("mesh aos", data.mesh_.aos);
+  }
+};
+
+} // namespace hermes
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

@@ -4,9 +4,8 @@
     {
       "name": "base-preset",
       "hidden": true,
-      "generator": "Unix Makefiles",
       "cacheVariables": {
-        "VENUS_INCLUDE_TO_STRING": "ON",
+        "VENUS_INCLUDE_DEBUG_TRAITS": "ON",
         "VENUS_BUILD_TESTS": "ON",
         "VENUS_BUILD_EXAMPLES": "ON"
       }

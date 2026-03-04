@@ -22,9 +22,9 @@ option(VENUS_BUILD_ALL "build all targets" OFF)
 option(VENUS_BUILD_TESTS "build tests" OFF)
 option(VENUS_BUILD_EXAMPLES "build examples" OFF)
 option(VENUS_BUILD_DOCS "build library documentation" OFF)
-option(VENUS_INCLUDE_TO_STRING_METHODS "enable venus::to_string methods" ON)
-option(VENUS_INCLUDE_VDB "include vdb volumes support" ON)
-option(VENUS_INCLUDE_GLTF "include gltf support" ON)
+option(VENUS_INCLUDE_DEBUG_TRAITS "enable venus::to_string methods" ON)
+option(VENUS_INCLUDE_VDB "include vdb volumes support" OFF)
+option(VENUS_INCLUDE_GLTF "include gltf support" OFF)
 
 # ##############################################################################
 # COMPILATION                                                                  #

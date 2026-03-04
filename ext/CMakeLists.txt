@@ -52,6 +52,7 @@ target_link_libraries(VK INTERFACE
   glslang
   MachineIndependent 
   glslang-default-resource-limits
+  glfw
 )
 
 target_link_libraries(DEPS INTERFACE VK)

@@ -26,16 +26,6 @@
 
 #include <venus/engine/frame_loop.h>
 
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::engine::FrameLoop::Iteration)
-HERMES_PUSH_DEBUG_FIELD(frame_.iteration_index);
-HERMES_PUSH_DEBUG_FIELD(frame_.last_frame_duration.count());
-HERMES_PUSH_DEBUG_FIELD(frame_.current_fps_period.count());
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
-
 namespace venus::engine {
 
 FrameLoop::Iteration::Iteration(FrameLoop &loop, bool is_end)

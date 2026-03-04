@@ -69,7 +69,9 @@ private:
   VkSampler vk_sampler_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
 
-  VENUS_to_string_FRIEND(Sampler);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Sampler>;
+#endif
 };
 
 struct Texture {
@@ -77,7 +79,9 @@ struct Texture {
   Sampler sampler;
   VkImageLayout image_layout;
 
-  VENUS_to_string_FRIEND(Texture);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Texture>;
+#endif
 };
 
 /// The texture cache holds an array of textures that can be accessed by
@@ -88,13 +92,42 @@ public:
   u32 add(const VkImageView &image, VkSampler sampler);
   void clear();
 
-  u32 size() const;
+  h_size size() const;
   const std::vector<VkDescriptorImageInfo> &operator*() const;
 
 private:
   std::vector<VkDescriptorImageInfo> cache_;
 
-  VENUS_to_string_FRIEND(TextureCache);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<TextureCache>;
+#endif
 };
 
 } // namespace venus::scene
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::scene::Sampler> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Sampler &data) {
+    return DebugMessage().addTitle("Sampler");
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Texture> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Texture &data) {
+    return DebugMessage().addTitle("Texture");
+  }
+};
+
+template <> struct DebugTraits<venus::scene::TextureCache> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::TextureCache &data) {
+    return DebugMessage().addTitle("Texture Cache");
+  }
+};
+
+} // namespace hermes
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

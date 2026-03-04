@@ -4,6 +4,7 @@ set(VENUS_HEADERS
   app/scene_app.h
 
   core/device.h
+  core/device_queue.h
   core/instance.h
   core/physical_device.h
   core/sync.h
@@ -33,6 +34,8 @@ set(VENUS_HEADERS
   pipeline/renderpass.h
   pipeline/shader_module.h
 
+  scene/helpers/cartesian_grid.h
+  scene/helpers/sky_background.h
   scene/acceleration_structure.h
   scene/camera.h
   scene/material.h
@@ -44,6 +47,7 @@ set(VENUS_HEADERS
   ui/camera.h
 
   utils/debug.h
+  utils/indexed_handle.h
   utils/macros.h
   utils/result.h
   utils/vk_debug.h
@@ -54,6 +58,7 @@ set(VENUS_SOURCES
   app/scene_app.cpp
 
   core/device.cpp
+  core/device_queue.cpp
   core/instance.cpp
   core/physical_device.cpp
   core/sync.cpp
@@ -82,6 +87,8 @@ set(VENUS_SOURCES
   pipeline/renderpass.cpp
   pipeline/shader_module.cpp
 
+  scene/helpers/cartesian_grid.cpp
+  scene/helpers/sky_background.cpp
   scene/acceleration_structure.cpp
   scene/camera.cpp
   scene/material.cpp
@@ -104,17 +111,21 @@ target_include_directories(
 
 add_dependencies(venus venus_shaders DEPS)
 
-target_link_libraries(venus PUBLIC optimized DEPS debug DEPS gcov)
+target_link_libraries(venus PUBLIC optimized DEPS debug DEPS)
 
 include(CMakePrintHelpers)
 cmake_print_properties(TARGETS venus PROPERTIES INTERFACE_INCLUDE_DIRECTORIES)
 
 target_compile_definitions(venus PUBLIC VOLK_DEFINES)
 
-if(VENUS_INCLUDE_TO_STRING_METHODS)
-  target_compile_definitions(venus PUBLIC VENUS_INCLUDE_TO_STRING)
-  target_compile_definitions(venus PUBLIC HERMES_INCLUDE_TO_STRING)
-endif(VENUS_INCLUDE_TO_STRING_METHODS)
+if(MSVC)
+target_compile_definitions(venus PUBLIC NOMINMAX)
+endif(MSVC)
+
+if(VENUS_INCLUDE_DEBUG_TRAITS)
+  target_compile_definitions(venus PUBLIC VENUS_INCLUDE_DEBUG_TRAITS)
+  target_compile_definitions(venus PUBLIC HERMES_INCLUDE_DEBUG_TRAITS)
+endif(VENUS_INCLUDE_DEBUG_TRAITS)
 
 if (VENUS_INCLUDE_VDB)
   target_compile_definitions(venus PUBLIC VENUS_INCLUDE_VDB)
@@ -140,5 +151,11 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     PUBLIC 
     "$<$<CONFIG:Debug>:-g;-pg;-Wall;-Wextra;-Werror;-O0;-fprofile-arcs;-ftest-coverage;--coverage;-fPIC>"
     "$<$<CONFIG:Release>:-O3;-fPIC;>")
+elseif(MSVC)
+  target_compile_options(
+    venus
+    PUBLIC 
+    "$<$<CONFIG:Debug>:/Zc:__cplusplus;/Zc:preprocessor;/EHsc;/MDd>"
+    "$<$<CONFIG:Release>:/Zc:__cplusplus;/Zc:preprocessor/EHsc;/MD>")
 endif(CMAKE_COMPILER_IS_GNUCXX)
 

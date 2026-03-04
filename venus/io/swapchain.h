@@ -107,7 +107,9 @@ public:
     u32 image_count_{3};
     VkSwapchainCreateFlagsKHR flags_{};
 
-    VENUS_to_string_FRIEND(Swapchain::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Swapchain::Config>;
+#endif
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(Swapchain)
@@ -122,11 +124,15 @@ public:
   /// \return Swapchain image extent.
   VkExtent2D imageExtent() const;
   /// \return Swapchain image count.
-  u32 imageCount() const;
+  h_size imageCount() const;
   /// \return Swapchain image color format.
   VkFormat colorFormat() const;
   /// \return Swapchain depth buffer.
   const mem::Image &depthBuffer() const;
+  /// \return Depth buffer image/view pair handle.
+  mem::Image::Handle depthBufferImageHandle() const;
+  /// \return Color image/view pair handle or not found error.
+  Result<mem::Image::Handle> colorImageHandle(h_index index) const;
   /// \return Swapchain color buffer.
   const std::vector<mem::Image> &images() const;
   /// \return Swapchain depth buffer view.
@@ -151,7 +157,46 @@ private:
   Config config_{};
 #endif
 
-  VENUS_to_string_FRIEND(Swapchain);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Swapchain>;
+#endif
 };
 
 } // namespace venus::io
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::io::Swapchain::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::io::Swapchain::Config &data) {
+    return DebugMessage()
+        .addTitle("Swapchain Config")
+        .addFmt("extent: {}x{}", data.extent_.width, data.extent_.height)
+        .add("surface", VENUS_VK_HANDLE_STRING(data.surface_))
+        .add("image_usage_flags",
+             VENUS_VK_STRING(VkImageUsageFlags, data.usage_flags_))
+        .add("present_mode",
+             VENUS_VK_STRING(VkPresentModeKHR, data.present_mode_))
+        .add("surface_format",
+             VENUS_VK_STRING(VkFormat, data.surface_format_.format))
+        .add("surface_color_space",
+             VENUS_VK_STRING(VkColorSpaceKHR, data.surface_format_.colorSpace))
+        .add("queues", data.family_indices_);
+  }
+};
+
+template <> struct DebugTraits<venus::io::Swapchain> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::io::Swapchain &data) {
+    return DebugMessage()
+        .addTitle("Swapchain")
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_))
+        .add("vk_swapchain", VENUS_VK_HANDLE_STRING(data.vk_swapchain_));
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

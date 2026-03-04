@@ -145,7 +145,7 @@ vk::checkAvailableExtensions(VkPhysicalDevice vk_physical_device,
   VENUS_VK_RETURN_BAD_RESULT(vkEnumerateDeviceExtensionProperties(
       vk_physical_device, nullptr, &extensions_count, nullptr));
   if (extensions_count == 0) {
-    HERMES_ERROR("Could not get the number of queue families.\n");
+    HERMES_ERROR("Could not enumerate device extensions.\n");
     return VeResult::notFound();
   }
   extensions.resize(extensions_count);
@@ -227,11 +227,11 @@ VeResult vk::init(const vk::Version &required_version) {
   VENUS_VK_RETURN_BAD_RESULT(volkInitialize());
 
   auto version = vk::Version(volkGetInstanceVersion());
-  HERMES_INFO("Detected Vulkan version: {}", venus::to_string(version));
+  HERMES_INFO("Detected Vulkan version: {}", VENUS_TO_STRING(version));
   if (version < required_version) {
     HERMES_ERROR(
         "Available Vulkan version ({}) incompatible to required version ({})",
-        venus::to_string(version), venus::to_string(required_version));
+        VENUS_TO_STRING(version), VENUS_TO_STRING(required_version));
     return VeResult::incompatible();
   }
 
@@ -248,17 +248,3 @@ VeResult vk::init(const vk::Version &required_version) {
 }
 
 } // namespace venus::core
-
-namespace venus {
-#ifdef VENUS_INCLUDE_TO_STRING
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::vk::Version)
-HERMES_PUSH_DEBUG_LINE("{}.{}.{}", object.major_version_, object.minor_version_,
-                       object.patch_version_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::vk::GraphicsQueueFamilyIndices)
-HERMES_PUSH_DEBUG_LINE("P[{}] G[{}]", object.graphics_queue_family_index,
-                       object.present_queue_family_index);
-HERMES_TO_STRING_DEBUG_METHOD_END
-#endif
-} // namespace venus

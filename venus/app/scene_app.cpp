@@ -56,23 +56,16 @@ void SceneApp::swap(SceneApp &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(scene_);
   VENUS_SWAP_FIELD_WITH_RHS(sa_shutdown_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(sa_render_callback_);
+  VENUS_SWAP_FIELD_WITH_RHS(ge_config_);
   DisplayApp::swap(static_cast<DisplayApp &>(rhs));
 }
 
 VeResult SceneApp::setupCallbacks() {
   // setup display app startup callback
   startup_callback_ = [&](DisplayApp &app) -> VeResult {
-    VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::Config()
-                                .setSynchronization2()
-                                .setDynamicRendering()
-                                .setRayTracing()
-                                .setBindless()
-                                .init(app.display()));
-
+    VENUS_RETURN_BAD_RESULT(ge_config_.init(app.display()));
     VENUS_RETURN_BAD_RESULT(venus::engine::GraphicsEngine::startup());
-
     VENUS_RETURN_BAD_RESULT(init());
-
     return VeResult::noError();
   };
 
@@ -105,10 +98,16 @@ VeResult SceneApp::setupCallbacks() {
     engine::GraphicsEngine::globals().ui.newFrame();
     ImGui::ShowDemoWindow();
 
-    ImGui::Begin("Stats");
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                frame.last_frame_duration.count() / 1000.f,
-                1000000. / frame.current_fps_period.count());
+    ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
+    if (ImGui::Begin(
+            "Stats", nullptr,
+            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                ImGuiWindowFlags_NoSavedSettings |
+                ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
+      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+                  frame.last_frame_duration.count() / 1000.f,
+                  1000000. / frame.current_fps_period.count());
+    }
     ImGui::End();
 
     engine::GraphicsEngine::globals().ui.draw();
@@ -186,6 +185,7 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
 
   app.fps_ = fps_;
   app.frames_ = frames_;
+  app.ge_config_ = ge_config_;
 
   return Result<RA_SceneApp>(std::move(app));
 }
@@ -213,11 +213,12 @@ void RA_SceneApp::swap(RA_SceneApp &rhs) {
   SceneApp::swap(static_cast<SceneApp &>(rhs));
 }
 
+pipeline::DescriptorAllocator &RA_SceneApp::descriptorAllocator() {
+  return descriptor_allocator_;
+}
+
 VeResult RA_SceneApp::init() {
-  if (this->sa_startup_callback_)
-    VENUS_RETURN_BAD_RESULT(this->sa_startup_callback_(*this));
   // global descriptor
-  //
   auto &gd = engine::GraphicsEngine::device();
   auto &cache = engine::GraphicsEngine::cache();
 
@@ -226,13 +227,16 @@ VeResult RA_SceneApp::init() {
       pipeline::DescriptorAllocator::Config()
           .setInitialSetCount(1)
           .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.f)
-          .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3.f)
+          .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 30.f)
           .build(**gd));
+
+  if (this->sa_startup_callback_)
+    VENUS_RETURN_BAD_RESULT(this->sa_startup_callback_(*this));
 
   VENUS_RETURN_BAD_RESULT(cache.buffers().addBuffer(
       RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME,
       mem::AllocatedBuffer::Config::forUniform(
-          sizeof(engine::GraphicsEngine::Globals::Types::SceneData)),
+          sizeof(engine::GraphicsEngine::Globals::Types::CameraData)),
       *gd));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
@@ -245,9 +249,10 @@ VeResult RA_SceneApp::init() {
 VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
   HERMES_UNUSED_VARIABLE(frame);
 
-  auto &gd = venus::engine::GraphicsEngine::device();
-  // update renderer
-  venus::engine::GraphicsEngine::Globals::Types::SceneData scene_data;
+  auto &gd = engine::GraphicsEngine::device();
+  // update renderer context
+  scene::PushConstantsContext push_constants_ctx;
+  engine::GraphicsEngine::Globals::Types::CameraData camera_data;
   if (!selected_camera_.empty()) {
     // update camera
     auto clip_size = gd.swapchain().imageExtent();
@@ -257,13 +262,24 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
     if (camera_node) {
       auto camera = camera_node->camera();
       if (camera) {
-        camera->resize(clip_size.width, clip_size.height);
+        camera->resize(static_cast<f32>(clip_size.width),
+                       static_cast<f32>(clip_size.height));
 
-        scene_data.view =
+        camera_data.view =
             hermes::math::transpose(camera->viewTransform().matrix());
-        scene_data.proj =
+        camera_data.proj =
             hermes::math::transpose(camera->projectionTransform().matrix());
-        scene_data.eye = camera->position();
+        camera_data.eye = camera->position();
+        // update scene context
+        push_constants_ctx.eye = camera->position();
+        push_constants_ctx.projection = camera->projectionTransform().matrix();
+        push_constants_ctx.view = camera->viewTransform().matrix();
+        push_constants_ctx.inv_projection =
+            hermes::geo::inverse(camera->projectionTransform()).matrix();
+        push_constants_ctx.inv_view =
+            hermes::geo::inverse(camera->viewTransform()).matrix();
+        push_constants_ctx.proj_view =
+            push_constants_ctx.projection * push_constants_ctx.view;
       }
     }
   }
@@ -275,51 +291,62 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
 
     VENUS_RETURN_BAD_RESULT(
         cache.buffers().copyBlock(RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME, 0,
-                                  &scene_data, sizeof(scene_data)));
+                                  &camera_data, sizeof(camera_data)));
 
     VENUS_DECLARE_OR_RETURN_BAD_RESULT(
         VkBuffer, vk_global_data_buffer,
         cache.buffers()[RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME]);
 
-    VkDescriptorSetVariableDescriptorCountAllocateInfo alloc_array_info{};
-    alloc_array_info.sType =
-        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
-    alloc_array_info.pNext = nullptr;
-
-    u32 descriptor_counts = cache.textures().size();
-    alloc_array_info.pDescriptorCounts = &descriptor_counts;
-    alloc_array_info.descriptorSetCount = 1;
-
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
         global_descriptor_set_,
         descriptor_allocator_.allocate(
-            engine::GraphicsEngine::globals().descriptors.scene_data_layout,
-            &alloc_array_info));
+            engine::GraphicsEngine::globals().descriptors.camera_data_layout));
 
     pipeline::DescriptorWriter()
         .writeBuffer(0, vk_global_data_buffer,
-                     sizeof(engine::GraphicsEngine::Globals::Types::SceneData),
+                     sizeof(engine::GraphicsEngine::Globals::Types::CameraData),
                      0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-        .writeImages(1, *cache.textures(),
-                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
         .update(global_descriptor_set_);
+
+    // example of creating a descriptor set with arbitrary texture count
+    // VkDescriptorSetVariableDescriptorCountAllocateInfo alloc_array_info{};
+    // alloc_array_info.sType =
+    //     VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
+    // alloc_array_info.pNext = nullptr;
+
+    // u32 descriptor_counts = static_cast<u32>(cache.textures().size());
+    // alloc_array_info.pDescriptorCounts = &descriptor_counts;
+    // alloc_array_info.descriptorSetCount = 1;
+
+    // VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+    //     global_descriptor_set_,
+    //     descriptor_allocator_.allocate(
+    //         engine::GraphicsEngine::globals().descriptors.scene_data_layout,
+    //         &alloc_array_info));
+
+    // pipeline::DescriptorWriter()
+    //     .writeBuffer(0, vk_global_data_buffer,
+    //                  sizeof(engine::GraphicsEngine::Globals::Types::CameraData),
+    //                  0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+    //     .writeImages(1, *cache.textures(),
+    //                  VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+    //     .update(global_descriptor_set_);
   }
 
   {
     auto &gd = engine::GraphicsEngine::device();
     auto &cb = gd.commandBuffer();
 
-    VkImage vk_image = *gd.swapchain().images()[gd.currentTargetIndex()];
-    VkImageView vk_image_view =
-        *gd.swapchain().imageViews()[gd.currentTargetIndex()];
-    VkImageView vk_depth_view = *gd.swapchain().depthBufferView();
+    VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+        mem::Image::Handle, color_image,
+        gd.swapchain().colorImageHandle(gd.currentTargetIndex()));
+    auto depth_image = gd.swapchain().depthBufferImageHandle();
 
     scene::DrawContext draw_ctx = scene::RasterContext();
     scene_.graph().draw({}, draw_ctx);
 
     pipeline::Rasterizer rasterizer;
     rasterizer.setRenderArea(gd.swapchain().imageExtent());
-
     auto err = std::visit(
         scene::DrawContextOverloaded{
             [&](scene::RasterContext &ctx) -> VeResult {
@@ -329,23 +356,23 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
                 ro.first_index = o.first_index;
                 ro.index_buffer = o.index_buffer;
                 ro.vertex_buffer = o.vertex_buffer;
-                ro.descriptor_sets[*global_descriptor_set_ ? 1 : 0] = {
-                    *o.material_instance->descriptorSet()};
+                ro.descriptor_sets =
+                    o.material_instance->localDescriptorSetGroups();
                 pipeline::Rasterizer::RasterMaterial rm;
                 rm.vk_pipeline = *o.material_instance->pipeline();
                 rm.vk_pipeline_layout = *o.material_instance->pipelineLayout();
-                if (global_descriptor_set_)
+
+                // descriptor sets
+                // TODO: assuming all materials have this global descriptor set
+                if (o.material_instance->hasGlobalDescriptors())
                   rm.global_descriptor_sets[0] = {*global_descriptor_set_};
+
                 // push constants
-                engine::GraphicsEngine::Globals::Types::DrawPushConstants
-                    push_constants;
-                push_constants.world_matrix = o.transform;
-                push_constants.vertex_buffer = o.vertex_buffer_address;
-                VENUS_HE_RETURN_BAD_RESULT(ro.push_constants.resize(
-                    sizeof(engine::GraphicsEngine::Globals::Types::
-                               DrawPushConstants)));
-                VENUS_HE_RETURN_BAD_RESULT(
-                    ro.push_constants.copy(&push_constants));
+                VENUS_RETURN_BAD_RESULT(o.material_instance->writePushConstants(
+                    ro.push_constants, push_constants_ctx));
+                ro.push_constants_stage_flags =
+                    o.material_instance->pushConstantsStageFlags();
+
                 rasterizer.add(ro, rm);
               }
               return VeResult::noError();
@@ -357,8 +384,8 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
         draw_ctx);
     VENUS_RETURN_BAD_RESULT(err);
 
-    VENUS_RETURN_BAD_RESULT(rasterizer.sortObjects().record(
-        cb, vk_image, vk_image_view, vk_depth_view));
+    VENUS_RETURN_BAD_RESULT(
+        rasterizer.sortObjects().record(cb, color_image, depth_image));
   }
   return VeResult::noError();
 }

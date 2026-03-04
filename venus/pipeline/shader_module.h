@@ -74,7 +74,26 @@ private:
   VkDevice vk_device_{VK_NULL_HANDLE};
   std::string name_;
 
-  VENUS_to_string_FRIEND(ShaderModule);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<ShaderModule>;
+#endif
 };
 
 } // namespace venus::pipeline
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::pipeline::ShaderModule> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::pipeline::ShaderModule &data) {
+    return DebugMessage()
+        .addTitle("Shader Module")
+        .add("name", data.name_)
+        .add("vk_shader_module", VENUS_VK_HANDLE_STRING(data.vk_shader_module_))
+        .add("vk_device", VENUS_VK_DISPATCHABLE_HANDLE_STRING(data.vk_device_));
+  }
+};
+
+} // namespace hermes
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

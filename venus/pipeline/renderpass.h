@@ -54,7 +54,7 @@ public:
     /// \param[out] ref_index [def=null] Index of the added attachment
     ///                                  reference.
     Subpass &addInputAttachmentRef(u32 attachment, VkImageLayout layout,
-                                   u32 *ref_index = nullptr);
+                                   h_index *ref_index = nullptr);
     /// Adds an color attachment reference
     /// Color attachments are attachments from which the subpass write to.
     /// Resolve attachments are attachments that correspond to color
@@ -66,7 +66,7 @@ public:
     /// \param[out] ref_index [def=null] Index of the added attachment
     ///                                  reference.
     Subpass &addColorAttachmentRef(u32 attachment, VkImageLayout layout,
-                                   u32 *ref_index = nullptr);
+                                   h_index *ref_index = nullptr);
     /// \param[in] resolve_attachment Index into the array of attachments
     ///                               created in the RenderPass object.
     /// \param[in] resolve_layout     Image layout that the attachment is
@@ -75,7 +75,7 @@ public:
     ///                                  reference.
     Subpass &addResolveAttachmentRef(u32 resolve_attachment,
                                      VkImageLayout resolve_layout,
-                                     u32 *ref_index = nullptr);
+                                     h_index *ref_index = nullptr);
     /// Sets the depth-stencil attachment reference
     /// The depth/stencil attachment is the attachment used as a depth and
     /// stencil buffer.
@@ -104,13 +104,13 @@ public:
   struct Config {
     /// Adds a subpass description.
     /// \param[out] ref_index [def=null] Subpass index.
-    Config &addSubpass(const Subpass &subpass, u32 *ref_index = nullptr);
+    Config &addSubpass(const Subpass &subpass, h_index *ref_index = nullptr);
     /// The load/store ops parameters specify what to do with the attachment at
     /// the beginning and end of the render pass.
     /// \param[in] description Attachment description object.
     /// \param[out] ref_index [def=null] Attachment index.
     Config &addAttachment(const VkAttachmentDescription &description,
-                          u32 *ref_index = nullptr);
+                          h_index *ref_index = nullptr);
     /// Defines a dependency between subpasses.
     /// \note Subpass indices are provided by addSubpass method.
     /// \param subpass_dependency

@@ -72,14 +72,16 @@ public:
     bool is_end_{false};
     Frame frame_;
 
-    VENUS_to_string_FRIEND(Iteration);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<FrameLoop::Iteration>;
+#endif
   };
 
   Iteration begin();
   Iteration end();
 
 private:
-  friend class Iteration;
+  friend struct Iteration;
 
   // default for 60 fps
   std::chrono::microseconds fps_period_{16666};
@@ -87,3 +89,21 @@ private:
 };
 
 } // namespace venus::engine
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::engine::FrameLoop::Iteration> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::engine::FrameLoop::Iteration &data) {
+    return DebugMessage()
+        .add("iteration", data.frame_.iteration_index)
+        .add("last frame duration", data.frame_.last_frame_duration.count())
+        .add("current fps period", data.frame_.current_fps_period.count());
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

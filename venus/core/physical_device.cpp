@@ -138,6 +138,13 @@ Result<u32> PhysicalDevice::selectIndexOfQueueFamily(
   return VeResult::notFound();
 }
 
+Result<VkQueueFamilyProperties>
+PhysicalDevice::queueFamilyProperties(h_index family_index) const {
+  if (family_index < vk_queue_families_.size())
+    return Result<VkQueueFamilyProperties>(vk_queue_families_[family_index]);
+  return VeResult::notFound();
+}
+
 Result<vk::GraphicsQueueFamilyIndices>
 PhysicalDevice::selectGraphicsQueueFamilyIndices(
     VkSurfaceKHR vk_presentation_surface) const {
@@ -356,9 +363,9 @@ PhysicalDevice::accelerationStructureFeatures() const {
 [[maybe_unused]] VkSampleCountFlagBits
 PhysicalDevice::maxUsableSampleCount(bool include_depth_buffer) const {
   VkSampleCountFlags counts =
-      vk_properties_.limits.framebufferColorSampleCounts &
-      (include_depth_buffer ? vk_properties_.limits.framebufferDepthSampleCounts
-                            : 0);
+      vk_properties_.limits.framebufferColorSampleCounts;
+  if (include_depth_buffer)
+    counts &= vk_properties_.limits.framebufferDepthSampleCounts;
   if (counts & VK_SAMPLE_COUNT_64_BIT)
     return VK_SAMPLE_COUNT_64_BIT;
   if (counts & VK_SAMPLE_COUNT_32_BIT)
@@ -497,81 +504,3 @@ PhysicalDevices::select(const PhysicalDevices::Selector &selector) const {
 }
 
 } // namespace venus::core
-
-std::string decodeAPIVersion(uint32_t apiVersion) {
-  return std::to_string(VK_VERSION_MAJOR(apiVersion)) + "." +
-         std::to_string(VK_VERSION_MINOR(apiVersion)) + "." +
-         std::to_string(VK_VERSION_PATCH(apiVersion));
-}
-
-std::string decodeDriverVersion(uint32_t driver_version, uint32_t vendor_id) {
-  switch (vendor_id) {
-  case 0x10DE:
-    return std::to_string((driver_version >> 22) & 0x3FF) + "." +
-           std::to_string((driver_version >> 14) & 0xFF) + "." +
-           std::to_string((driver_version >> 6) & 0xFF) + "." +
-           std::to_string(driver_version & 0x3F);
-  case 0x8086:
-    return std::to_string((driver_version >> 14) & 0x3FFFF) + "." +
-           std::to_string((driver_version & 0x3FFF));
-  default:
-    return decodeAPIVersion(driver_version);
-  }
-}
-
-std::string decodeVendorID(uint32_t id) {
-  // below 0x10000 are the PCI vendor IDs
-  // (https://pcisig.com/membership/member-companies)
-  if (id < 0x10000) {
-    switch (id) {
-    case 0x1022:
-      return "Advanced Micro Devices";
-    case 0x10DE:
-      return "NVidia Corporation";
-    case 0x8086:
-      return "Intel Corporation";
-    default:
-      return std::to_string(id);
-    }
-  } else {
-    // above 0x10000 should be vkVendorIDs
-    // TODO: return vk::to_string(vk::VendorId(id));
-    return "unknown";
-  }
-}
-
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::PhysicalDevice)
-HERMES_PUSH_DEBUG_LINE("Name:           {}\n",
-                       object.vk_properties_.deviceName);
-HERMES_PUSH_DEBUG_LINE(
-    "Type:           {}\n",
-    string_VkPhysicalDeviceType(object.vk_properties_.deviceType));
-HERMES_PUSH_DEBUG_LINE("API Version:    {}\n",
-                       decodeAPIVersion(object.vk_properties_.apiVersion));
-HERMES_PUSH_DEBUG_LINE("Driver Version: {}\n",
-                       decodeDriverVersion(object.vk_properties_.driverVersion,
-                                           object.vk_properties_.vendorID));
-HERMES_PUSH_DEBUG_LINE("Vendor ID:      {}\n",
-                       decodeVendorID(object.vk_properties_.vendorID));
-HERMES_PUSH_DEBUG_LINE("Device ID:      {}\n", object.vk_properties_.deviceID);
-HERMES_PUSH_DEBUG_LINE("#Family Queues: {}\n", object.vk_extensions_.size());
-// HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(vk_queue_families_, vk_queue_family);
-// HERMES_PUSH_DEBUG_LINE("{}",
-// string_VkQueueFlags(vk_queue_family.queueFlags));
-// HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_LINE("#extensions:    {}\n", object.vk_extensions_.size());
-// HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(vk_extensions_, extension);
-// HERMES_PUSH_DEBUG_VK_VARIABLE(extension.extensionName);
-// HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_physical_device_);
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::PhysicalDevices)
-HERMES_PUSH_DEBUG_LINE("#devices: {}\n", object.size());
-for (const auto &physical_device : object) {
-  HERMES_PUSH_DEBUG_LINE("device[]: \n{}\n", venus::to_string(physical_device));
-}
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

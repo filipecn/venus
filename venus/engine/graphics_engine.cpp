@@ -102,6 +102,8 @@ void GraphicsEngine::Globals::Shaders::clear() {
 VeResult GraphicsEngine::Globals::Materials::init(GraphicsDevice &gd) {
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       color, scene::materials::Material_Test::material(gd));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(empty,
+                                    scene::materials::MAT_Empty::material(gd));
 #ifdef VENUS_INCLUDE_GLTF
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gltf_metallic_roughness,
@@ -122,9 +124,35 @@ void GraphicsEngine::Globals::Materials::clear() {
   vdb.destroy();
 #endif
   color.destroy();
+  empty.destroy();
+}
+
+pipeline::DescriptorAllocator &
+GraphicsEngine::Globals::Descriptors::allocator() {
+  return allocator_;
 }
 
 VeResult GraphicsEngine::Globals::Descriptors::init(GraphicsDevice &gd) {
+  { // allocator
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+        allocator_,
+        venus::pipeline::DescriptorAllocator::Config()
+            .setInitialSetCount(1)
+            .addDescriptorType(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3.f)
+            .addDescriptorType(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 30.f)
+            .build(**gd));
+  }
+  { // camera_data_layout
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+        camera_data_layout_,
+        pipeline::DescriptorSet::Layout::Config()
+            .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
+                              VK_SHADER_STAGE_VERTEX_BIT |
+                                  VK_SHADER_STAGE_FRAGMENT_BIT)
+            .build(**gd));
+
+    camera_data_layout = *camera_data_layout_;
+  }
   { // scene_data_layout
     std::array<VkDescriptorBindingFlags, 2> binding_flags{
         // binding 0
@@ -160,6 +188,9 @@ VeResult GraphicsEngine::Globals::Descriptors::init(GraphicsDevice &gd) {
 void GraphicsEngine::Globals::Descriptors::clear() {
   scene_data_layout_.destroy();
   scene_data_layout = VK_NULL_HANDLE;
+  camera_data_layout_.destroy();
+  camera_data_layout = VK_NULL_HANDLE;
+  allocator_.destroy();
 }
 
 VeResult GraphicsEngine::Globals::Defaults::init(GraphicsDevice &gd) {
@@ -242,7 +273,7 @@ void GraphicsEngine::Globals::UI::draw() {
           .setRenderArea({VkOffset2D{0, 0}, gd.swapchain().imageExtent()})
           .addColorAttachment(
               pipeline::CommandBuffer::RenderingInfo::Attachment()
-                  .setImageLayout(VK_IMAGE_LAYOUT_GENERAL)
+                  .setImageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
                   .setImageView(
                       *gd.swapchain().imageViews()[gd.currentTargetIndex()])
                   .setStoreOp(VK_ATTACHMENT_STORE_OP_STORE)
@@ -424,6 +455,12 @@ GraphicsEngine::Config &GraphicsEngine::Config::setBindless() {
   return *this;
 }
 
+GraphicsEngine::Config &
+GraphicsEngine::Config::setShaderDemoteToHelperInvocation() {
+  device_features_.v13_f.shaderDemoteToHelperInvocation = true;
+  return *this;
+}
+
 GraphicsEngine::Config &GraphicsEngine::Config::setDynamicRendering() {
   device_features_.v13_f.dynamicRendering = true;
 
@@ -480,7 +517,7 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
                                 .enableDebugUtilsExtension()
                                 .build());
 
-  HERMES_INFO("\n{}", venus::to_string(s_instance.instance_));
+  HERMES_INFO("\n{}", VENUS_TO_STRING(s_instance.instance_));
   // output surface
   s_instance.display_ = display;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(

@@ -61,21 +61,6 @@
 #include <stb_image.h>
 #endif // VENUS_INCLUDE_GLTF
 
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::RasterContext::RenderObject)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_HERMES_FIELD(bounds)
-HERMES_PUSH_DEBUG_HERMES_FIELD(transform)
-HERMES_PUSH_DEBUG_FIELD(count)
-HERMES_PUSH_DEBUG_FIELD(first_index)
-HERMES_PUSH_DEBUG_VK_FIELD(index_buffer)
-HERMES_PUSH_DEBUG_VK_FIELD(vertex_buffer)
-HERMES_PUSH_DEBUG_FIELD(vertex_buffer_address)
-HERMES_PUSH_DEBUG_LINE("material instance: 0x{:x}",
-                       (uintptr_t)(object.material_instance.get()))
-HERMES_TO_STRING_DEBUG_METHOD_END
-
 #ifdef VENUS_INCLUDE_GLTF
 HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::graph::GLTF_Node)
 HERMES_PUSH_DEBUG_TITLE
@@ -111,28 +96,6 @@ HERMES_PUSH_DEBUG_VENUS_FIELD(descriptor_allocator_)
 HERMES_PUSH_DEBUG_VENUS_FIELD(material_data_buffer_)
 HERMES_TO_STRING_DEBUG_METHOD_END
 #endif // VENUS_INCLUDE_GLTF
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::graph::Node)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_LINE("{}", object.toString())
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::graph::ModelNode)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_LINE("{}", object.toString())
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::graph::CameraNode)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_LINE("{}", object.toString())
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::graph::LabeledGraph)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_LINE("{}", object.toString())
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
 
 namespace venus::scene {
 
@@ -179,21 +142,6 @@ void Node::updateTrasform(const hermes::geo::Transform &parent_matrix) {
     child->updateTrasform(world_matrix_);
 }
 
-std::string Node::toString(u32 tab_size) const {
-  hermes::cstr s;
-  s.appendLine(
-      hermes::cstr::format("parent: 0x{:x}", (uintptr_t)parent_.get()));
-  s.appendLine(
-      hermes::cstr::format("local: {}", hermes::to_string(local_matrix_)));
-  s.appendLine(
-      hermes::cstr::format("world: {}", hermes::to_string(world_matrix_)));
-  for (const auto &child : children_) {
-    s.appendLine("Child: ");
-    s.appendLine(hermes::cstr::format("{}", child->toString(tab_size)));
-  }
-  return s.str();
-}
-
 ModelNode::ModelNode(Model::Ptr model) : model_{model} {}
 
 void ModelNode::draw(const hermes::geo::Transform &top_matrix,
@@ -222,7 +170,7 @@ void ModelNode::draw(const hermes::geo::Transform &top_matrix,
               if (model_->indexBuffer())
                 render_object.index_buffer = model_->indexBuffer();
               //  shading
-              render_object.material_instance = shape.material;
+              render_object.material_instance = shape.material_instance;
               ctx.objects.push_back(render_object);
             }
           },
@@ -262,13 +210,6 @@ Model::Ptr ModelNode::model() { return model_; }
 
 void ModelNode::setModel(Model::Ptr model) { model_ = model; }
 
-std::string ModelNode::toString(u32 tab_size) const {
-  hermes::cstr s;
-  s.appendLine(hermes::cstr::format("model: {}", venus::to_string(*model_)));
-  s.appendLine(hermes::cstr::format("{}", Node::toString(tab_size)));
-  return s.str();
-}
-
 CameraNode::CameraNode(Camera::Ptr camera) : camera_{camera} {}
 
 void CameraNode::draw(const hermes::geo::Transform &top_matrix,
@@ -287,13 +228,6 @@ void CameraNode::destroy() noexcept {
 Camera::Ptr CameraNode::camera() { return camera_; }
 
 void CameraNode::setCamera(Camera::Ptr camera) { camera_ = camera; }
-
-std::string CameraNode::toString(u32 tab_size) const {
-  hermes::cstr s;
-  s.appendLine(hermes::cstr::format("camera: {}", venus::to_string(*camera_)));
-  s.appendLine(hermes::cstr::format("{}", Node::toString(tab_size)));
-  return s.str();
-}
 
 #ifdef VENUS_INCLUDE_GLTF
 VkFilter extractFilter(fastgltf::Filter filter) {
@@ -1129,16 +1063,6 @@ void LabeledGraph::draw(const hermes::geo::Transform &top_matrix,
   if (!visible_)
     return;
   Node::draw(top_matrix, context);
-}
-
-std::string LabeledGraph::toString(u32 tab_size) const {
-  hermes::cstr s;
-  for (const auto &item : nodes_) {
-    s.appendLine(hermes::cstr::format("node {} -> 0x{:x}", item.first,
-                                      (uintptr_t)item.second.get()));
-  }
-  s.appendLine(hermes::cstr::format("{}", Node::toString(tab_size)));
-  return s.str();
 }
 
 } // namespace venus::scene::graph

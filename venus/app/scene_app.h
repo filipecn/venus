@@ -46,9 +46,12 @@ public:
     /// \param startup_callback Function called during frame preparation.
     Derived &setUpdateSceneFn(
         const std::function<VeResult(Scene &)> &update_scene_callback);
+    Derived &
+    setGraphicsEngineConfig(const engine::GraphicsEngine::Config &ge_config);
 
   protected:
     std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
+    engine::GraphicsEngine::Config ge_config_;
   };
 
   struct Config : public Setup<Config, SceneApp> {};
@@ -72,6 +75,9 @@ protected:
   std::string selected_camera_;
   ui::CameraController camera_controller_;
 
+  // setup
+  engine::GraphicsEngine::Config ge_config_;
+
   // scene app callbacks
   std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
   // display app callbacks
@@ -84,6 +90,10 @@ VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(SceneApp, setUpdateSceneFn,
                                       const std::function<VeResult(Scene &)> &,
                                       update_scene_callback_)
 
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(SceneApp, setGraphicsEngineConfig,
+                                      const engine::GraphicsEngine::Config &,
+                                      ge_config_)
+
 class RA_SceneApp : public SceneApp {
 public:
   struct Config : public SceneApp::Setup<Config, RA_SceneApp> {
@@ -93,6 +103,8 @@ public:
   VENUS_DECLARE_RAII_FUNCTIONS(RA_SceneApp)
   void destroy() noexcept override;
   void swap(RA_SceneApp &rhs);
+
+  pipeline::DescriptorAllocator &descriptorAllocator();
 
 protected:
   VeResult init() override;

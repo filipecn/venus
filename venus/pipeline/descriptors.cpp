@@ -243,7 +243,7 @@ Result<VkDescriptorPool> DescriptorAllocator::get() {
   VkDescriptorPool new_pool{VK_NULL_HANDLE};
   if (ready_pools_.empty()) {
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(new_pool, build(sets_per_pool_, ratios_));
-    sets_per_pool_ = std::min(static_cast<u32>(sets_per_pool_ * 1.5), 4092u);
+    sets_per_pool_ = (std::min)(static_cast<u32>(sets_per_pool_ * 1.5), 4092u);
   } else {
     new_pool = std::move(ready_pools_.back());
     ready_pools_.pop_back();
@@ -381,61 +381,3 @@ DescriptorWriter &DescriptorWriter::update(const DescriptorSet &set) {
 }
 
 } // namespace venus::pipeline
-
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
-    venus::pipeline::DescriptorSet::Layout::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(bindings_, binding)
-HERMES_PUSH_DEBUG_LINE("{} {} {} {}", binding.binding,
-                       string_VkDescriptorType(binding.descriptorType),
-                       binding.descriptorCount,
-                       string_VkShaderStageFlags(binding.stageFlags))
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::DescriptorSet::Layout)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_layout_)
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_)
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::DescriptorSet)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_descriptor_set_)
-HERMES_PUSH_DEBUG_VK_FIELD(vk_descriptor_pool_)
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(
-    venus::pipeline::DescriptorAllocator::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_FIELD(initial_set_count_)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(ratios_, ratio)
-HERMES_UNUSED_VARIABLE(ratio)
-HERMES_PUSH_DEBUG_VK_STRING(VkDescriptorType, ratios_[i].type)
-HERMES_PUSH_DEBUG_FIELD(ratios_[i].ratio)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::DescriptorAllocator)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(vk_device_)
-HERMES_PUSH_DEBUG_FIELD(sets_per_pool_)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(ratios_, ratio)
-HERMES_UNUSED_VARIABLE(ratio)
-HERMES_PUSH_DEBUG_VK_STRING(VkDescriptorType, ratios_[i].type)
-HERMES_PUSH_DEBUG_FIELD(ratios_[i].ratio)
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(full_pools_, pool)
-HERMES_UNUSED_VARIABLE(pool)
-HERMES_PUSH_DEBUG_VK_FIELD(full_pools_[i])
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_PUSH_DEBUG_ARRAY_FIELD_BEGIN(ready_pools_, pool)
-HERMES_UNUSED_VARIABLE(pool)
-HERMES_PUSH_DEBUG_VK_FIELD(ready_pools_[i])
-HERMES_PUSH_DEBUG_ARRAY_FIELD_END
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

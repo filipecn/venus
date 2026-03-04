@@ -91,7 +91,9 @@ public:
     mutable hermes::geo::Transform transform_; //!< projection transform
     mutable hermes::geo::Transform inv_transform_;
 
-    VENUS_to_string_FRIEND(Projection);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<Projection>;
+#endif
   };
 
   /// \param p projection type
@@ -159,7 +161,9 @@ protected:
   mutable hermes::geo::Transform model_;
   mutable hermes::geo::Transform inv_model_;
 
-  VENUS_to_string_FRIEND(Camera);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<Camera>;
+#endif
 };
 
 class PerspectiveProjection : public Camera::Projection {
@@ -178,7 +182,9 @@ public:
 private:
   f32 fov_in_degrees_{45.f}; //!< field of view angle in degrees
 
-  VENUS_to_string_FRIEND(PerspectiveProjection);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<PerspectiveProjection>;
+#endif
 };
 
 class OrthographicProjection : public Camera::Projection {
@@ -200,7 +206,64 @@ public:
 private:
   hermes::geo::bounds::bbox2 region_;
 
-  VENUS_to_string_FRIEND(OrthographicProjection);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<OrthographicProjection>;
+#endif
 };
 
 } // namespace venus::scene
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::scene::OrthographicProjection> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::scene::OrthographicProjection &data) {
+    return DebugMessage("");
+  }
+};
+
+template <> struct DebugTraits<venus::scene::PerspectiveProjection> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::PerspectiveProjection &data) {
+    return DebugMessage("");
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Camera::Projection> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Camera::Projection &data) {
+    // force update
+    auto t = *data;
+    HERMES_UNUSED_VARIABLE(t);
+    return DebugMessage()
+        .addTitle("Scene Camera Projection")
+        .add("ratio", data.ratio_)
+        .add("near", data.near_)
+        .add("far", data.far_)
+        .add("", data.clip_size_)
+        .add("", data.options_)
+        .add("", data.transform_);
+  }
+};
+
+template <> struct DebugTraits<venus::scene::Camera> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::Camera &data) {
+    // force update
+    auto t = data.modelTransform();
+    HERMES_UNUSED_VARIABLE(t);
+    return DebugMessage()
+        .addTitle("Scene Camera")
+        .add("pos", data.pos_)
+        .add("target", data.target_)
+        .add("up", data.up_)
+        .add("view", data.view_)
+        .add("projection", *data.projection_);
+  }
+};
+
+} // namespace hermes
+
+#endif

@@ -88,7 +88,7 @@ VENUS_DEFINE_SET_FIELD_METHOD(CommandBuffer::RenderingInfo,
 
 VkRenderingInfo CommandBuffer::RenderingInfo::operator*() const {
   VkRenderingInfo info = info_;
-  info.colorAttachmentCount = color_attachments_.size();
+  info.colorAttachmentCount = static_cast<u32>(color_attachments_.size());
   info.pColorAttachments = color_attachments_.data();
   info.pDepthAttachment =
       depth_attachment_.has_value() ? &(*depth_attachment_) : nullptr;
@@ -120,7 +120,7 @@ CommandBuffer::RenderPassInfo::addClearColorValuef(f32 r, f32 g, f32 b, f32 a) {
   v.color.float32[2] = b;
   v.color.float32[3] = a;
   clear_values_.emplace_back(v);
-  info_.clearValueCount = clear_values_.size();
+  info_.clearValueCount = static_cast<u32>(clear_values_.size());
   info_.pClearValues = clear_values_.data();
   return *this;
 }
@@ -133,7 +133,7 @@ CommandBuffer::RenderPassInfo::addClearColorValuei(i32 r, i32 g, i32 b, i32 a) {
   v.color.int32[2] = b;
   v.color.int32[3] = a;
   clear_values_.emplace_back(v);
-  info_.clearValueCount = clear_values_.size();
+  info_.clearValueCount = static_cast<u32>(clear_values_.size());
   info_.pClearValues = clear_values_.data();
   return *this;
 }
@@ -158,7 +158,7 @@ CommandBuffer::RenderPassInfo::addClearDepthStencilValue(f32 depth,
   v.depthStencil.depth = depth;
   v.depthStencil.stencil = stencil;
   clear_values_.emplace_back(v);
-  info_.clearValueCount = clear_values_.size();
+  info_.clearValueCount = static_cast<u32>(clear_values_.size());
   info_.pClearValues = clear_values_.data();
   return *this;
 }
@@ -252,28 +252,28 @@ void CommandBuffer::copy(VkImage src_image, VkImageLayout layout,
                          VkBuffer dst_buffer,
                          const std::vector<VkBufferImageCopy> &regions) const {
   vkCmdCopyImageToBuffer(vk_command_buffer_, src_image, layout, dst_buffer,
-                         regions.size(), regions.data());
+                         static_cast<u32>(regions.size()), regions.data());
 }
 
 void CommandBuffer::copy(VkImage src_image, VkImageLayout src_layout,
                          VkImage dst_image, VkImageLayout dst_layout,
                          const std::vector<VkImageCopy> &regions) const {
   vkCmdCopyImage(vk_command_buffer_, src_image, src_layout, dst_image,
-                 dst_layout, regions.size(), regions.data());
+                 dst_layout, static_cast<u32>(regions.size()), regions.data());
 }
 
 void CommandBuffer::clear(VkImage image, VkImageLayout layout,
                           const std::vector<VkImageSubresourceRange> &ranges,
                           const VkClearColorValue &color) const {
-  vkCmdClearColorImage(vk_command_buffer_, image, layout, &color, ranges.size(),
-                       ranges.data());
+  vkCmdClearColorImage(vk_command_buffer_, image, layout, &color,
+                       static_cast<u32>(ranges.size()), ranges.data());
 }
 
 void CommandBuffer::clear(VkImage image, VkImageLayout layout,
                           const std::vector<VkImageSubresourceRange> &ranges,
                           const VkClearDepthStencilValue &value) const {
   vkCmdClearDepthStencilImage(vk_command_buffer_, image, layout, &value,
-                              ranges.size(), ranges.data());
+                              static_cast<u32>(ranges.size()), ranges.data());
 }
 
 void CommandBuffer::bindPipeline(VkPipeline vk_pipeline,
@@ -807,7 +807,7 @@ VeResult ImageWritter::immediateSubmit(const engine::GraphicsDevice &gd) const {
 VeResult ImageWritter::generateMipmaps(const pipeline::CommandBuffer &cb,
                                        VkImage image, VkExtent2D size) const {
   i32 mip_levels =
-      int(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+      int(std::floor(std::log2((std::max)(size.width, size.height)))) + 1;
   for (int level = 0; level < mip_levels; ++level) {
 
     VkExtent2D half_size = size;

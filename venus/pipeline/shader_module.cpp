@@ -99,7 +99,7 @@ Result<std::vector<std::uint32_t>> readFile(const std::string &filename) {
 
 ShaderModule::Config &
 ShaderModule::Config::fromSpvFile(const std::filesystem::path &path_to_spv) {
-  VENUS_ASSIGN(spirv_, readFile(path_to_spv));
+  VENUS_ASSIGN(spirv_, readFile(path_to_spv.string()));
   return *this;
 }
 
@@ -153,13 +153,3 @@ ShaderModule::Config::build(VkDevice vk_device,
 }
 
 } // namespace venus::pipeline
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::pipeline::ShaderModule)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_shader_module_)
-HERMES_PUSH_DEBUG_VK_HANDLE(vk_device_)
-HERMES_PUSH_DEBUG_FIELD(name_)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

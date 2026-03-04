@@ -29,6 +29,10 @@
 
 #include <venus/core/vk_api.h>
 
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+#include <venus/utils/vk_debug.h>
+#endif
+
 namespace venus::mem {
 
 /// The vertex layout describes the vertex attributes consumed by a shader
@@ -82,7 +86,7 @@ public:
   /// \note This finds the first component with the given type, but vertex
   ///       layouts may have multiple components with the same type.
   /// \param component Vertex layout component type.
-  /// \return the offset if found, VeResult::NOT_FOUND otherwise.
+  /// \return the offset if found, VeResult::NotFound otherwise.
   HERMES_NODISCARD Result<VkDeviceSize>
   componentOffset(ComponentType component) const;
   /// \return The stride (in bytes) of this vertex layout.
@@ -90,17 +94,71 @@ public:
   /// \return The list of vertex components.
   const std::vector<Component> &components() const;
 
+  friend bool operator==(const VertexLayout &lhs, const VertexLayout &rhs);
+  friend bool operator!=(const VertexLayout &lhs, const VertexLayout &rhs);
+
 private:
   std::vector<Component> components_;
   VkDeviceSize stride_{0};
 
-  VENUS_to_string_FRIEND(VertexLayout);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<VertexLayout>;
+#endif
 };
+
+bool operator==(const VertexLayout::Component &lhs,
+                const VertexLayout::Component &rhs);
+bool operator!=(const VertexLayout::Component &lhs,
+                const VertexLayout::Component &rhs);
 
 } // namespace venus::mem
 
-namespace venus {
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
 
-HERMES_DECLARE_TO_STRING_DEBUG_METHOD(venus::mem::VertexLayout::ComponentType);
+namespace hermes {
 
-}
+template <> struct DebugTraits<venus::mem::VertexLayout::ComponentType> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::mem::VertexLayout::ComponentType &data) {
+#define TO_STR(C)                                                              \
+  if (data == venus::mem::VertexLayout::ComponentType::C)                      \
+  return DebugMessage(#C)
+    TO_STR(Position);
+    TO_STR(Normal);
+    TO_STR(Color);
+    TO_STR(UV);
+    TO_STR(Tangent);
+    TO_STR(Bitangent);
+    TO_STR(Scalar);
+    TO_STR(Vec2);
+    TO_STR(Vec3);
+    TO_STR(Vec4);
+    TO_STR(M3x3);
+    TO_STR(M4x4);
+    TO_STR(Array);
+#undef TO_STR
+    return DebugMessage("<invalid component type>");
+  }
+};
+
+template <> struct DebugTraits<venus::mem::VertexLayout> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::VertexLayout &data) {
+    return DebugMessage()
+        .addTitle("Vertex Layout")
+        .add("stride", data.stride_)
+        .addArray<venus::mem::VertexLayout::Component>(
+            "components", data.components_,
+            [](h_index i, const venus::mem::VertexLayout::Component &component)
+                -> DebugMessage {
+              return DebugMessage(
+                  "{} {} {}", VENUS_VK_STRING(VkFormat, component.format),
+                  component.offset, venus::to_string(component.type));
+            });
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

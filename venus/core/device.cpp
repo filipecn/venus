@@ -117,8 +117,23 @@ Result<Device>
 Device::Config::build(const PhysicalDevice &physical_device) const {
   std::vector<char const *> extensions;
   extensions.reserve(extensions_.size());
+  std::vector<VkExtensionProperties> available_extensions;
+  VENUS_RETURN_BAD_RESULT(
+      vk::checkAvailableExtensions(*physical_device, available_extensions));
   for (auto const &ext : extensions_) {
     extensions.push_back(ext.data());
+    // check if requested extension is available
+    bool extension_available = false;
+    for (const auto &available_extension : available_extensions) {
+      if (std::strcmp(available_extension.extensionName, ext.data()) == 0) {
+        extension_available = true;
+        break;
+      }
+    }
+    if (!extension_available) {
+      HERMES_ERROR("Requested extension [{}] not supported.", ext);
+      return VeResult::vkError();
+    }
   }
 
   auto features = features_;
@@ -143,7 +158,7 @@ Device::Config::build(const PhysicalDevice &physical_device) const {
     info.pNext = nullptr;
     info.flags = family_config.flags;
     info.queueFamilyIndex = family_config.index;
-    info.queueCount = family_config.priorities.size();
+    info.queueCount = static_cast<u32>(family_config.priorities.size());
     info.pQueuePriorities = family_config.priorities.data();
     queue_infos.push_back(info);
   }
@@ -153,9 +168,9 @@ Device::Config::build(const PhysicalDevice &physical_device) const {
   create_info.pNext = &features.f2;
   create_info.flags = flags_;
   create_info.pQueueCreateInfos = queue_infos.data();
-  create_info.queueCreateInfoCount = queue_infos.size();
+  create_info.queueCreateInfoCount = static_cast<u32>(queue_infos.size());
   create_info.ppEnabledExtensionNames = extensions.data();
-  create_info.enabledExtensionCount = extensions.size();
+  create_info.enabledExtensionCount = static_cast<u32>(extensions.size());
 
   Device device;
   device.physical_device_ = physical_device;
@@ -212,14 +227,3 @@ VmaAllocator Device::allocator() const { return allocator_; }
 const PhysicalDevice &Device::physical() const { return physical_device_; }
 
 } // namespace venus::core
-
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Device::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::core::Device)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

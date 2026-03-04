@@ -78,7 +78,9 @@ public:
     HERMES_NODISCARD Result<DeviceMemory>
     build(const core::Device &device) const;
 
-    VENUS_to_string_FRIEND(DeviceMemory::Config);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+    friend struct hermes::DebugTraits<DeviceMemory::Config>;
+#endif
   };
 
   class ScopedMap {
@@ -180,7 +182,9 @@ private:
   Config config_;
 #endif
 
-  VENUS_to_string_FRIEND(DeviceMemory);
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  friend struct hermes::DebugTraits<DeviceMemory>;
+#endif
 };
 
 template <typename Derived> Derived DeviceMemory::Setup<Derived>::forTexture() {
@@ -226,3 +230,25 @@ VENUS_DEFINE_SETUP_SET_FIELD_METHOD(DeviceMemory, setMemoryRequirements,
                                     requirements_);
 
 } // namespace venus::mem
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+
+namespace hermes {
+
+template <> struct DebugTraits<venus::mem::DeviceMemory::Config> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::DeviceMemory::Config &data) {
+    return DebugMessage().addTitle("Device Memory Config");
+  }
+};
+
+template <> struct DebugTraits<venus::mem::DeviceMemory> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::mem::DeviceMemory &data) {
+    return DebugMessage().addTitle("Device Memory");
+  }
+};
+
+} // namespace hermes
+
+#endif // VENUS_INCLUDE_DEBUG_TRAITS

@@ -26,8 +26,6 @@
 
 #include <venus/io/swapchain.h>
 
-#include <venus/utils/vk_debug.h>
-
 namespace venus::io {
 
 Swapchain::Config &Swapchain::Config::setSurface(VkSurfaceKHR surface) {
@@ -276,11 +274,23 @@ VkSwapchainKHR Swapchain::operator*() const { return vk_swapchain_; }
 
 VkExtent2D Swapchain::imageExtent() const { return extent_; }
 
-u32 Swapchain::imageCount() const { return images_.size(); }
+h_size Swapchain::imageCount() const { return images_.size(); }
 
 VkFormat Swapchain::colorFormat() const { return color_format_; }
 
 const mem::Image &Swapchain::depthBuffer() const { return depth_buffer_; }
+
+mem::Image::Handle Swapchain::depthBufferImageHandle() const {
+  return mem::Image::Handle{.image = *depth_buffer_,
+                            .view = *depth_buffer_view_};
+}
+
+Result<mem::Image::Handle> Swapchain::colorImageHandle(h_index index) const {
+  if (index < images_.size())
+    return Result<mem::Image::Handle>(mem::Image::Handle{
+        .image = *images_[index], .view = *image_views_[index]});
+  return VeResult::notFound();
+}
 
 const std::vector<mem::Image> &Swapchain::images() const { return images_; }
 
@@ -319,24 +329,3 @@ Result<u32> Swapchain::nextImage(VkSemaphore vk_semaphore, VkFence vk_fence) {
 }
 
 } // namespace venus::io
-
-namespace venus {
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::io::Swapchain::Config)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VK_FIELD(surface_);
-HERMES_PUSH_DEBUG_VK_STRING(VkImageUsageFlags, usage_flags_);
-HERMES_PUSH_DEBUG_LINE("extent: {}x{}", object.extent_.width,
-                       object.extent_.height);
-HERMES_PUSH_DEBUG_VK_STRING(VkPresentModeKHR, present_mode_);
-HERMES_PUSH_DEBUG_VK_STRING(VkFormat, surface_format_.format);
-HERMES_PUSH_DEBUG_VK_STRING(VkColorSpaceKHR, surface_format_.colorSpace);
-HERMES_PUSH_DEBUG_LINE("queues: {}", venus::to_string(object.family_indices_));
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::io::Swapchain)
-HERMES_PUSH_DEBUG_TITLE
-HERMES_PUSH_DEBUG_VENUS_FIELD(config_);
-
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus

@@ -26,21 +26,6 @@
 
 #include <venus/scene/texture.h>
 
-#include <venus/utils/vk_debug.h>
-
-namespace venus {
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Sampler)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::Texture)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-HERMES_TO_STRING_DEBUG_METHOD_BEGIN(venus::scene::TextureCache)
-HERMES_TO_STRING_DEBUG_METHOD_END
-
-} // namespace venus
-
 namespace venus::scene {
 
 Sampler::Config::Config() {
@@ -137,7 +122,7 @@ u32 TextureCache::add(const VkImageView &image, VkSampler sampler) {
     }
   }
 
-  u32 idx = cache_.size();
+  h_index idx = cache_.size();
 
   cache_.push_back(VkDescriptorImageInfo{
       .sampler = sampler,
@@ -149,7 +134,7 @@ u32 TextureCache::add(const VkImageView &image, VkSampler sampler) {
 
 void TextureCache::clear() { cache_.clear(); }
 
-u32 TextureCache::size() const { return cache_.size(); }
+h_size TextureCache::size() const { return cache_.size(); }
 
 const std::vector<VkDescriptorImageInfo> &TextureCache::operator*() const {
   return cache_;

@@ -32,7 +32,7 @@ namespace venus::pipeline {
 
 RenderPass::Subpass &
 RenderPass::Subpass::addInputAttachmentRef(u32 attachment, VkImageLayout layout,
-                                           u32 *ref_index) {
+                                           h_index *ref_index) {
   if (ref_index)
     *ref_index = vk_input_attachments_.size();
   VkAttachmentReference ar = {attachment, layout};
@@ -42,7 +42,7 @@ RenderPass::Subpass::addInputAttachmentRef(u32 attachment, VkImageLayout layout,
 
 RenderPass::Subpass &
 RenderPass::Subpass::addColorAttachmentRef(u32 attachment, VkImageLayout layout,
-                                           u32 *ref_index) {
+                                           h_index *ref_index) {
   if (ref_index)
     *ref_index = vk_color_attachments_.size();
   VkAttachmentReference ar = {attachment, layout};
@@ -51,7 +51,7 @@ RenderPass::Subpass::addColorAttachmentRef(u32 attachment, VkImageLayout layout,
 }
 
 RenderPass::Subpass &RenderPass::Subpass::addResolveAttachmentRef(
-    u32 resolve_attachment, VkImageLayout resolve_layout, u32 *ref_index) {
+    u32 resolve_attachment, VkImageLayout resolve_layout, h_index *ref_index) {
   if (ref_index)
     *ref_index = vk_resolve_attachments_.size();
   VkAttachmentReference rar = {resolve_attachment, resolve_layout};
@@ -74,7 +74,7 @@ RenderPass::Subpass &RenderPass::Subpass::preserveAttachment(u32 attachment) {
 }
 
 RenderPass::Config &RenderPass::Config::addSubpass(const Subpass &subpass,
-                                                   u32 *ref_index) {
+                                                   h_index *ref_index) {
   if (ref_index)
     *ref_index = subpasses_.size();
   subpasses_.emplace_back(subpass);
@@ -83,7 +83,7 @@ RenderPass::Config &RenderPass::Config::addSubpass(const Subpass &subpass,
 
 RenderPass::Config &
 RenderPass::Config::addAttachment(const VkAttachmentDescription &description,
-                                  u32 *ref_index) {
+                                  h_index *ref_index) {
   if (ref_index)
     *ref_index = vk_attachments_.size();
   vk_attachments_.emplace_back(description);

@@ -27,6 +27,7 @@
 
 #pragma once
 
+#include <venus/pipeline/rasterizer.h>
 #include <venus/scene/camera.h>
 #include <venus/scene/material.h>
 #include <venus/scene/model.h>
@@ -65,10 +66,9 @@ struct RasterContext {
     // shading
 
     Material::Instance::Ptr material_instance;
-
-    VENUS_to_string_FRIEND(RenderObject);
   };
 
+  // scene data
   std::vector<RenderObject> objects;
 };
 
@@ -167,8 +167,19 @@ protected:
   hermes::geo::Transform local_matrix_;
   hermes::geo::Transform world_matrix_;
 
-  VENUS_to_string_FRIEND(Node);
-  VENUS_VIRTUAL_toString_METHOD
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  virtual hermes::DebugMessage debugMessage() const {
+    hermes::DebugMessage m;
+    m.addTitle("Scene Graph Node")
+        .add("parent: 0x{:x}", (uintptr_t)parent_.get())
+        .add("local", local_matrix_)
+        .add("world", world_matrix_);
+    for (const auto &child : children_)
+      m.add("Child", child->debugMessage().str());
+    return m;
+  }
+  friend struct hermes::DebugTraits<Node>;
+#endif
 };
 
 // *****************************************************************************
@@ -194,8 +205,14 @@ public:
 protected:
   Model::Ptr model_;
 
-  VENUS_to_string_FRIEND(ModelNode);
-  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  hermes::DebugMessage debugMessage() const override {
+    return hermes::DebugMessage()
+        .addTitle("Scene Graph Model Node")
+        .add("model", *model_);
+  }
+  friend struct hermes::DebugTraits<ModelNode>;
+#endif
 };
 
 // *****************************************************************************
@@ -221,8 +238,14 @@ public:
 protected:
   Camera::Ptr camera_;
 
-  VENUS_to_string_FRIEND(CameraNode);
-  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  hermes::DebugMessage debugMessage() const override {
+    return hermes::DebugMessage()
+        .addTitle("Scene Graph Camera Node")
+        .add("camera", *camera_);
+  }
+  friend struct hermes::DebugTraits<CameraNode>;
+#endif
 };
 
 #ifdef VENUS_INCLUDE_GLTF
@@ -339,10 +362,73 @@ public:
 private:
   std::unordered_map<std::string, Node::Ptr> nodes_;
 
-  VENUS_to_string_FRIEND(LabeledGraph);
-  VENUS_VIRTUAL_toString_METHOD_OVERRIDE
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+  hermes::DebugMessage debugMessage() const override {
+    hermes::DebugMessage m;
+    m.addTitle("Scene Labeled Graph");
+    for (const auto &item : nodes_) {
+      m.addFmt("node {} -> 0x{:x}", item.first, (uintptr_t)item.second.get());
+    }
+    return m;
+  }
+  friend struct hermes::DebugTraits<LabeledGraph>;
+#endif
 };
 
 } // namespace graph
 
 } // namespace venus::scene
+
+#ifdef VENUS_INCLUDE_DEBUG_TRAITS
+namespace hermes {
+
+template <> struct DebugTraits<venus::scene::RasterContext::RenderObject> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage
+  message(const venus::scene::RasterContext::RenderObject &data) {
+    return DebugMessage()
+        .addTitle("[Raster Context] Render Object")
+        .add("bounds", data.bounds)
+        .add("transform", data.transform)
+        .add("count", data.count)
+        .add("first index", data.first_index)
+        .add("index buffer", data.index_buffer)
+        .add("vertex buffer", data.vertex_buffer)
+        .add("vertex buffer address", data.vertex_buffer_address)
+        .addFmt("material instance: 0x{:x}",
+                (uintptr_t)(data.material_instance.get()))
+        .addFmt("material address: 0x{:x}",
+                (uintptr_t)(data.material_instance->material().get()));
+  }
+};
+
+template <> struct DebugTraits<venus::scene::graph::Node> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::graph::Node &data) {
+    return data.debugMessage();
+  }
+};
+
+template <> struct DebugTraits<venus::scene::graph::ModelNode> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::graph::ModelNode &data) {
+    return data.debugMessage();
+  }
+};
+
+template <> struct DebugTraits<venus::scene::graph::CameraNode> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::graph::CameraNode &data) {
+    return data.debugMessage();
+  }
+};
+
+template <> struct DebugTraits<venus::scene::graph::LabeledGraph> {
+  static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
+  static DebugMessage message(const venus::scene::graph::LabeledGraph &data) {
+    return data.debugMessage();
+  }
+};
+
+} // namespace hermes
+#endif // VENUS_INCLUDE_DEBUG_TRAITS
