@@ -367,6 +367,9 @@ public:
   /// \param block_index Block indices are 0-based sequential numbers.
   HERMES_NODISCARD Result<u32> blockOffset(const std::string &name,
                                            u32 block_index) const;
+  /// Retrieves the device address (if available) of the named buffer.
+  HERMES_NODISCARD Result<VkDeviceAddress>
+  deviceAddress(const std::string &name) const;
 
 private:
   struct BufferData {

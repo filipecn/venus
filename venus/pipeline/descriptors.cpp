@@ -372,11 +372,15 @@ void DescriptorWriter::clear() {
 }
 
 DescriptorWriter &DescriptorWriter::update(const DescriptorSet &set) {
-  for (auto &write : writes_)
-    write.dstSet = *set;
+  return update(set.device(), *set);
+}
 
-  vkUpdateDescriptorSets(set.device(), writes_.size(), writes_.data(), 0,
-                         nullptr);
+DescriptorWriter &DescriptorWriter::update(VkDevice vk_device,
+                                           VkDescriptorSet vk_set) {
+  for (auto &write : writes_)
+    write.dstSet = vk_set;
+
+  vkUpdateDescriptorSets(vk_device, writes_.size(), writes_.data(), 0, nullptr);
   return *this;
 }
 

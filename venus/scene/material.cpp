@@ -133,6 +133,19 @@ Material::Instance::localDescriptorSetGroups() const {
   return groups;
 }
 
+const pipeline::DescriptorSet &
+Material::Instance::localDescriptorSet(h_index set_index) const {
+  static pipeline::DescriptorSet s_dummy;
+  auto it = descriptor_sets_.find(set_index);
+  if (it == descriptor_sets_.end()) {
+    HERMES_ERROR(
+        "Descriptor set with set index {} not found in material instance.",
+        set_index);
+    return s_dummy;
+  }
+  return it->second;
+}
+
 VeResult
 Material::Instance::writePushConstants(hermes::mem::Block &block,
                                        const PushConstantsContext &ctx) const {

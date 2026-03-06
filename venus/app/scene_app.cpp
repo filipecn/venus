@@ -57,6 +57,8 @@ void SceneApp::swap(SceneApp &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(sa_shutdown_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(sa_render_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(ge_config_);
+  VENUS_SWAP_FIELD_WITH_RHS(selected_camera_);
+  VENUS_SWAP_FIELD_WITH_RHS(camera_controller_);
   DisplayApp::swap(static_cast<DisplayApp &>(rhs));
 }
 
@@ -186,6 +188,18 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
   app.fps_ = fps_;
   app.frames_ = frames_;
   app.ge_config_ = ge_config_;
+
+  // setup default camera
+  scene::Camera::Ptr default_camera_ptr = scene::Camera::Ptr::shared();
+  *default_camera_ptr =
+      scene::Camera::perspective(
+          90, hermes::geo::transform_option_bits::right_handed |
+                  hermes::geo::transform_option_bits::flip_y |
+                  hermes::geo::transform_option_bits::zero_to_one)
+          .setPosition({2.f, 1.f, 0.f});
+
+  app.scene_.graph().addCamera("scene_app_default_camera", default_camera_ptr);
+  app.selectCamera("scene_app_default_camera");
 
   return Result<RA_SceneApp>(std::move(app));
 }

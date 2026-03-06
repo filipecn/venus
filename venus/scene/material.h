@@ -93,6 +93,7 @@ public:
     bool hasGlobalDescriptors() const;
     std::unordered_map<h_index, std::vector<VkDescriptorSet>>
     localDescriptorSetGroups() const;
+    const pipeline::DescriptorSet &localDescriptorSet(h_index set_index) const;
     VeResult writePushConstants(hermes::mem::Block &block,
                                 const PushConstantsContext &ctx) const;
     VkShaderStageFlags pushConstantsStageFlags() const;
@@ -101,7 +102,8 @@ public:
     Material::Ptr material_;
     /// set index -> descriptor set object map
     std::unordered_map<h_index, pipeline::DescriptorSet> descriptor_sets_;
-    // TODO:
+    // TODO: this is weird (think in a better way to handle global set
+    // descriptors)
     std::set<h_index> global_set_indices_;
     std::function<VeResult(hermes::mem::Block &, const PushConstantsContext &)>
         write_push_constants_;

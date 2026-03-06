@@ -3,11 +3,15 @@
 
 #extension GL_EXT_debug_printf : enable
 
-void printVec(in vec3 v) {
+void vert_print(in float v) {
+  debugPrintfEXT("\n%d -> %f\n", gl_VertexIndex, v);
+}
+
+void vert_printVec(in vec3 v) {
   debugPrintfEXT("\n%d -> %f %f %f\n", gl_VertexIndex,v.x,v.y,v.z);
 }
 
-void printVec(in vec4 v) {
+void vert_printVec(in vec4 v) {
   debugPrintfEXT("\n%d -> %f %f %f %f\n", gl_VertexIndex,v.x,v.y,v.z, v.w);
 }
 

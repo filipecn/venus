@@ -346,4 +346,12 @@ Result<u32> BufferPool::blockOffset(const std::string &name,
   return Result<u32>(it->second.block_offsets[block_index]);
 }
 
+Result<VkDeviceAddress>
+BufferPool::deviceAddress(const std::string &name) const {
+  auto it = buffers_.find(name);
+  if (it == buffers_.end())
+    return VeResult::notFound();
+  return it->second.buffer.deviceAddress();
+}
+
 } // namespace venus::mem

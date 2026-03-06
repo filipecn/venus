@@ -223,9 +223,12 @@ public:
   /// Clears all registered writes.
   void clear();
   /// \brief Updates the descriptor set with all registered writes.
-  /// \param device
   /// \param set The descriptor set to update.
   DescriptorWriter &update(const DescriptorSet &set);
+  /// \brief Updates the descriptor set with all registered writes.
+  /// \param vk_device
+  /// \param vk_set The descriptor set to update.
+  DescriptorWriter &update(VkDevice vk_device, VkDescriptorSet vk_set);
 
 private:
   std::deque<VkDescriptorImageInfo> image_infos_;

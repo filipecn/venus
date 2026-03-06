@@ -32,17 +32,7 @@
 #include <venus/scene/models/cartesian_grid.h>
 #include <venus/scene/models/sky_background.h>
 
-auto camera = venus::scene::Camera::perspective(
-                  90, hermes::geo::transform_option_bits::right_handed |
-                          hermes::geo::transform_option_bits::flip_y |
-                          hermes::geo::transform_option_bits::zero_to_one)
-                  .setPosition({2.f, 1.f, 0.f});
-
 VeResult init(venus::app::RA_SceneApp &app) {
-  camera.projection()->setNear(0.1f).setFar(1000);
-  app.scene().graph().addCamera("main", &camera);
-  app.selectCamera("main");
-
   auto &globals = venus::engine::GraphicsEngine::globals();
 
   VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
