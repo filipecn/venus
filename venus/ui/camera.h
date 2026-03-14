@@ -44,8 +44,9 @@ public:
     Z = 4,
     ZOOM = 5,
     ORBIT = 6,
-    FIRST_PERSON = 7,
-    CUSTOM = 8
+    SCROLL_ORBIT = 7,
+    FIRST_PERSON = 8,
+    CUSTOM = 9
   };
 
   struct InputState {
@@ -77,6 +78,9 @@ public:
   /// \param button activation button for this control mode
   /// \param type control type
   void addControl(MouseButton button, ControlType type);
+  /// Add scroll control to camera
+  /// \param type control type
+  void addScrollControl(ControlType type);
   /// Clear controls.
   void clear();
   /// Reset state.
@@ -94,8 +98,8 @@ protected:
 
   scene::Camera::Ptr camera_;
   InputState input_state_;
-  std::unordered_map<u32, ControlType> input_;
-  std::unordered_map<ControlType, u32> modes_;
+  std::unordered_map<h_index, ControlType> input_;
+  std::unordered_map<ControlType, h_index> modes_;
   std::vector<std::function<void(scene::Camera::Ptr, InputState &,
                                  const hermes::geo::point2 &,
                                  const hermes::geo::vec2 &)>>

@@ -36,6 +36,7 @@
 ///        static. Therefore, this exemple considers the simulation data
 ///        separate from the vertex buffer containing the mesh elements.
 
+#include <imgui.h>
 #include <venus/app/scene_app.h>
 #include <venus/engine/shapes.h>
 #include <venus/io/glfw_display.h>
@@ -149,6 +150,35 @@ public:
   Resources resources;
 };
 
+f32 params_data[3] = {1.0f, 1.0f, 0.2f};
+VeResult setupCartesianGrid(venus::scene::models::CartesianGrid::Ptr grid) {
+  using namespace venus;
+  auto &gd = engine::GraphicsEngine::device();
+  auto &cache = engine::GraphicsEngine::cache();
+
+  // create buffer
+  VENUS_RETURN_BAD_RESULT(cache.buffers().addBuffer(
+      "params", mem::AllocatedBuffer::Config::forUniform(sizeof(params_data)),
+      *gd));
+  // allocate
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      auto, vf_offset_ubo,
+      cache.buffers().allocate("params", sizeof(params_data)));
+  // get handle
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(VkBuffer, vk_ubo,
+                                     cache.buffers()["params"]);
+  // copy
+  VENUS_RETURN_BAD_RESULT(
+      cache.buffers().copyBlock("params", 0, params_data, sizeof(params_data)));
+
+  // write descriptor set
+  pipeline::DescriptorWriter()
+      .writeBuffer(0, vk_ubo, sizeof(params_data), 0,
+                   VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+      .update(grid->shapes()[0].material_instance->localDescriptorSet(1));
+  return VeResult::noError();
+}
+
 struct Sim {
   VeResult init() {
     using namespace venus;
@@ -163,14 +193,18 @@ struct Sim {
     VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
         scene::AllocatedModel, triangle_model_ptr,
         scene::AllocatedModel::Config::fromShape(
-            scene::shapes::triangle, //
-            hermes::geo::point3(0.f, 0.f, 0.f),
-            hermes::geo::point3(0.f, 1.f, 0.f),
-            hermes::geo::point3(1.f, 0.f, 0.f), scene::shape_option_bits::none)
+            scene::shapes::box, hermes::geo::bounds::bbox3::unit(),
+            // scene::shapes::triangle, //
+            // hermes::geo::point3(0.f, 0.f, 0.f),
+            // hermes::geo::point3(0.f, 1.f, 0.f),
+            // hermes::geo::point3(1.f, 0.f, 0.f),
+            scene::shape_option_bits::none)
             .build(engine::GraphicsEngine::device()));
     model = triangle_model_ptr;
 
-    f32 scalar_field[3] = {3.1f, 2.2f, 1.3f};
+    f32 scalar_field[8] = {
+        0.1f, 0.5f, 0.9f, 0.2f, 0.4f, 0.8f, 0.3f, 0.6f,
+    };
 
     VENUS_RETURN_BAD_RESULT(cache.buffers().addBuffer(
         "scalar_field",
@@ -244,11 +278,47 @@ VeResult init(venus::app::RA_SceneApp &app) {
       scene::models::CartesianGrid, grid,
       scene::models::CartesianGrid::Config().build(
           engine::GraphicsEngine::device()));
+  VENUS_RETURN_BAD_RESULT(setupCartesianGrid(grid));
 
   app.scene().graph().addModel("sky", sky);
   app.scene().graph().addModel("sim", sim.model);
   app.scene().graph().addModel("grid", grid);
 
+  return VeResult::noError();
+}
+
+VeResult update(venus::app::Scene &,
+                const venus::engine::FrameLoop::Iteration::Frame &frame) {
+  auto &gd = venus::engine::GraphicsEngine::device();
+  auto &cache = venus::engine::GraphicsEngine::cache();
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(VkBuffer, vk_scalar_field,
+                                     cache.buffers()["scalar_field"]);
+  f32 scalar_field[8];
+  for (h_index i = 0; i < 8; ++i)
+    scalar_field[i] = i * (frame.time.count() / 1000000.0);
+  VENUS_RETURN_BAD_RESULT(
+      venus::pipeline::BufferWritter()
+          .addBuffer(vk_scalar_field, scalar_field, sizeof(scalar_field))
+          .immediateSubmit(gd));
+  return VeResult::noError();
+}
+
+void draw(const venus::scene::ParamSet &param_set, void *buffer) {
+  auto params = param_set.compute(buffer);
+  for (auto item : params)
+    ImGui::InputFloat(item.first.c_str(),
+                      reinterpret_cast<f32 *>(item.second.ptr));
+}
+
+VeResult ui(venus::app::RA_SceneApp &app) {
+  if (ImGui::Begin("Parameters", nullptr)) {
+    ImGui::Text("Grid");
+    draw(venus::scene::models::CartesianGrid::params(), params_data);
+    auto &cache = venus::engine::GraphicsEngine::cache();
+    VENUS_RETURN_BAD_RESULT(cache.buffers().copyBlock("params", 0, params_data,
+                                                      sizeof(params_data)));
+  }
+  ImGui::End();
   return VeResult::noError();
 }
 
@@ -266,6 +336,8 @@ int main() {
           .setDisplay<venus::io::GLFW_Window>("Hello Vulkan Display App",
                                               {1024, 1024})
           .setStartupFn(init)
+          .setUIFn(ui)
+          .setUpdateSceneFn(update)
           .setFPS(60)
           .setDurationInFrames(0)
           .build(),

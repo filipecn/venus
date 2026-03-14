@@ -54,6 +54,7 @@ public:
       std::chrono::steady_clock::time_point frame_start;
       std::chrono::microseconds last_frame_duration{0};
       std::chrono::microseconds current_fps_period{0};
+      std::chrono::microseconds time{0};
     };
 
     Iteration(FrameLoop &loop, bool is_end);
@@ -71,6 +72,7 @@ public:
     bool in_frame_{false};
     bool is_end_{false};
     Frame frame_;
+    std::chrono::steady_clock::time_point start_time_;
 
 #ifdef VENUS_INCLUDE_DEBUG_TRAITS
     friend struct hermes::DebugTraits<FrameLoop::Iteration>;

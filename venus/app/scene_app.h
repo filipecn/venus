@@ -44,13 +44,19 @@ public:
   template <typename Derived, typename Type>
   struct Setup : DisplayApp::Setup<Derived, Type> {
     /// \param startup_callback Function called during frame preparation.
-    Derived &setUpdateSceneFn(
-        const std::function<VeResult(Scene &)> &update_scene_callback);
+    Derived &
+    setUpdateSceneFn(const std::function<VeResult(
+                         Scene &, const engine::FrameLoop::Iteration::Frame &)>
+                         &update_scene_callback);
+    Derived &setUIFn(const std::function<VeResult(Type &)> &ui_callback);
     Derived &
     setGraphicsEngineConfig(const engine::GraphicsEngine::Config &ge_config);
 
   protected:
-    std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
+    std::function<VeResult(Scene &,
+                           const engine::FrameLoop::Iteration::Frame &)>
+        update_scene_callback_{nullptr};
+    std::function<VeResult(Type &)> ui_callback_{nullptr};
     engine::GraphicsEngine::Config ge_config_;
   };
 
@@ -70,6 +76,7 @@ protected:
   virtual VeResult init() = 0;
   virtual VeResult render(const engine::FrameLoop::Iteration::Frame &frame) = 0;
   virtual VeResult shutdown() = 0;
+  virtual VeResult ui() = 0;
 
   Scene scene_;
   std::string selected_camera_;
@@ -79,16 +86,23 @@ protected:
   engine::GraphicsEngine::Config ge_config_;
 
   // scene app callbacks
-  std::function<VeResult(Scene &)> update_scene_callback_{nullptr};
+  std::function<VeResult(Scene &, const engine::FrameLoop::Iteration::Frame &)>
+      update_scene_callback_{nullptr};
   // display app callbacks
   std::function<VeResult()> sa_shutdown_callback_{nullptr};
   std::function<VeResult(const engine::FrameLoop::Iteration::Frame &)>
       sa_render_callback_{nullptr};
 };
 
-VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(SceneApp, setUpdateSceneFn,
-                                      const std::function<VeResult(Scene &)> &,
-                                      update_scene_callback_)
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(
+    SceneApp, setUpdateSceneFn,
+    const std::function<
+        VeResult(Scene &, const engine::FrameLoop::Iteration::Frame &)> &,
+    update_scene_callback_)
+
+VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(SceneApp, setUIFn,
+                                      const std::function<VeResult(Type &)> &,
+                                      ui_callback_)
 
 VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(SceneApp, setGraphicsEngineConfig,
                                       const engine::GraphicsEngine::Config &,
@@ -110,9 +124,11 @@ protected:
   VeResult init() override;
   VeResult render(const engine::FrameLoop::Iteration::Frame &frame) override;
   VeResult shutdown() override;
+  VeResult ui() override;
 
 private:
   std::function<VeResult(RA_SceneApp &)> sa_startup_callback_{nullptr};
+  std::function<VeResult(RA_SceneApp &)> sa_ui_callback_{nullptr};
 
   /// Global descriptor allocator
   pipeline::DescriptorAllocator descriptor_allocator_;
@@ -135,6 +151,7 @@ protected:
   VeResult init() override;
   VeResult render(const engine::FrameLoop::Iteration::Frame &frame) override;
   VeResult shutdown() override;
+  VeResult ui() override;
 
 private:
   std::function<VeResult(RT_SceneApp &)> sa_startup_callback_{nullptr};

@@ -28,6 +28,24 @@
 
 namespace venus::scene {
 
+void *ParamSet::address(void *buffer, const std::string &name) const {
+  auto it = parameters_.find(name);
+  if (it == parameters_.end()) {
+    HERMES_ERROR("Parameter'{}' not found in ParamSet.", name);
+    return nullptr;
+  }
+  return reinterpret_cast<u8 *>(buffer) + it->second.addr_offset;
+}
+
+std::unordered_map<std::string, ParamSet::Param>
+ParamSet::compute(void *buffer) const {
+  std::unordered_map<std::string, ParamSet::Param> params;
+  for (auto item : parameters_) {
+    params[item.first] = {.ptr = address(buffer, item.first)};
+  }
+  return params;
+}
+
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(Material::Instance, setMaterial,
                                      Material::Ptr, material_ = value)
 

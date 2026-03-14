@@ -48,6 +48,13 @@ public:
   void destroy() noexcept;
   void swap(CartesianGrid &rhs);
 
+  static ParamSet params(h_index base_offset = 0) {
+    return ParamSet()
+        .add<f32>("thickness", base_offset + 0)
+        .add<f32>("major step", base_offset + sizeof(f32))
+        .add<f32>("minor step", base_offset + 2 * sizeof(f32));
+  }
+
 private:
   // data
   Model::Storage<mem::AllocatedBuffer> storage_;

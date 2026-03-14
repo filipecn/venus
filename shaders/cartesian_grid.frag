@@ -5,13 +5,19 @@
 #include "venus/debug.glsl"
 #include "venus/frag_debug.glsl"
 
-layout(set = 0, binding = 0) uniform Data {   
+layout(set = 0, binding = 0) uniform CameraData {   
 
 	mat4 view;
 	mat4 proj;
 	vec3 eye;
 
 } ubo;
+
+layout(set = 1, binding = 0) uniform Parameters {
+    float thickness;
+    float major_step;
+    float minor_step;
+} params;
 
 layout( push_constant ) uniform constants
 {
@@ -22,10 +28,6 @@ layout(location = 0) noperspective in vec3 nearPoint;
 layout(location = 1) noperspective in vec3 farPoint;
 
 layout(location = 0) out vec4 outColor;
-
-const float lineThickness = 1.0;
-const float majorStep = 1.0;
-const float minorStep = 0.1;
 
 float drawGrid(vec2 uv, float stepSize, float thickness) {
     vec2 grid = abs(fract(uv / stepSize - 0.5) - 0.5) * stepSize;
@@ -82,12 +84,12 @@ void main() {
 
     vec2 derivative = fwidth(fragPos);
     float pixelSize = length(derivative);
-    float minorFade = 1.0 - smoothstep(minorStep * 0.5, minorStep * 2.0, pixelSize);
+    float minorFade = 1.0 - smoothstep(params.minor_step * 0.5, params.minor_step * 2.0, pixelSize);
 
 
     // 5. Run your grid logic (from previous answer)
-    float majorGrid = drawGrid(fragPos, 1.0, 3.0);
-    float minorGrid = drawGrid(fragPos, 0.1, 2.0);
+    float majorGrid = drawGrid(fragPos, params.major_step, params.thickness);
+    float minorGrid = drawGrid(fragPos, params.minor_step, params.thickness / 2.0);
 
     // 4. Composition
     vec3 bgColor = nearPoint.y < 0.0 ? vec3(0.1) : vec3(0.2);

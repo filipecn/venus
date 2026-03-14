@@ -31,7 +31,7 @@
 
 namespace venus::ui {
 
-enum class Action { RELEASE = 0, PRESS = 1, REPEAT = 2 };
+enum class Action { RELEASE = 0, PRESS = 1, REPEAT = 2, SCROLL = 3 };
 
 enum class Modifier { SHIFT, CONTROL };
 

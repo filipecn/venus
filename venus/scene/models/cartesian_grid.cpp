@@ -51,9 +51,17 @@ Result<Material> createMaterial(const engine::GraphicsDevice &gd) {
 
   auto &globals = engine::GraphicsEngine::globals();
 
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      pipeline::DescriptorSet::Layout, l,
+      pipeline::DescriptorSet::Layout::Config()
+          .addLayoutBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
+                            VK_SHADER_STAGE_FRAGMENT_BIT)
+          .build(**gd));
+
   auto pipeline_layout_config =
       pipeline::Pipeline::Layout::Config()
           .addDescriptorSetLayout(globals.descriptors.camera_data_layout)
+          .addDescriptorSetLayout(*l)
           .addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT |
                                     VK_SHADER_STAGE_FRAGMENT_BIT,
                                 0, sizeof(hermes::geo::Transform));
@@ -79,6 +87,8 @@ Result<Material> createMaterial(const engine::GraphicsDevice &gd) {
                   .setPipelineConfig(pipeline_config)
                   .setPipelineLayoutConfig(pipeline_layout_config))
           .build(**gd, *gd.renderpass()));
+
+  m.ownDescriptorSetLayout(std::move(l));
 
   return Result<Material>(std::move(m));
 }
@@ -195,6 +205,7 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
             .addGlobalSetIndex(0)
             .build(venus::engine::GraphicsEngine::globals()
                        .descriptors.allocator()))
+
     shape.material_instance = instance;
     cg.shapes_.emplace_back(shape);
     break;

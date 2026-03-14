@@ -29,7 +29,9 @@
 namespace venus::engine {
 
 FrameLoop::Iteration::Iteration(FrameLoop &loop, bool is_end)
-    : loop_{loop}, is_end_{is_end} {}
+    : loop_{loop}, is_end_{is_end} {
+  start_time_ = std::chrono::steady_clock::now();
+}
 
 FrameLoop::Iteration &FrameLoop::Iteration::operator++() {
   if (in_frame_) {
@@ -55,6 +57,8 @@ FrameLoop::Iteration &FrameLoop::Iteration::operator++() {
     return *this;
   in_frame_ = true;
   frame_.frame_start = std::chrono::steady_clock::now();
+  frame_.time = std::chrono::duration_cast<std::chrono::microseconds>(
+      frame_.frame_start - start_time_);
   return *this;
 }
 

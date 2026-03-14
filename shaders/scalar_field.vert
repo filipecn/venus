@@ -6,6 +6,7 @@
 
 #include "venus/debug.glsl"
 #include "venus/vert_debug.glsl"
+#include "venus/colors.glsl"
 
 layout(buffer_reference, scalar, buffer_reference_align = 4) readonly buffer VertexBuffer { 
 	float vertices[];
@@ -25,6 +26,12 @@ layout( push_constant ) uniform constants
 	mat4 proj_view;
 } ps;
 
+layout(location = 0) out vec3 color;
+
+float interpolate(float val, float y0, float x0, float y1, float x1) {
+    return (val - x0) * (y1 - y0) / (x1 - x0) + y0;
+}
+
 void main() {
 
 	vec3 v = vec3(
@@ -35,7 +42,7 @@ void main() {
 
 	  gl_Position = ps.proj_view * vec4(v,1.0);
 
-	  vert_print(ubo.sf.values[gl_VertexIndex]);
+	  color = ve_palette_3(ubo.sf.values[gl_VertexIndex]);
 }
 
 

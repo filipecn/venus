@@ -249,7 +249,8 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
       hermes::geo::cross(tangent, hermes::geo::vec3(plane.normal));
 
   // if normal and tangent are parallel, pick another tangent base
-  if (hermes::numbers::cmp::is_zero(bitangent.length2(), 1e-6)) {
+  if (hermes::numbers::cmp::is_zero(bitangent.length2(),
+                                    static_cast<real_t>(1e-6))) {
     tangent = hermes::geo::vec3(1.f, 0.f, 0.f);
     bitangent = hermes::geo::cross(tangent, hermes::geo::vec3(plane.normal));
   }

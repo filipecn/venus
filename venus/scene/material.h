@@ -39,6 +39,39 @@
 
 namespace venus::scene {
 
+/// Param Sets map material parameters to buffer positions. A param set is a set
+/// of named fields that are located by a fixed offset in a buffer. The real
+/// memory address of a named field (parameter) is then retrieved by giving the
+/// buffer address.
+/// \note Note that this approach allows the same Param Set to be used for
+///       different buffers (material instances for example).
+class ParamSet {
+public:
+  struct Param {
+    void *ptr;
+  };
+
+  template <typename T>
+  ParamSet &add(const std::string &name, h_index address_offset) {
+    parameters_[name] = {.size_in_bytes = sizeof(T),
+                         .addr_offset = address_offset};
+    return *this;
+  }
+
+  /// Retrieve the address of a parameter for a given buffer.
+  void *address(void *buffer, const std::string &name) const;
+
+  std::unordered_map<std::string, Param> compute(void *buffer) const;
+
+private:
+  struct Parameter {
+    h_size size_in_bytes;
+    h_index addr_offset;
+  };
+
+  std::unordered_map<std::string, Parameter> parameters_;
+};
+
 struct PushConstantsContext {
   hermes::geo::Transform projection;
   hermes::geo::Transform view;

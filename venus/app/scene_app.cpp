@@ -54,6 +54,7 @@ void SceneApp::destroy() noexcept {
 
 void SceneApp::swap(SceneApp &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(scene_);
+  VENUS_SWAP_FIELD_WITH_RHS(update_scene_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(sa_shutdown_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(sa_render_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(ge_config_);
@@ -91,13 +92,15 @@ VeResult SceneApp::setupCallbacks() {
         gd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
 
     if (update_scene_callback_)
-      VENUS_RETURN_BAD_RESULT(update_scene_callback_(scene_));
+      VENUS_RETURN_BAD_RESULT(update_scene_callback_(scene_, frame));
 
     render(frame);
 
     // render ui
-
     engine::GraphicsEngine::globals().ui.newFrame();
+
+    VENUS_RETURN_BAD_RESULT(this->ui());
+
     ImGui::ShowDemoWindow();
 
     ImGui::SetNextWindowBgAlpha(0.35f); // Transparent background
@@ -154,9 +157,11 @@ void SceneApp::selectCamera(const std::string &label) {
       selected_camera_ = label;
       camera_controller_.setCamera(camera);
       camera_controller_.addControl(ui::MouseButton::LEFT,
-                                    ui::CameraController::ControlType::Z);
+                                    ui::CameraController::ControlType::ZOOM);
       camera_controller_.addControl(ui::MouseButton::RIGHT,
                                     ui::CameraController::ControlType::ORBIT);
+      camera_controller_.addScrollControl(
+          ui::CameraController::ControlType::SCROLL_ORBIT);
     }
   }
 }
@@ -177,6 +182,7 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
   app.sa_shutdown_callback_ = shutdown_callback_;
   app.sa_render_callback_ = render_callback_;
   app.sa_startup_callback_ = startup_callback_;
+  app.sa_ui_callback_ = ui_callback_;
 
   app.window_ = display_;
   VENUS_RETURN_BAD_RESULT(app.window_->init(title_.c_str(), resolution_));
@@ -196,7 +202,7 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
           90, hermes::geo::transform_option_bits::right_handed |
                   hermes::geo::transform_option_bits::flip_y |
                   hermes::geo::transform_option_bits::zero_to_one)
-          .setPosition({2.f, 1.f, 0.f});
+          .setPosition({2.f, 1.f, 1.f});
 
   app.scene_.graph().addCamera("scene_app_default_camera", default_camera_ptr);
   app.selectCamera("scene_app_default_camera");
@@ -222,6 +228,7 @@ void RA_SceneApp::destroy() noexcept {
 
 void RA_SceneApp::swap(RA_SceneApp &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(sa_startup_callback_);
+  VENUS_SWAP_FIELD_WITH_RHS(sa_ui_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(descriptor_allocator_);
   VENUS_SWAP_FIELD_WITH_RHS(global_descriptor_set_);
   SceneApp::swap(static_cast<SceneApp &>(rhs));
@@ -410,6 +417,12 @@ VeResult RA_SceneApp::shutdown() {
   return VeResult::noError();
 }
 
+VeResult RA_SceneApp::ui() {
+  if (sa_ui_callback_)
+    return sa_ui_callback_(*this);
+  return VeResult::noError();
+}
+
 Result<RT_SceneApp> RT_SceneApp::Config::build() const {
   RT_SceneApp app;
 
@@ -509,5 +522,7 @@ VeResult RT_SceneApp::shutdown() {
   ray_tracer_.destroy();
   return VeResult::noError();
 }
+
+VeResult RT_SceneApp::ui() { return VeResult::noError(); }
 
 } // namespace venus::app
