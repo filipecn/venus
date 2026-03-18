@@ -20,7 +20,7 @@ include(glfw)
 include(hermes)
 include(stb)
 include(imgui)
-include(tinyobj)
+# include(tinyobj)
 
 list(APPEND DEPS_INCLUDE_DIRS ";${HERMES_INCLUDE_DIR}")
 list(APPEND DEPS_INCLUDE_DIRS ";${STB_INCLUDE_DIR}")
@@ -30,7 +30,6 @@ target_link_libraries(DEPS INTERFACE
   glfw
   hermes
   imgui
-  tinyobjloader
 )
 
 include(vma)

@@ -27,6 +27,7 @@
 #pragma once
 
 #include <venus/utils/result.h>
+#include <venus/utils/vk_debug.h>
 
 #include <variant>
 
@@ -38,14 +39,14 @@ namespace venus::utils {
 template <typename HandleType, typename IdType> class IndexedHandle {
 public:
   static IndexedHandle<HandleType, IdType> fromId(h_index index, IdType id) {
-    IndexedHandle<HandleType> dsh;
+    IndexedHandle<HandleType, IdType> dsh;
     dsh.data_ = id;
     dsh.index_ = index;
     return dsh;
   }
   static IndexedHandle<HandleType, IdType> fromHandle(h_index index,
                                                       HandleType vk_handle) {
-    IndexedHandle<HandleType> dsh;
+    IndexedHandle<HandleType, IdType> dsh;
     dsh.data_ = vk_handle;
     dsh.index_ = index;
     return dsh;
