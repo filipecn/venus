@@ -152,6 +152,7 @@ template <> struct DebugTraits<venus::mem::VertexLayout> {
             "components", data.components_,
             [](h_index i, const venus::mem::VertexLayout::Component &component)
                 -> DebugMessage {
+              HERMES_UNUSED_VARIABLE(i);
               return DebugMessage(
                   "{} {} {}", VENUS_VK_STRING(VkFormat, component.format),
                   component.offset, venus::to_string(component.type));

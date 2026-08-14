@@ -114,6 +114,7 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
   // plane meshes
   hermes::geo::vec2 plane_size(10.f, 10.f);
   shape_options options = shape_option_bits::uv;
+  HERMES_UNUSED_VARIABLE(options)
   Model::Mesh meshes[3];
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       meshes[0], shapes::plane(hermes::geo::Plane::XZ(), plane_size));
@@ -179,6 +180,7 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
 
   // setup a shape for each plane
   u32 index_base = 0;
+  HERMES_UNUSED_VARIABLE(index_base)
   for (h_index i = 0; i < 3; ++i) {
     Model::Shape shape;
     shape.bounds = {};

@@ -64,19 +64,8 @@ public:
         const std::function<VeResult(
             const engine::FrameLoop::Iteration::Frame &)> &render_callback);
     ///
-    Derived &
-    setCursorPosFn(const std::function<void(const hermes::geo::point2 &)>
-                       &cursor_pos_func);
-    ///
-    Derived &setMouseButtonFn(
-        const std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
-            &mouse_button_func);
-    ///
-    Derived &setMouseScrollFn(
-        const std::function<void(const hermes::geo::vec2 &)> &scroll_func);
-    ///
-    Derived &setKeyFn(
-        const std::function<void(ui::Action, ui::Key, ui::Modifier)> &key_func);
+    Derived &setInputEventFn(
+        const std::function<void(const io::InputEvent &)> &input_event_func);
 
   protected:
     // display settings
@@ -88,11 +77,7 @@ public:
     std::function<VeResult()> shutdown_callback_{nullptr};
     std::function<VeResult(const engine::FrameLoop::Iteration::Frame &)>
         render_callback_{nullptr};
-    std::function<void(const hermes::geo::point2 &)> cursor_pos_func_;
-    std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
-        mouse_button_func_;
-    std::function<void(const hermes::geo::vec2 &)> scroll_func_;
-    std::function<void(ui::Action, ui::Key, ui::Modifier)> key_func_;
+    std::function<void(const io::InputEvent &)> input_event_func_;
     // display config
     f32 fps_{60.0};
     u32 frames_{0};
@@ -109,12 +94,12 @@ public:
   /// Start the application.
   virtual i32 run();
 
-  const io::Display *display() const;
+  io::Display::Ptr display() const;
 
 protected:
   i32 shutdown();
 
-  std::shared_ptr<io::Display> window_;
+  io::Display::Ptr window_;
   VkSurfaceKHR surface_{VK_NULL_HANDLE};
 
   std::function<VeResult(DisplayApp &)> startup_callback_{nullptr};
@@ -142,18 +127,8 @@ VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(
         &,
     render_callback_);
 VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(
-    DisplayApp, setCursorPosFn,
-    const std::function<void(const hermes::geo::point2 &)> &, cursor_pos_func_);
-VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(
-    DisplayApp, setMouseButtonFn,
-    const std::function<void(ui::Action, ui::MouseButton, ui::Modifier)> &,
-    mouse_button_func_);
-VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(
-    DisplayApp, setMouseScrollFn,
-    const std::function<void(const hermes::geo::vec2 &)> &, scroll_func_);
-VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(
-    DisplayApp, setKeyFn,
-    const std::function<void(ui::Action, ui::Key, ui::Modifier)> &, key_func_);
+    DisplayApp, setInputEventFn,
+    const std::function<void(const io::InputEvent &)> &, input_event_func_);
 VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(DisplayApp, setFPS, f32, fps_);
 VENUS_DEFINE_SETUP_SET_FIELD_METHOD_T(DisplayApp, setDurationInFrames, u32,
                                       frames_);

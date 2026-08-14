@@ -62,10 +62,10 @@ Result<Material> MAT_Empty::material(const engine::GraphicsDevice &gd) {
               VK_FORMAT_R32G32B32_SFLOAT))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .build(globals.shaders.vert_test))
+                              .build(*globals.shaders.vert("test")))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .build(globals.shaders.frag_flat_color));
+                              .build(*globals.shaders.frag("flat_color")));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       Material, m,
@@ -118,10 +118,10 @@ Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
               VK_FORMAT_R32G32B32_SFLOAT))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .build(globals.shaders.vert_test))
+                              .build(*globals.shaders.vert("test")))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .build(globals.shaders.frag_flat_color));
+                              .build(*globals.shaders.frag("flat_color")));
 
   VENUS_DECLARE_OR_RETURN_BAD_RESULT(
       Material, m,
@@ -177,10 +177,10 @@ Material_BindlessTest::material(const engine::GraphicsDevice &gd) {
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_VERTEX_BIT)
-                              .build(globals.shaders.vert_bindless_test))
+                              .build(*globals.shaders.vert("bindless_test")))
           .addShaderStage(pipeline::Pipeline::ShaderStage()
                               .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
-                              .build(globals.shaders.frag_flat_color));
+                              .build(*globals.shaders.frag("flat_color")));
 
   Material m;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(

@@ -42,10 +42,7 @@ Result<DisplayApp> DisplayApp::Config::build() const {
 
   VENUS_RETURN_BAD_RESULT(app.window_->init(title_.c_str(), resolution_));
 
-  app.window_->key_func = key_func_;
-  app.window_->mouse_button_func = mouse_button_func_;
-  app.window_->cursor_pos_func = cursor_pos_func_;
-  app.window_->scroll_func = scroll_func_;
+  app.window_->input_event_func = input_event_func_;
 
   app.fps_ = fps_;
   app.frames_ = frames_;
@@ -64,7 +61,7 @@ void DisplayApp::swap(DisplayApp &rhs) {
 }
 
 void DisplayApp::destroy() noexcept {
-  window_.reset();
+  window_.destroy();
   surface_ = VK_NULL_HANDLE;
   frames_ = 0;
 }
@@ -76,8 +73,9 @@ i32 DisplayApp::run() {
        engine::FrameLoop().setDurationInFrames(frames_).setFPS(fps_)) {
     if (render_callback_)
       VENUS_RETURN_ON_BAD_RESULT(render_callback_(it.frame()), -1);
-    if (window_->shouldClose())
-      it.endLoop();
+    if (window_->shouldClose()) {
+      break;
+    }
     window_->pollEvents();
   }
   if (shutdown_callback_)
@@ -90,6 +88,6 @@ i32 DisplayApp::shutdown() {
   return 0;
 }
 
-const io::Display *DisplayApp::display() const { return window_.get(); }
+io::Display::Ptr DisplayApp::display() const { return window_; }
 
 } // namespace venus::app

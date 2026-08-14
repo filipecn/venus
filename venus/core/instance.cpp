@@ -62,6 +62,8 @@ debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
               VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
               const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
               void * /*p_user_data*/) {
+  HERMES_UNUSED_VARIABLE(message_severity);
+  HERMES_UNUSED_VARIABLE(callback_data);
 
 #ifdef VENUS_NO_DEBUG
   switch (static_cast<uint32_t>(callback_data->messageIdNumber)) {

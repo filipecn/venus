@@ -111,6 +111,7 @@ namespace hermes {
 template <> struct DebugTraits<venus::scene::Sampler> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::scene::Sampler &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Sampler");
   }
 };
@@ -118,6 +119,7 @@ template <> struct DebugTraits<venus::scene::Sampler> {
 template <> struct DebugTraits<venus::scene::Texture> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::scene::Texture &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Texture");
   }
 };
@@ -125,6 +127,7 @@ template <> struct DebugTraits<venus::scene::Texture> {
 template <> struct DebugTraits<venus::scene::TextureCache> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::scene::TextureCache &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Texture Cache");
   }
 };

@@ -79,21 +79,18 @@ public:
 
     /// \brief Set of venus built-in shaders.
     struct Shaders {
-      pipeline::ShaderModule vert_mesh;
-      pipeline::ShaderModule frag_mesh_pbr;
-      pipeline::ShaderModule vert_vdb_volume;
-      pipeline::ShaderModule frag_vdb_volume;
-
-      // utils
-
-      pipeline::ShaderModule vert_test;
-      pipeline::ShaderModule vert_bindless_test;
-      pipeline::ShaderModule frag_flat_color;
+      Result<const pipeline::ShaderModule &>
+      vert(const std::string &name) const;
+      Result<const pipeline::ShaderModule &>
+      frag(const std::string &name) const;
 
     private:
       friend struct Globals;
       VeResult init(VkDevice vk_device);
       void clear();
+
+      std::unordered_map<std::string, pipeline::ShaderModule> vert_shaders_;
+      std::unordered_map<std::string, pipeline::ShaderModule> frag_shaders_;
     };
 
     /// \brief Set of materials provided by the graphics engine.
@@ -217,7 +214,7 @@ public:
     Config &setDeviceFeatures(const core::vk::DeviceFeatures &features);
     Config &setDeviceExtensions(const std::vector<std::string> &extensions);
 
-    VeResult init(const io::Display *display) const;
+    VeResult init(io::Display::Ptr display) const;
 
   private:
     core::vk::DeviceFeatures device_features_;
@@ -240,7 +237,7 @@ public:
   /// \return Graphics device.
   HERMES_NODISCARD static GraphicsDevice &device();
   /// \return Display
-  HERMES_NODISCARD static const io::Display *display();
+  HERMES_NODISCARD static io::Display::Ptr display();
 
 private:
   GraphicsEngine() noexcept = default;
@@ -261,7 +258,7 @@ private:
   GraphicsDevice gd_;
   // output
   io::SurfaceKHR surface_;
-  const io::Display *display_{nullptr};
+  io::Display::Ptr display_;
 };
 
 } // namespace venus::engine

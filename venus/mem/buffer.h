@@ -445,6 +445,7 @@ template <> struct DebugTraits<venus::mem::AllocatedBuffer> {
 template <> struct DebugTraits<venus::mem::BufferPool> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::mem::BufferPool &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Allocated Buffer");
     // HERMES_PUSH_DEBUG_MAP_FIELD_BEGIN(buffers_, name, data)
     // HERMES_PUSH_DEBUG_LINE("block offsets: {}\n",

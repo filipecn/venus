@@ -5,6 +5,8 @@ build_release
 .cache
 .clangd
 .clang-tidy
+imgui.ini
+*.code-workspace
 
 *.spv
 

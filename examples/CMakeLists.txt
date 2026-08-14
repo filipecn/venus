@@ -30,4 +30,5 @@ endfunction(build_example)
 
 build_example(hello_ra)
 build_example(sim_surface_field)
+build_example(hello_2d)
 

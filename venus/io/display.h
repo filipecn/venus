@@ -29,9 +29,10 @@
 
 #include <hermes/core/types.h>
 #include <venus/core/vk_api.h>
+#include <venus/io/input.h>
 #include <venus/io/surface.h>
-#include <venus/ui/input.h>
 
+#include <hermes/core/ref.h>
 #include <hermes/geometry/point.h>
 
 namespace venus::io {
@@ -41,6 +42,8 @@ namespace venus::io {
 /// images and handling input events.
 class Display {
 public:
+  using Ptr = hermes::Ref<Display>;
+
   Display() = default;
   virtual ~Display() = default;
 
@@ -61,10 +64,13 @@ public:
   virtual VeResult initUI() const = 0;
   virtual void closeUI() const = 0;
   virtual void newUIFrame() const = 0;
+  virtual VkExtent2D waitSize() const = 0;
   virtual VkExtent2D size() const = 0;
 
   // base methods
 
+  /// Signal the display to close.
+  void close() { should_close_ = true; }
   /// \return The display size in pixels.
   const VkExtent2D &resolution() const { return resolution_; }
   /// \return Screen ratio (width / height)
@@ -75,15 +81,12 @@ public:
   virtual hermes::geo::point2 cursorPos() const = 0;
   virtual hermes::geo::point2 cursorNDC() const = 0;
 
-  // input callbacks
-  std::function<void(const hermes::geo::point2 &)> cursor_pos_func;
-  std::function<void(ui::Action, ui::MouseButton, ui::Modifier)>
-      mouse_button_func;
-  std::function<void(const hermes::geo::vec2 &)> scroll_func;
-  std::function<void(ui::Action, ui::Key, ui::Modifier)> key_func;
+  // input callback
+  std::function<void(const InputEvent &)> input_event_func;
 
 protected:
   VkExtent2D resolution_{};
+  bool should_close_{false};
 };
 
 } // namespace venus::io

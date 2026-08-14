@@ -238,6 +238,7 @@ namespace hermes {
 template <> struct DebugTraits<venus::mem::DeviceMemory::Config> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::mem::DeviceMemory::Config &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Device Memory Config");
   }
 };
@@ -245,6 +246,7 @@ template <> struct DebugTraits<venus::mem::DeviceMemory::Config> {
 template <> struct DebugTraits<venus::mem::DeviceMemory> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::mem::DeviceMemory &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Device Memory");
   }
 };

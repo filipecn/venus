@@ -59,6 +59,20 @@ namespace venus::engine {
 
 GraphicsEngine GraphicsEngine::s_instance;
 
+Result<const pipeline::ShaderModule &>
+GraphicsEngine::Globals::Shaders::vert(const std::string &name) const {
+  if (const auto &it = vert_shaders_.find(name); it != vert_shaders_.end())
+    return Result<const pipeline::ShaderModule &>(it->second);
+  return VeResult::notFound();
+}
+
+Result<const pipeline::ShaderModule &>
+GraphicsEngine::Globals::Shaders::frag(const std::string &name) const {
+  if (const auto &it = frag_shaders_.find(name); it != frag_shaders_.end())
+    return Result<const pipeline::ShaderModule &>(it->second);
+  return VeResult::notFound();
+}
+
 VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
 
 #define CREATE_SHADER_MODULE(NAME, FILE)                                       \
@@ -71,15 +85,15 @@ VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
   // shaders
   std::filesystem::path shaders_path(VENUS_SHADERS_PATH);
 
-  CREATE_SHADER_MODULE(vert_mesh, mesh.vert.spv)
-  CREATE_SHADER_MODULE(frag_mesh_pbr, mesh_pbr.frag.spv)
-  CREATE_SHADER_MODULE(vert_vdb_volume, ve_vdb_volume.vert.spv)
-  CREATE_SHADER_MODULE(frag_vdb_volume, ve_vdb_volume.frag.spv)
+  CREATE_SHADER_MODULE(vert_shaders_["mesh"], mesh.vert.spv)
+  CREATE_SHADER_MODULE(frag_shaders_["mesh_pbr"], mesh_pbr.frag.spv)
+  CREATE_SHADER_MODULE(vert_shaders_["vdb_volume"], ve_vdb_volume.vert.spv)
+  CREATE_SHADER_MODULE(frag_shaders_["vdb_volume"], ve_vdb_volume.frag.spv)
 
-  CREATE_SHADER_MODULE(vert_test, test.vert.spv)
-  CREATE_SHADER_MODULE(vert_bindless_test, bindless_test.vert.spv)
+  CREATE_SHADER_MODULE(vert_shaders_["test"], test.vert.spv)
+  CREATE_SHADER_MODULE(frag_shaders_["bindless_test"], bindless_test.vert.spv)
 
-  CREATE_SHADER_MODULE(frag_flat_color, flat_color.frag.spv)
+  CREATE_SHADER_MODULE(frag_shaders_["flat_color"], flat_color.frag.spv)
 
   return VeResult::noError();
 
@@ -87,16 +101,10 @@ VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
 }
 
 void GraphicsEngine::Globals::Shaders::clear() {
-  vert_vdb_volume.destroy();
-  frag_vdb_volume.destroy();
-
-  vert_mesh.destroy();
-  frag_mesh_pbr.destroy();
-
-  vert_test.destroy();
-  vert_bindless_test.destroy();
-
-  frag_flat_color.destroy();
+  for (auto &shader : vert_shaders_)
+    shader.second.destroy();
+  for (auto &shader : frag_shaders_)
+    shader.second.destroy();
 }
 
 VeResult GraphicsEngine::Globals::Materials::init(GraphicsDevice &gd) {
@@ -504,7 +512,7 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(GraphicsEngine, setDeviceExtensions,
                                      const std::vector<std::string> &,
                                      device_extensions_ = value);
 
-VeResult GraphicsEngine::Config::init(const io::Display *display) const {
+VeResult GraphicsEngine::Config::init(io::Display::Ptr display) const {
 
   // vulkan instance
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
@@ -528,6 +536,7 @@ VeResult GraphicsEngine::Config::init(const io::Display *display) const {
                                     engine::GraphicsDevice::Config()
                                         .setSurface(*s_instance.surface_)
                                         .setSurfaceExtent(display->resolution())
+                                        .setDisplay(display)
                                         .setFeatures(device_features_)
                                         .addExtensions(device_extensions_)
                                         .build(s_instance.instance_));
@@ -562,6 +571,6 @@ GraphicsEngine::Cache &GraphicsEngine::cache() { return s_instance.cache_; }
 
 GraphicsDevice &GraphicsEngine::device() { return s_instance.gd_; }
 
-const io::Display *GraphicsEngine::display() { return s_instance.display_; }
+io::Display::Ptr GraphicsEngine::display() { return s_instance.display_; }
 
 } // namespace venus::engine

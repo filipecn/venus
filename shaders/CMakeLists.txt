@@ -3,6 +3,8 @@ find_program(GLSL_VALIDATOR glslangValidator
   REQUIRED
 )
 
+message(STATUS "Vulkan SDK: $ENV{VULKAN_SDK}")
+
 find_program(SLANGC_EXECUTABLE slangc
     PATHS "$ENV{VULKAN_SDK}/bin"
     REQUIRED

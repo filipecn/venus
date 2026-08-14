@@ -134,6 +134,7 @@ namespace hermes {
 template <> struct DebugTraits<venus::core::Device::Config> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::core::Device::Config &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Device Config");
   }
 };

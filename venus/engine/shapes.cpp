@@ -187,7 +187,7 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
       // TODO
       HERMES_NOT_IMPLEMENTED;
     } else {
-      HERMES_ASSERT(n_vertices == 8)
+      HERMES_ASSERT(n_vertices == 8);
       for (u32 i = 0; i < n_vertices; ++i) {
         mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
         if (generate_uvw)
@@ -227,6 +227,7 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
   const bool generate_uvw = options.contain(shape_option_bits::uvw);
   const bool generate_uvs = options.contain(shape_option_bits::uv);
   HERMES_UNUSED_VARIABLE(flip_faces)
+  HERMES_UNUSED_VARIABLE(generate_uvw)
 
   // model data
   Model::Mesh mesh;
@@ -242,6 +243,9 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
   const u64 bitangent_id =
       generate_bitangents ? mesh.aos.pushField<hermes::geo::vec3>("bitangent")
                           : 0;
+
+  HERMES_UNUSED_VARIABLE(tangent_id)
+  HERMES_UNUSED_VARIABLE(bitangent_id)
 
   // find tangent vectors
   hermes::geo::vec3 tangent(0.f, 1.f, 0.f);
@@ -328,7 +332,7 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
       // TODO
       HERMES_NOT_IMPLEMENTED;
     } else {
-      HERMES_ASSERT(n_vertices == 4)
+      HERMES_ASSERT(n_vertices == 4);
       for (u32 i = 0; i < n_vertices; ++i) {
         mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
         if (generate_uvs)

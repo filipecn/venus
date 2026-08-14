@@ -49,6 +49,7 @@ SceneApp &SceneApp::operator=(SceneApp &&rhs) noexcept {
 
 void SceneApp::destroy() noexcept {
   scene_.destroy();
+  camera_controllers_.clear();
   DisplayApp::destroy();
 }
 
@@ -59,7 +60,7 @@ void SceneApp::swap(SceneApp &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(sa_render_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(ge_config_);
   VENUS_SWAP_FIELD_WITH_RHS(selected_camera_);
-  VENUS_SWAP_FIELD_WITH_RHS(camera_controller_);
+  VENUS_SWAP_FIELD_WITH_RHS(camera_controllers_);
   DisplayApp::swap(static_cast<DisplayApp &>(rhs));
 }
 
@@ -88,8 +89,13 @@ VeResult SceneApp::setupCallbacks() {
     if (this->sa_render_callback_)
       VENUS_RETURN_BAD_RESULT(this->sa_render_callback_(frame));
     auto &gd = venus::engine::GraphicsEngine::device();
-    VENUS_RETURN_BAD_RESULT(
-        gd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT));
+    auto begin_result = gd.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    if (begin_result == VeResult(VeResult::Type::SwapchainNeedsResize))
+      // if the swapchain needed resize we just skip this rendering phase
+      return VeResult::noError();
+    else if (begin_result != VeResult::noError()) {
+      VENUS_RETURN_BAD_RESULT(begin_result);
+    }
 
     if (update_scene_callback_)
       VENUS_RETURN_BAD_RESULT(update_scene_callback_(scene_, frame));
@@ -122,26 +128,26 @@ VeResult SceneApp::setupCallbacks() {
     return VeResult::noError();
   };
 
-  window_->mouse_button_func = [&](ui::Action action, ui::MouseButton button,
-                                   ui::Modifier modifiers) {
-    HERMES_UNUSED_VARIABLE(modifiers);
-    camera_controller_.mouseButton(
-        action, button, engine::GraphicsEngine::display()->cursorNDC());
-  };
-  window_->cursor_pos_func = [&](const hermes::geo::point2 &sc) {
-    HERMES_UNUSED_VARIABLE(sc);
-    camera_controller_.mouseMove(
-        engine::GraphicsEngine::display()->cursorNDC());
-  };
-  window_->scroll_func = [&](const hermes::geo::vec2 &d) {
-    camera_controller_.mouseScroll(
-        engine::GraphicsEngine::display()->cursorNDC(), d);
-  };
-  window_->key_func = [](ui::Action action, ui::Key key,
-                         ui::Modifier modifiers) {
-    HERMES_UNUSED_VARIABLE(action);
-    HERMES_UNUSED_VARIABLE(key);
-    HERMES_UNUSED_VARIABLE(modifiers);
+  window_->input_event_func = [&](const io::InputEvent &event) {
+    bool camera_is_selected = !selected_camera_.empty() &&
+                              camera_controllers_.contains(selected_camera_);
+    if (event.isKeyEvent()) {
+      auto e = event.keyEvent();
+      if (e.key == io::Key::ESCAPE) {
+        window_->close();
+      }
+    } else if (event.isMouseMoveEvent() && camera_is_selected) {
+      camera_controllers_[selected_camera_].mouseMove(
+          engine::GraphicsEngine::display()->cursorNDC());
+    } else if (event.isMouseScrollEvent() && camera_is_selected) {
+      camera_controllers_[selected_camera_].mouseScroll(
+          engine::GraphicsEngine::display()->cursorNDC(),
+          event.mouseScroll().offset);
+    } else if (event.isMouseButtonEvent() && camera_is_selected) {
+      auto e = event.mouseButton();
+      camera_controllers_[selected_camera_].mouseButton(
+          e.action, e.button, engine::GraphicsEngine::display()->cursorNDC());
+    }
   };
 
   return VeResult::noError();
@@ -150,20 +156,29 @@ VeResult SceneApp::setupCallbacks() {
 Scene &SceneApp::scene() { return scene_; }
 
 void SceneApp::selectCamera(const std::string &label) {
-  auto *camera_node = scene_.graph().get<scene::graph::CameraNode>(label);
-  if (camera_node) {
+  if (camera_controllers_.find(label) == camera_controllers_.end()) {
+    ui::CameraController controller;
+    auto *camera_node = scene_.graph().get<scene::graph::CameraNode>(label);
+    HERMES_CHECK(camera_node);
     auto camera = camera_node->camera();
-    if (camera) {
-      selected_camera_ = label;
-      camera_controller_.setCamera(camera);
-      camera_controller_.addControl(ui::MouseButton::LEFT,
-                                    ui::CameraController::ControlType::ZOOM);
-      camera_controller_.addControl(ui::MouseButton::RIGHT,
-                                    ui::CameraController::ControlType::ORBIT);
-      camera_controller_.addScrollControl(
-          ui::CameraController::ControlType::SCROLL_ORBIT);
-    }
+    HERMES_CHECK(camera);
+    controller.setCamera(camera);
+    camera_controllers_.emplace(label, controller);
   }
+  selected_camera_ = label;
+}
+
+ui::CameraController &SceneApp::cameraController(const std::string &label) {
+  if (camera_controllers_.find(label) == camera_controllers_.end()) {
+    ui::CameraController controller;
+    auto *camera_node = scene_.graph().get<scene::graph::CameraNode>(label);
+    HERMES_CHECK(camera_node);
+    auto camera = camera_node->camera();
+    HERMES_CHECK(camera);
+    controller.setCamera(camera);
+    camera_controllers_.emplace(label, controller);
+  }
+  return camera_controllers_[label];
 }
 
 i32 SceneApp::run() {
@@ -186,26 +201,50 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
 
   app.window_ = display_;
   VENUS_RETURN_BAD_RESULT(app.window_->init(title_.c_str(), resolution_));
-  app.window_->key_func = key_func_;
-  app.window_->mouse_button_func = mouse_button_func_;
-  app.window_->cursor_pos_func = cursor_pos_func_;
-  app.window_->scroll_func = scroll_func_;
+  app.window_->input_event_func = input_event_func_;
 
   app.fps_ = fps_;
   app.frames_ = frames_;
   app.ge_config_ = ge_config_;
 
-  // setup default camera
-  scene::Camera::Ptr default_camera_ptr = scene::Camera::Ptr::shared();
-  *default_camera_ptr =
-      scene::Camera::perspective(
-          90, hermes::geo::transform_option_bits::right_handed |
-                  hermes::geo::transform_option_bits::flip_y |
-                  hermes::geo::transform_option_bits::zero_to_one)
-          .setPosition({2.f, 1.f, 1.f});
+  // setup default cameras
+  {
+    scene::Camera::Ptr default_camera_ptr = scene::Camera::Ptr::shared();
+    *default_camera_ptr =
+        scene::Camera::perspective(
+            90, hermes::geo::transform_option_bits::right_handed |
+                    hermes::geo::transform_option_bits::flip_y |
+                    hermes::geo::transform_option_bits::zero_to_one)
+            .setPosition({2.f, 1.f, 1.f});
 
-  app.scene_.graph().addCamera("scene_app_default_camera", default_camera_ptr);
-  app.selectCamera("scene_app_default_camera");
+    app.scene_.graph().addCamera("scene_app_default_camera",
+                                 default_camera_ptr);
+
+    app.cameraController("scene_app_default_camera")
+        .addControl(io::MouseButton::LEFT,
+                    ui::CameraController::ControlType::DOLLY)
+        .addControl(io::MouseButton::RIGHT,
+                    ui::CameraController::ControlType::ORBIT)
+        .addScrollControl(ui::CameraController::ControlType::SCROLL_ORBIT);
+    app.selectCamera("scene_app_default_camera");
+  }
+  { // 2d camera
+    auto default_2d_camera_ptr = scene::Camera::Ptr::shared();
+    *default_2d_camera_ptr =
+        scene::Camera::orthographic(-10.f, 10.f, -10.f, 10.f)
+            .setPosition(hermes::geo::point3(0, 1, 0));
+    default_2d_camera_ptr->projection()->setFar(1000);
+    default_2d_camera_ptr->projection()->setNear(-1000);
+
+    app.scene_.graph().addCamera("scene_app_default_2d_camera",
+                                 default_2d_camera_ptr);
+
+    app.cameraController("scene_app_default_2d_camera")
+        .addControl(io::MouseButton::LEFT,
+                    ui::CameraController::ControlType::PAN)
+        .addScrollControl(ui::CameraController::ControlType::ZOOM);
+    // app.selectCamera("scene_app_default_2d_camera");
+  }
 
   return Result<RA_SceneApp>(std::move(app));
 }
@@ -330,8 +369,8 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
         .update(global_descriptor_set_);
 
     // example of creating a descriptor set with arbitrary texture count
-    // VkDescriptorSetVariableDescriptorCountAllocateInfo alloc_array_info{};
-    // alloc_array_info.sType =
+    // VkDescriptorSetVariableDescriptorCountAllocateInfo
+    // alloc_array_info{}; alloc_array_info.sType =
     //     VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO;
     // alloc_array_info.pNext = nullptr;
 
@@ -384,7 +423,8 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
                 rm.vk_pipeline_layout = *o.material_instance->pipelineLayout();
 
                 // descriptor sets
-                // TODO: assuming all materials have this global descriptor set
+                // TODO: assuming all materials have this global descriptor
+                // set
                 if (o.material_instance->hasGlobalDescriptors())
                   rm.global_descriptor_sets[0] = {*global_descriptor_set_};
 
@@ -437,10 +477,7 @@ Result<RT_SceneApp> RT_SceneApp::Config::build() const {
 
   app.window_ = display_;
   VENUS_RETURN_BAD_RESULT(app.window_->init(title_.c_str(), resolution_));
-  app.window_->key_func = key_func_;
-  app.window_->mouse_button_func = mouse_button_func_;
-  app.window_->cursor_pos_func = cursor_pos_func_;
-  app.window_->scroll_func = scroll_func_;
+  app.window_->input_event_func = input_event_func_;
 
   app.fps_ = fps_;
   app.frames_ = frames_;

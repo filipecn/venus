@@ -68,6 +68,7 @@ public:
 
   Scene &scene();
   void selectCamera(const std::string &label);
+  ui::CameraController &cameraController(const std::string &label);
 
   i32 run() override;
 
@@ -79,8 +80,10 @@ protected:
   virtual VeResult ui() = 0;
 
   Scene scene_;
+  // selected camera scene id
   std::string selected_camera_;
-  ui::CameraController camera_controller_;
+  /// camera scene id -> camera controller
+  std::unordered_map<std::string, ui::CameraController> camera_controllers_;
 
   // setup
   engine::GraphicsEngine::Config ge_config_;

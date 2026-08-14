@@ -30,6 +30,8 @@
 #include <venus/engine/graphics_device.h>
 #include <venus/utils/vk_debug.h>
 
+#include <cmath>
+
 namespace venus::pipeline {
 
 CommandBuffer::RenderingInfo::Attachment::Attachment() noexcept {

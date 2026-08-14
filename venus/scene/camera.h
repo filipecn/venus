@@ -68,7 +68,7 @@ public:
       *c = *this;
       return c;
     }
-    Projection &setClipSize(const hermes::geo::vec2 &clip_size);
+    Projection &setZoom(f32 z);
     Projection &setAspectRatio(f32 aspect_ratio);
     Projection &setNear(f32 near);
     Projection &setFar(f32 far);
@@ -77,10 +77,10 @@ public:
     const hermes::geo::Transform &operator*() const;
 
   protected:
-    f32 ratio_{1.f};              //!< film size ratio
-    f32 near_{0.01f};             //!< near depth clip plane
-    f32 far_{1000.f};             //!< far depth clip plane
-    hermes::geo::vec2 clip_size_; //!< window size (in pixels)
+    f32 zoom_{1.f};
+    f32 ratio_{1.f};  //!< film size ratio
+    f32 near_{0.01f}; //!< near depth clip plane
+    f32 far_{1000.f}; //!< far depth clip plane
     hermes::geo::transform_options options_{
         hermes::geo::transform_option_bits::left_handed}; //!< flags to choose
                                                           //!< handedness, etc.
@@ -153,6 +153,7 @@ protected:
   hermes::geo::point3 target_;
   std::shared_ptr<Camera::Projection> projection_;
   f32 zoom_{1.};
+  hermes::geo::vec2 film_size_;
 
   mutable bool needs_update_{true};
   mutable hermes::math::mat3 normal_;
@@ -192,7 +193,9 @@ public:
   OrthographicProjection();
   OrthographicProjection(f32 left, f32 right, f32 bottom, f32 top,
                          hermes::geo::transform_options options =
-                             hermes::geo::transform_option_bits::left_handed);
+                             hermes::geo::transform_option_bits::right_handed |
+                             hermes::geo::transform_option_bits::flip_y |
+                             hermes::geo::transform_option_bits::zero_to_one);
   /// \param z
   void zoom(f32 z);
   /// \param left
@@ -220,6 +223,7 @@ template <> struct DebugTraits<venus::scene::OrthographicProjection> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage
   message(const venus::scene::OrthographicProjection &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage("");
   }
 };
@@ -227,6 +231,7 @@ template <> struct DebugTraits<venus::scene::OrthographicProjection> {
 template <> struct DebugTraits<venus::scene::PerspectiveProjection> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::scene::PerspectiveProjection &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage("");
   }
 };
@@ -242,7 +247,6 @@ template <> struct DebugTraits<venus::scene::Camera::Projection> {
         .add("ratio", data.ratio_)
         .add("near", data.near_)
         .add("far", data.far_)
-        .add("", data.clip_size_)
         .add("", data.options_)
         .add("", data.transform_);
   }

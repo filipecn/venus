@@ -55,6 +55,8 @@ private:
 
 class GLFW_Window : public Display {
 public:
+  using Ptr = hermes::Ref<GLFW_Window>;
+
   GLFW_Window() noexcept = default;
   ~GLFW_Window() noexcept override;
 
@@ -77,6 +79,8 @@ public:
   void closeUI() const override;
   ///
   void newUIFrame() const override;
+  ///
+  VkExtent2D waitSize() const override;
   /// \return display extent
   VkExtent2D size() const override;
   /// \return current cursor screen position (pixels)

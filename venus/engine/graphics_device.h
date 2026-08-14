@@ -30,6 +30,7 @@
 #include <venus/core/device.h>
 #include <venus/core/instance.h>
 #include <venus/core/sync.h>
+#include <venus/io/display.h>
 #include <venus/io/swapchain.h>
 #include <venus/pipeline/command_buffer.h>
 #include <venus/pipeline/framebuffer.h>
@@ -59,6 +60,7 @@ public:
   struct Config {
     Config &setSurfaceExtent(const VkExtent2D &extent);
     Config &setSurface(VkSurfaceKHR surface);
+    Config &setDisplay(io::Display::Ptr display);
     Config &setFeatures(const core::vk::DeviceFeatures &device_features);
     Config &addExtension(const std::string_view &extension);
     Config &addExtensions(const std::vector<std::string> &extensions);
@@ -72,6 +74,7 @@ public:
     VkSurfaceKHR surface_{VK_NULL_HANDLE};
     core::vk::DeviceFeatures device_features_{};
     std::vector<std::string> extensions_;
+    io::Display::Ptr display_{};
   };
 
   struct Output {
@@ -144,6 +147,30 @@ public:
   const pipeline::Framebuffer &framebuffer() const;
 
 private:
+  /// Creates framebuffers if not using dynamic rendering.
+  /// \note: Assumes a swapchain is already created.
+  /// \note: Assumes there are no framebuffers created.
+  /// \note: This creates a new renderpass and framebuffers.
+  /// \returns VeResult
+  VeResult createFramebuffers();
+  /// Creates output resources.
+  /// \returns VeResult
+  VeResult createOutputResources();
+  /// Creates command buffers and sync objects for the given frame slot.
+  /// \param slot Frame slot to create resources for.
+  /// \returns VeResult
+  VeResult createFrameResources(h_index slot);
+  /// Creates the swapchain.
+  /// \note if a swapchain is already created, it will be destroyed and
+  ///       recycled.
+  /// \note This also sets surface_extent_ and swapchain_image_count_
+  /// \returns VeResult
+  VeResult recreateSwapchain(VkExtent2D new_resolution);
+  VeResult destroySwapchainDependentResources();
+  VeResult createSwapchainDependentResources();
+
+  // display
+  io::Display::Ptr display_;
   // devices
   core::Device device_;
   // presentation
@@ -151,6 +178,7 @@ private:
   VkExtent2D surface_extent_;
   VkQueue presentation_queue_{VK_NULL_HANDLE};
   VkQueue graphics_queue_{VK_NULL_HANDLE};
+  core::vk::GraphicsQueueFamilyIndices queue_family_indices_;
   // swapchain
   io::Swapchain swapchain_;
 
@@ -180,6 +208,7 @@ private:
   /// \return Frame data of the current frame
   const FrameResources &frameData() const;
 
+  /// Frame resources are numbered by max frames in flight
   FrameResources frames_[VENUS_MAX_SWAPCHAIN_IMAGE_COUNT];
   ImmediateSubmitResources imm_submit_data_;
   Output output_;

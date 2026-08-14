@@ -41,13 +41,14 @@ template <typename T> using Result = hermes::Result<T, VeResult>;
 
 struct VeResult {
   enum class Type {
-    NoError = 0,         //!< success
-    VkError = 1,         //!< error from a vulkan call
-    IncompatibleApi = 2, //!< api version mismatches and incompatibilities
-    NotFound = 3,        //!< api version mismatches and incompatibilities
-    ExtError = 4,        //!< third party lib error
-    CheckError = 5,      //!< a check error ocurred
-    IOError = 6,         //!< an io error ocurred
+    NoError = 0,              //!< success
+    VkError = 1,              //!< error from a vulkan call
+    IncompatibleApi = 2,      //!< api version mismatches and incompatibilities
+    NotFound = 3,             //!< api version mismatches and incompatibilities
+    ExtError = 4,             //!< third party lib error
+    CheckError = 5,           //!< a check error ocurred
+    IOError = 6,              //!< an io error ocurred
+    SwapchainNeedsResize = 7, //!<
   };
 
   static VeResult noError() { return {HeError::None, Type::NoError}; }

@@ -33,7 +33,7 @@
 ///          - faces
 ///          - vertices
 ///        Simulation fields change values every frame, while the mesh can be
-///        static. Therefore, this exemple considers the simulation data
+///        static. Therefore, this example considers the simulation data
 ///        separate from the vertex buffer containing the mesh elements.
 
 #include <imgui.h>
@@ -191,16 +191,12 @@ struct Sim {
     material = mat;
 
     VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
-        scene::AllocatedModel, triangle_model_ptr,
+        scene::AllocatedModel, cube_model_ptr,
         scene::AllocatedModel::Config::fromShape(
             scene::shapes::box, hermes::geo::bounds::bbox3::unit(),
-            // scene::shapes::triangle, //
-            // hermes::geo::point3(0.f, 0.f, 0.f),
-            // hermes::geo::point3(0.f, 1.f, 0.f),
-            // hermes::geo::point3(1.f, 0.f, 0.f),
             scene::shape_option_bits::none)
             .build(engine::GraphicsEngine::device()));
-    model = triangle_model_ptr;
+    model = cube_model_ptr;
 
     f32 scalar_field[8] = {
         0.1f, 0.5f, 0.9f, 0.2f, 0.4f, 0.8f, 0.3f, 0.6f,

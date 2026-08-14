@@ -27,8 +27,8 @@
 
 #pragma once
 
+#include <venus/io/input.h>
 #include <venus/scene/camera.h>
-#include <venus/ui/input.h>
 
 namespace venus::ui {
 
@@ -46,10 +46,11 @@ public:
     ORBIT = 6,
     SCROLL_ORBIT = 7,
     FIRST_PERSON = 8,
-    CUSTOM = 9
+    DOLLY = 9,
+    CUSTOM = 10
   };
 
-  struct InputState {
+  struct ControlState {
     bool dragging{false};
     hermes::geo::point2 start;
     hermes::geo::point2 last_position;
@@ -63,7 +64,7 @@ public:
   /// \param action event type
   /// \param button button code
   /// \param p normalized mouse position (NDC)
-  void mouseButton(Action action, MouseButton button,
+  void mouseButton(io::Action action, io::MouseButton button,
                    const hermes::geo::point2 &ndc);
   /// process mouse move event
   /// \param p normalized mouse position (NDC)
@@ -73,14 +74,14 @@ public:
   /// \param d scroll vector
   void mouseScroll(const hermes::geo::point2 &ndc, const hermes::geo::vec2 &d);
   /// Set camera object to be manipulated by this constroller.
-  void setCamera(scene::Camera::Ptr camera);
+  CameraController &setCamera(scene::Camera::Ptr camera);
   /// Add control to camera
   /// \param button activation button for this control mode
   /// \param type control type
-  void addControl(MouseButton button, ControlType type);
+  CameraController &addControl(io::MouseButton button, ControlType type);
   /// Add scroll control to camera
   /// \param type control type
-  void addScrollControl(ControlType type);
+  CameraController &addScrollControl(ControlType type);
   /// Clear controls.
   void clear();
   /// Reset state.
@@ -97,10 +98,10 @@ protected:
   void stop(const hermes::geo::point2 &p);
 
   scene::Camera::Ptr camera_;
-  InputState input_state_;
+  ControlState input_state_;
   std::unordered_map<h_index, ControlType> input_;
   std::unordered_map<ControlType, h_index> modes_;
-  std::vector<std::function<void(scene::Camera::Ptr, InputState &,
+  std::vector<std::function<void(scene::Camera::Ptr, ControlState &,
                                  const hermes::geo::point2 &,
                                  const hermes::geo::vec2 &)>>
       behaviors_;

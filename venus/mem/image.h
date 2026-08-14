@@ -460,6 +460,7 @@ template <> struct DebugTraits<venus::mem::AllocatedImage> {
 template <> struct DebugTraits<venus::mem::ImagePool> {
   static HERMES_CONST_OR_CONSTEXPR bool is_string_serializable = true;
   static DebugMessage message(const venus::mem::ImagePool &data) {
+    HERMES_UNUSED_VARIABLE(data);
     return DebugMessage().addTitle("Image Pool");
   }
 };

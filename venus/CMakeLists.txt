@@ -17,6 +17,7 @@ set(VENUS_HEADERS
 
   io/display.h
   io/glfw_display.h
+  io/input.h
   io/surface.h
   io/swapchain.h
 

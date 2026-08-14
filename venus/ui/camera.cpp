@@ -39,7 +39,8 @@ hermes::geo::point3 hitViewPlane(scene::Camera::Ptr camera,
   return hp;
 }
 
-void noneModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
+void noneModeBvr(scene::Camera::Ptr camera,
+                 CameraController::ControlState &input,
                  const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
   HERMES_UNUSED_VARIABLE(camera);
   HERMES_UNUSED_VARIABLE(input);
@@ -48,7 +49,7 @@ void noneModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
 }
 
 void scaleModeBvr(scene::Camera::Ptr camera,
-                  CameraController::InputState &input,
+                  CameraController::ControlState &input,
                   const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
   if (d == hermes::geo::vec2())
     return;
@@ -61,7 +62,8 @@ void scaleModeBvr(scene::Camera::Ptr camera,
   proj->zoom(scale);
 }
 
-void panModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
+void panModeBvr(scene::Camera::Ptr camera,
+                CameraController::ControlState &input,
                 const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
   HERMES_UNUSED_VARIABLE(d);
   if (!input.dragging)
@@ -75,7 +77,7 @@ void panModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
   camera->setPosition(camera->position() + translation);
 }
 
-void zModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
+void zModeBvr(scene::Camera::Ptr camera, CameraController::ControlState &input,
               const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
   HERMES_UNUSED_VARIABLE(d);
   if (!input.dragging)
@@ -92,10 +94,12 @@ void zModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
 }
 
 void scrollOrbitModeBvr(scene::Camera::Ptr camera,
-                        CameraController::InputState &input,
+                        CameraController::ControlState &input,
                         const hermes::geo::point2 &p,
                         const hermes::geo::vec2 &d) {
   HERMES_UNUSED_VARIABLE(d);
+  HERMES_UNUSED_VARIABLE(p);
+  HERMES_UNUSED_VARIABLE(input);
   auto direction = d;
 
   // if it is too close from the poles, we allow just horizontal rotation
@@ -129,7 +133,7 @@ void scrollOrbitModeBvr(scene::Camera::Ptr camera,
 }
 
 void orbitModeBvr(scene::Camera::Ptr camera,
-                  CameraController::InputState &input,
+                  CameraController::ControlState &input,
                   const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
   HERMES_UNUSED_VARIABLE(d);
   if (!input.dragging || p == input.last_position)
@@ -166,8 +170,9 @@ void orbitModeBvr(scene::Camera::Ptr camera,
   camera->setPosition(new_pos);
 }
 
-void zoomModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
-                 const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+void dollyModeBvr(scene::Camera::Ptr camera,
+                  CameraController::ControlState &input,
+                  const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
   HERMES_UNUSED_VARIABLE(input);
   HERMES_UNUSED_VARIABLE(p);
   if (d == hermes::geo::vec2())
@@ -179,8 +184,17 @@ void zoomModeBvr(scene::Camera::Ptr camera, CameraController::InputState &input,
   camera->setPosition(camera->position() + s * direction.normalized());
 }
 
+void zoomModeBvr(scene::Camera::Ptr camera,
+                 CameraController::ControlState &input,
+                 const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+  HERMES_UNUSED_VARIABLE(d);
+  HERMES_UNUSED_VARIABLE(input);
+  HERMES_UNUSED_VARIABLE(p);
+  camera->setZoom(d.y);
+}
+
 void firstPersonModeBvr(scene::Camera::Ptr camera,
-                        CameraController::InputState &input,
+                        CameraController::ControlState &input,
                         const hermes::geo::point2 &p,
                         const hermes::geo::vec2 &d) {
   HERMES_UNUSED_VARIABLE(d);
@@ -235,13 +249,15 @@ CameraController::CameraController() noexcept {
   behaviors_.emplace_back(zoomModeBvr);
   modes_[CameraController::ControlType::FIRST_PERSON] = behaviors_.size();
   behaviors_.emplace_back(firstPersonModeBvr);
+  modes_[CameraController::ControlType::DOLLY] = behaviors_.size();
+  behaviors_.emplace_back(dollyModeBvr);
 }
 
-void CameraController::mouseButton(Action action, MouseButton button,
+void CameraController::mouseButton(io::Action action, io::MouseButton button,
                                    const hermes::geo::point2 &ndc) {
   if (!input_.contains(static_cast<u32>(button)))
     return;
-  if (action == Action::PRESS) {
+  if (action == io::Action::PRESS) {
     input_state_.mode = input_[static_cast<u32>(button)];
     auto it = modes_.find(input_state_.mode);
     if (it != modes_.end())
@@ -268,9 +284,9 @@ void CameraController::mouseMove(const hermes::geo::point2 &ndc) {
 
 void CameraController::mouseScroll(const hermes::geo::point2 &ndc,
                                    const hermes::geo::vec2 &d) {
-  if (!input_.contains(static_cast<u32>(Action::SCROLL)))
+  if (!input_.contains(static_cast<u32>(io::Action::SCROLL)))
     return;
-  auto mode = input_[static_cast<u32>(Action::SCROLL)];
+  auto mode = input_[static_cast<u32>(io::Action::SCROLL)];
   // if (input_state_.mode == CameraController::ControlType::NONE)
   //   return;
   auto it = modes_.find(mode);
@@ -281,27 +297,32 @@ void CameraController::mouseScroll(const hermes::geo::point2 &ndc,
   // input_state_.mode = CameraController::ControlType::NONE;
 }
 
-void CameraController::setCamera(scene::Camera::Ptr camera) {
+CameraController &CameraController::setCamera(scene::Camera::Ptr camera) {
   camera_ = camera;
+  return *this;
 }
 
-void CameraController::addControl(MouseButton button,
-                                  CameraController::ControlType type) {
+CameraController &
+CameraController::addControl(io::MouseButton button,
+                             CameraController::ControlType type) {
   if (static_cast<u32>(type) <
       static_cast<u32>(CameraController::ControlType::CUSTOM)) {
     input_[static_cast<u32>(button)] = type;
   } else {
     HERMES_NOT_IMPLEMENTED;
   }
+  return *this;
 }
 
-void CameraController::addScrollControl(CameraController::ControlType type) {
+CameraController &
+CameraController::addScrollControl(CameraController::ControlType type) {
   if (static_cast<u32>(type) <
       static_cast<u32>(CameraController::ControlType::CUSTOM)) {
-    input_[static_cast<u32>(Action::SCROLL)] = type;
+    input_[static_cast<u32>(io::Action::SCROLL)] = type;
   } else {
     HERMES_NOT_IMPLEMENTED;
   }
+  return *this;
 }
 
 void CameraController::clear() { input_.clear(); }

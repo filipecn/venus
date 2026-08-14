@@ -307,14 +307,12 @@ Result<u32> Swapchain::nextImage(VkSemaphore vk_semaphore, VkFence vk_fence) {
   u32 image_index = 0;
   VkResult e = vkAcquireNextImageKHR(vk_device_, vk_swapchain_, 1000000000,
                                      vk_semaphore, vk_fence, &image_index);
-  if (e == VK_ERROR_OUT_OF_DATE_KHR) {
+  if (e == VK_ERROR_OUT_OF_DATE_KHR || e == VK_SUBOPTIMAL_KHR) {
     // when a swapchain is not valid/adequate anymore we need to recreate the
     // swapchain with new parameters. For that, we need to destroy the old
     // swapchain and the objects related to the swapchain, to recreate them
     // later
-    HERMES_WARN("swapchain image out of date.");
-    // resize_requested = true;
-    return VeResult::noError();
+    return VeResult(VeResult::Type::SwapchainNeedsResize);
   }
 
   if (e != VK_SUCCESS && e != VK_SUBOPTIMAL_KHR) {

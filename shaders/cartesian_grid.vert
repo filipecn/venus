@@ -3,8 +3,8 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_buffer_reference : require
 
-#include "venus/debug.glsl"
-#include "venus/vert_debug.glsl"
+// #include "venus/debug.glsl"
+// #include "venus/vert_debug.glsl"
 
 layout(set = 0, binding = 0) uniform Data {   
 
