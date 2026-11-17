@@ -58,6 +58,7 @@ public:
 private:
   // data
   Model::Storage<mem::AllocatedBuffer> storage_;
+  mem::AllocatedBuffer params_;
   // material
   Material::Ptr material_;
 };

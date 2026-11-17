@@ -62,5 +62,6 @@ void main() {
     far_point = unprojectPoint(p.x, p.y, 1.0, ubo.view, ubo.proj).xyz;
 
 	gl_Position = vec4(p, 0.0, 1.0);
+	gl_PointSize = 1.0;
 }
 

@@ -126,6 +126,7 @@ VeResult Rasterizer::draw(const CommandBuffer &cb) const {
   // cache
   VkPipeline last_pipeline = nullptr;
   VkBuffer last_index_buffer = nullptr;
+  VkIndexType last_index_type = VK_INDEX_TYPE_UINT32;
   VkBuffer last_vertex_buffer = nullptr;
   h_index last_material = materials_.size();
 
@@ -163,9 +164,12 @@ VeResult Rasterizer::draw(const CommandBuffer &cb) const {
       cb.bindVertexBuffers(0, {object.vertex_buffer}, {0});
     }
 
-    if (object.index_buffer && object.index_buffer != last_index_buffer) {
+    if (object.indexed && object.index_buffer &&
+        (object.index_buffer != last_index_buffer ||
+         object.index_type != last_index_type)) {
       last_index_buffer = object.index_buffer;
-      cb.bindIndexBuffer(object.index_buffer, 0, VK_INDEX_TYPE_UINT32);
+      last_index_type = object.index_type;
+      cb.bindIndexBuffer(object.index_buffer, 0, object.index_type);
     }
 
     // push constants
@@ -176,10 +180,11 @@ VeResult Rasterizer::draw(const CommandBuffer &cb) const {
                        object.push_constants.data());
     }
 
-    if (object.index_buffer != VK_NULL_HANDLE)
-      cb.drawIndexed(object.count, 1, object.first_index, 0, 0);
-    else
-      cb.draw(object.count, 1, 0, 0);
+    if (object.indexed && object.index_buffer != VK_NULL_HANDLE)
+      cb.drawIndexed(object.count, 1, object.first_index, object.vertex_offset,
+                     0);
+    else if (!object.indexed)
+      cb.draw(object.count, 1, object.first_vertex, 0);
   }
 
   return VeResult::noError();

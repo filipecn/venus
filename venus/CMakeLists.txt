@@ -1,59 +1,4 @@
-set(VENUS_HEADERS
-  app/display_app.h
-  app/scene.h
-  app/scene_app.h
-
-  core/device.h
-  core/device_queue.h
-  core/instance.h
-  core/physical_device.h
-  core/sync.h
-  core/vk_api.h
-
-  engine/frame_loop.h
-  engine/graphics_device.h
-  engine/graphics_engine.h
-  engine/shapes.h
-
-  io/display.h
-  io/glfw_display.h
-  io/input.h
-  io/surface.h
-  io/swapchain.h
-
-  mem/buffer.h
-  mem/device_memory.h
-  mem/image.h
-  mem/layout.h
-
-  pipeline/command_buffer.h
-  pipeline/descriptors.h
-  pipeline/framebuffer.h
-  pipeline/pipeline.h
-  pipeline/rasterizer.h
-  pipeline/ray_tracer.h
-  pipeline/renderpass.h
-  pipeline/shader_module.h
-
-  scene/models/cartesian_grid.h
-  scene/models/sky_background.h
-  scene/acceleration_structure.h
-  scene/camera.h
-  scene/material.h
-  scene/materials.h
-  scene/model.h
-  scene/scene_graph.h
-  scene/texture.h
-
-  ui/camera.h
-
-  utils/debug.h
-  utils/indexed_handle.h
-  utils/macros.h
-  utils/result.h
-  utils/vk_debug.h
-)
-set(VENUS_SOURCES
+add_library(venus STATIC
   app/display_app.cpp
   app/scene.cpp
   app/scene_app.cpp
@@ -99,20 +44,19 @@ set(VENUS_SOURCES
   scene/texture.cpp
 
   ui/camera.cpp
+  ui/picking.cpp
 )
-
-add_library(venus STATIC ${VENUS_HEADERS} ${VENUS_SOURCES})
 
 target_compile_definitions(venus PRIVATE 
   VENUS_SHADERS_PATH="${VENUS_SOURCE_DIR}/shaders")
 
 target_include_directories(
-  venus PUBLIC "$<BUILD_INTERFACE:${VENUS_SOURCE_DIR};${DEPS_INCLUDE_DIRS}>"
+  venus PUBLIC "$<BUILD_INTERFACE:${VENUS_SOURCE_DIR};${VENUS_DEPS_INCLUDE_DIRS}>"
   "$<INSTALL_INTERFACE:${VENUS_SOURCE_DIR}>")
 
-add_dependencies(venus venus_shaders DEPS)
+add_dependencies(venus venus_shaders VENUS_DEPS)
 
-target_link_libraries(venus PUBLIC optimized DEPS debug DEPS)
+target_link_libraries(venus PUBLIC optimized VENUS_DEPS debug DEPS)
 
 include(CMakePrintHelpers)
 cmake_print_properties(TARGETS venus PROPERTIES INTERFACE_INCLUDE_DIRECTORIES)

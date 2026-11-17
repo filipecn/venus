@@ -28,6 +28,8 @@
 
 #include <venus/utils/vk_debug.h>
 
+#include <limits>
+
 namespace venus::scene {
 
 AccelerationStructure::InstancesData::InstancesData() noexcept {
@@ -283,14 +285,32 @@ AccelerationStructure::build(const engine::GraphicsDevice &gd, VkQueue vk_queue,
 
   // Create a scratch buffer as a temporary storage for the acceleration
   // structure build
+  VkPhysicalDeviceAccelerationStructurePropertiesKHR as_properties{};
+  as_properties.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR;
+  VkPhysicalDeviceProperties2 physical_properties{};
+  physical_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+  physical_properties.pNext = &as_properties;
+  vkGetPhysicalDeviceProperties2(*device.physical(), &physical_properties);
+
+  const VkDeviceSize scratch_alignment =
+      as_properties.minAccelerationStructureScratchOffsetAlignment;
+  if (!scratch_alignment ||
+      build_sizes_info_.buildScratchSize >
+          std::numeric_limits<VkDeviceSize>::max() - (scratch_alignment - 1))
+    return VeResult::badAllocation();
+  const VkDeviceSize scratch_size =
+      build_sizes_info_.buildScratchSize + scratch_alignment - 1;
   mem::AllocatedBuffer scratch_buffer;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(scratch_buffer,
                                     mem::AllocatedBuffer::Config::forStorage(
-                                        build_sizes_info_.buildScratchSize, 0)
+                                        scratch_size, 0)
                                         .build(device));
 
+  const VkDeviceAddress scratch_address = scratch_buffer.deviceAddress();
+  const VkDeviceSize misalignment = scratch_address % scratch_alignment;
   build_geometry_info.scratchData.deviceAddress =
-      scratch_buffer.deviceAddress();
+      scratch_address + (misalignment ? scratch_alignment - misalignment : 0);
   build_geometry_info.dstAccelerationStructure = vk_acceleration_structure_;
 
   // Build the acceleration structure on the device via a one-time command

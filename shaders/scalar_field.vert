@@ -43,6 +43,7 @@ void main() {
 	  gl_Position = ps.proj_view * vec4(v,1.0);
 
 	  color = ve_palette_3(ubo.sf.values[gl_VertexIndex]);
+	  gl_PointSize = 1.0;
 }
 
 

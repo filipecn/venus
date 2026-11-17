@@ -28,6 +28,9 @@
 
 #include <hermes/geometry/queries.h>
 
+#include <algorithm>
+#include <cmath>
+
 namespace venus::ui {
 
 hermes::geo::point3 hitViewPlane(scene::Camera::Ptr camera,
@@ -55,11 +58,13 @@ void scaleModeBvr(scene::Camera::Ptr camera,
     return;
   HERMES_UNUSED_VARIABLE(p);
   HERMES_UNUSED_VARIABLE(input);
-  float scale = (d.y < 0.f) ? 1.1f : 0.9f;
-  // TODO what if the projection is different?!
   auto *proj =
       dynamic_cast<scene::OrthographicProjection *>(camera->projection());
-  proj->zoom(scale);
+  if (!proj)
+    return;
+  // GLFW reports positive offsets for scrolling up. Scale exponentially so
+  // wheel notches and high-resolution trackpads behave consistently.
+  proj->zoom(std::exp(-0.1f * d.y));
 }
 
 void panModeBvr(scene::Camera::Ptr camera,
@@ -97,7 +102,6 @@ void scrollOrbitModeBvr(scene::Camera::Ptr camera,
                         CameraController::ControlState &input,
                         const hermes::geo::point2 &p,
                         const hermes::geo::vec2 &d) {
-  HERMES_UNUSED_VARIABLE(d);
   HERMES_UNUSED_VARIABLE(p);
   HERMES_UNUSED_VARIABLE(input);
   auto direction = d;
@@ -108,11 +112,6 @@ void scrollOrbitModeBvr(scene::Camera::Ptr camera,
       camera->upVector());
   if (1.f - std::fabs(up_angle) < 1e-3 && up_angle * direction.y < 0)
     direction.y = 0;
-  if (std::abs(direction.x) > std::abs(direction.y))
-    direction.y = 0;
-  if (std::abs(direction.x) < std::abs(direction.y))
-    direction.x = 0;
-
   auto t = camera->position() - camera->targetPosition();
   auto u = camera->upVector();
   auto left = hermes::geo::cross(t.normalized(), u).normalized();
@@ -121,11 +120,12 @@ void scrollOrbitModeBvr(scene::Camera::Ptr camera,
   // translate target to center
   new_pos -= (hermes::geo::vec3)camera->targetPosition();
 
-  // the distance between coordinates -1 and 1 is equivalent to a full rotation
-  // here we rotate camera position
-  f32 angle = hermes::math::constants::pi * direction.x;
+  // GLFW scroll offsets are wheel/trackpad deltas, not normalized screen
+  // coordinates. Use a smaller angular scale than the drag orbit behavior.
+  constexpr f32 scroll_sensitivity = 0.1f;
+  f32 angle = hermes::math::constants::pi * scroll_sensitivity * direction.x;
   auto transform = hermes::geo::Transform::rotate(angle, u);
-  angle = hermes::math::constants::pi * direction.y;
+  angle = hermes::math::constants::pi * scroll_sensitivity * direction.y;
   transform = transform * hermes::geo::Transform::rotate(-angle, left);
   new_pos = camera->targetPosition() + (hermes::geo::vec3)transform(new_pos);
 
@@ -180,17 +180,25 @@ void dollyModeBvr(scene::Camera::Ptr camera,
   // get distance
   auto direction = camera->targetPosition() - camera->position();
   auto distance = direction.length();
-  auto s = distance * 0.1f * (d.y < 0 ? -1.f : 1.f);
-  camera->setPosition(camera->position() + s * direction.normalized());
+  if (distance < 1e-6f)
+    return;
+  constexpr f32 min_distance = 1e-3f;
+  const auto new_distance =
+      std::max(min_distance, distance * std::exp(-0.1f * d.y));
+  camera->setPosition(camera->targetPosition() -
+                      new_distance * direction.normalized());
 }
 
 void zoomModeBvr(scene::Camera::Ptr camera,
                  CameraController::ControlState &input,
                  const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
-  HERMES_UNUSED_VARIABLE(d);
   HERMES_UNUSED_VARIABLE(input);
   HERMES_UNUSED_VARIABLE(p);
-  camera->setZoom(d.y);
+  auto *proj =
+      dynamic_cast<scene::OrthographicProjection *>(camera->projection());
+  if (!proj)
+    return;
+  proj->zoom(std::exp(-0.1f * d.y));
 }
 
 void firstPersonModeBvr(scene::Camera::Ptr camera,

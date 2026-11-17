@@ -160,8 +160,15 @@ void ModelNode::draw(const hermes::geo::Transform &top_matrix,
               render_object.transform = model_matrix;
               // mesh
               render_object.first_index = shape.index_base;
+              render_object.first_vertex = shape.vertex_base;
+              render_object.vertex_offset = shape.vertex_offset;
+              render_object.indexed =
+                  shape.index_count != 0 && model_->indexBuffer();
               render_object.count =
                   shape.index_count ? shape.index_count : shape.vertex_count;
+              render_object.topology = model_->primitiveTopology();
+              render_object.index_type = model_->indexType();
+              render_object.vertex_layout = model_->vertexLayout();
               if (model_->vertexBuffer()) {
                 render_object.vertex_buffer = model_->vertexBuffer();
                 render_object.vertex_buffer_address =
@@ -986,9 +993,16 @@ void VDB_Node::draw(const hermes::geo::Transform &top_matrix,
                      render_object.transform = model_matrix;
                      // mesh
                      render_object.first_index = shape.index_base;
+                     render_object.first_vertex = shape.vertex_base;
+                     render_object.vertex_offset = shape.vertex_offset;
+                     render_object.indexed =
+                         shape.index_count != 0 && bounds_model_.indexBuffer();
                      render_object.count = shape.index_count
                                                ? shape.index_count
                                                : shape.vertex_count;
+                     render_object.topology = bounds_model_.primitiveTopology();
+                     render_object.index_type = bounds_model_.indexType();
+                     render_object.vertex_layout = bounds_model_.vertexLayout();
                      if (bounds_model_.vertexBuffer()) {
                        render_object.vertex_buffer =
                            bounds_model_.vertexBuffer();

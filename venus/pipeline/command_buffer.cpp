@@ -483,6 +483,26 @@ void CommandBuffer::transitionImage(VkImage vk_image,
   vkCmdPipelineBarrier2(vk_command_buffer_, &dep_info);
 }
 
+void CommandBuffer::makeBufferHostReadable(VkBuffer buffer) const {
+  VkBufferMemoryBarrier2 buffer_barrier{};
+  buffer_barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+  buffer_barrier.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT;
+  buffer_barrier.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+  buffer_barrier.dstStageMask = VK_PIPELINE_STAGE_2_HOST_BIT;
+  buffer_barrier.dstAccessMask = VK_ACCESS_2_HOST_READ_BIT;
+  buffer_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  buffer_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  buffer_barrier.buffer = buffer;
+  buffer_barrier.offset = 0;
+  buffer_barrier.size = VK_WHOLE_SIZE;
+
+  VkDependencyInfo dependency{};
+  dependency.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  dependency.bufferMemoryBarrierCount = 1;
+  dependency.pBufferMemoryBarriers = &buffer_barrier;
+  vkCmdPipelineBarrier2(vk_command_buffer_, &dependency);
+}
+
 CommandPool::CommandPool(CommandPool &&rhs) noexcept { *this = std::move(rhs); }
 
 CommandPool::~CommandPool() noexcept { destroy(); }

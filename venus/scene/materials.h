@@ -43,6 +43,15 @@ public:
                                    Material::Ptr material) override;
 };
 
+class MAT_Picking : public Material::Writer {
+public:
+  static Result<Material> material(const engine::GraphicsDevice &gd);
+  static Result<Material> material(const engine::GraphicsDevice &gd,
+                                   VkDeviceSize vertex_stride);
+  Result<Material::Instance> write(pipeline::DescriptorAllocator &allocator,
+                                   Material::Ptr material) override;
+};
+
 class Material_Test : public Material::Writer {
 public:
   static Result<Material> material(const engine::GraphicsDevice &gd);

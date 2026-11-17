@@ -4,20 +4,20 @@ layout(location = 0) in vec3 inPosition;
 
 layout(push_constant) uniform PushConstants {
     mat4 mvp;
-    uint elementType; // 0: Face, 1: Edge, 2: Vertex
+    uint objectID;
+    uint primitiveID;
+    uint firstVertex;
+    uint derivePrimitiveID;
 } pc;
 
-layout(location = 0) flat out uint outID;
+layout(location = 0) flat out uint outObjectID;
+layout(location = 1) flat out uint outPrimitiveID;
 
 void main() {
     gl_Position = pc.mvp * vec4(inPosition, 1.0);
-    
-    if (pc.elementType == 2) {
-        outID = gl_VertexIndex;
-        gl_PointSize = 10.0; // Larger hit area for vertices
-    } else if (pc.elementType == 1) {
-        outID = gl_VertexIndex / 2;
-    } else {
-        outID = gl_VertexIndex / 3;
-    }
+    gl_PointSize = 1.0;
+    outObjectID = pc.objectID;
+    outPrimitiveID = pc.derivePrimitiveID != 0
+        ? (uint(gl_VertexIndex) - pc.firstVertex) / 3
+        : pc.primitiveID;
 }

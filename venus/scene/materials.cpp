@@ -92,6 +92,61 @@ MAT_Empty::write(pipeline::DescriptorAllocator &allocator,
   return Result<Material::Instance>(std::move(instance));
 }
 
+Result<Material> MAT_Picking::material(const engine::GraphicsDevice &gd) {
+  return material(gd, 3 * sizeof(f32));
+}
+
+Result<Material> MAT_Picking::material(const engine::GraphicsDevice &gd,
+                                      VkDeviceSize vertex_stride) {
+  auto &globals = engine::GraphicsEngine::globals();
+
+  auto pipeline_config =
+      pipeline::GraphicsPipeline::Config::defaults({1, 1})
+          .setVertexInputState(
+              mem::VertexLayout()
+                  .pushComponent(mem::VertexLayout::ComponentType::Position,
+                                 VK_FORMAT_R32G32B32_SFLOAT)
+                  .setStride(vertex_stride))
+          .setColorAttachmentFormat(VK_FORMAT_R32G32B32A32_UINT)
+          .setDepthFormat(VK_FORMAT_D32_SFLOAT)
+          .disableBlending()
+          .setMultisampleState(pipeline::GraphicsPipeline::Multisample::none())
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_VERTEX_BIT)
+                              .build(*globals.shaders.vert("picking")))
+          .addShaderStage(pipeline::Pipeline::ShaderStage()
+                              .setStages(VK_SHADER_STAGE_FRAGMENT_BIT)
+                              .build(*globals.shaders.frag("picking")));
+
+  auto pipeline_layout_config =
+      pipeline::Pipeline::Layout::Config().addPushConstantRange(
+          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+          sizeof(engine::GraphicsEngine::Globals::Types::PickingPushConstants));
+
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      Material, m,
+      Material::Config()
+          .setMaterialPipelineConfig(
+              Material::Pipeline::Config()
+                  .setPipelineConfig(pipeline_config)
+                  .setPipelineLayoutConfig(pipeline_layout_config))
+          .build(**gd, *gd.renderpass()));
+
+  return Result<Material>(std::move(m));
+}
+
+Result<Material::Instance>
+MAT_Picking::write(pipeline::DescriptorAllocator &allocator,
+                   Material::Ptr material) {
+  Material::Instance instance;
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      instance,
+      Material::Instance::Config().setMaterial(material).build(allocator))
+
+  return Result<Material::Instance>(std::move(instance));
+}
+
 Result<Material> Material_Test::material(const engine::GraphicsDevice &gd) {
   pipeline::DescriptorSet::Layout l;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(

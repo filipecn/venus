@@ -51,6 +51,10 @@ public:
     // mesh
     u32 count{0}; //< index count or vertex count
     u32 first_index{0};
+    u32 first_vertex{0};
+    i32 vertex_offset{0};
+    bool indexed{false};
+    VkIndexType index_type{VK_INDEX_TYPE_UINT32};
     VkBuffer index_buffer{VK_NULL_HANDLE};
     VkBuffer vertex_buffer{VK_NULL_HANDLE};
     // material

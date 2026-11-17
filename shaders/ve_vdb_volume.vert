@@ -45,6 +45,7 @@ void main() {
 	vec4 pos = vec4(v, 1.0f);
 
 	gl_Position =  scene_data.projection * scene_data.view * pos;	
+  gl_PointSize = 1.0;
   frag_wp = v;
 }
 

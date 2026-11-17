@@ -5,11 +5,6 @@ find_program(GLSL_VALIDATOR glslangValidator
 
 message(STATUS "Vulkan SDK: $ENV{VULKAN_SDK}")
 
-find_program(SLANGC_EXECUTABLE slangc
-    PATHS "$ENV{VULKAN_SDK}/bin"
-    REQUIRED
-)
-
 file(GLOB_RECURSE GLSL_SOURCE_FILES
   "${CMAKE_CURRENT_LIST_DIR}/*.frag"
   "${CMAKE_CURRENT_LIST_DIR}/*.vert"
@@ -22,6 +17,15 @@ file(GLOB_RECURSE GLSL_SOURCE_FILES
 file(GLOB_RECURSE SLANG_SOURCE_FILES
   "${CMAKE_CURRENT_LIST_DIR}/*.slang"
     )
+
+# Slang is optional for projects that only use the GLSL shaders. Require the
+# compiler only when this tree actually contains Slang sources.
+if(SLANG_SOURCE_FILES)
+  find_program(SLANGC_EXECUTABLE slangc
+      HINTS "$ENV{VULKAN_SDK}/bin" "$ENV{VULKAN_SDK}/Bin"
+      REQUIRED
+  )
+endif()
 
 foreach(GLSL ${GLSL_SOURCE_FILES})
   message(STATUS "BUILDING SHADER")
@@ -47,8 +51,8 @@ foreach(SLANG_FILE ${SLANG_SOURCE_FILES})
     add_custom_command(
         OUTPUT "${OUTPUT_SPV_FILE}"
         COMMAND "${SLANGC_EXECUTABLE}"
-        ARGS "${CMAKE_CURRENT_SOURCE_DIR}/${SLANG_FILE}" -o "${OUTPUT_SPV_FILE}" --target spirv 
-        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${SLANG_FILE}"
+        ARGS "${SLANG_FILE}" -o "${OUTPUT_SPV_FILE}" --target spirv
+        DEPENDS "${SLANG_FILE}"
         COMMENT "Compiling Slang shader ${SLANG_FILE} to SPIR-V"
         # Optional: Add include directories if your shaders use #include
         # ARGS -I "${CMAKE_CURRENT_SOURCE_DIR}/include" ...

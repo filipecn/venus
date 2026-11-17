@@ -122,6 +122,7 @@ public:
 
     Material::Ptr material() const;
     const pipeline::GraphicsPipeline &pipeline() const;
+    const pipeline::GraphicsPipeline &pipeline(VkPrimitiveTopology topology) const;
     const pipeline::Pipeline::Layout &pipelineLayout() const;
     bool hasGlobalDescriptors() const;
     std::unordered_map<h_index, std::vector<VkDescriptorSet>>
@@ -184,6 +185,8 @@ public:
     HERMES_NODISCARD const pipeline::GraphicsPipeline &operator*() const;
     /// \return The underlying pipeline object.
     HERMES_NODISCARD const pipeline::GraphicsPipeline &pipeline() const;
+    HERMES_NODISCARD const pipeline::GraphicsPipeline &
+    pipeline(VkPrimitiveTopology topology) const;
     /// \return The underlying pipeline layout.
     HERMES_NODISCARD const pipeline::Pipeline::Layout &pipelineLayout() const;
     /// \return The underlying pipeline vulkan object.
@@ -191,6 +194,8 @@ public:
 
   private:
     pipeline::GraphicsPipeline pipeline_;
+    std::unordered_map<VkPrimitiveTopology, pipeline::GraphicsPipeline>
+        topology_pipelines_;
     pipeline::Pipeline::Layout pipeline_layout_;
 
 #ifdef VENUS_DEBUG

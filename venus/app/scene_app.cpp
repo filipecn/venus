@@ -100,7 +100,7 @@ VeResult SceneApp::setupCallbacks() {
     if (update_scene_callback_)
       VENUS_RETURN_BAD_RESULT(update_scene_callback_(scene_, frame));
 
-    render(frame);
+    VENUS_RETURN_BAD_RESULT(render(frame));
 
     // render ui
     engine::GraphicsEngine::globals().ui.newFrame();
@@ -131,20 +131,28 @@ VeResult SceneApp::setupCallbacks() {
   window_->input_event_func = [&](const io::InputEvent &event) {
     bool camera_is_selected = !selected_camera_.empty() &&
                               camera_controllers_.contains(selected_camera_);
+    // Respect UI mouse capture so scene navigation does not also react to UI
+    // interactions.
+    const bool imgui_captures_mouse =
+        engine::GraphicsEngine::uiWantsCaptureMouse();
     if (event.isKeyEvent()) {
       auto e = event.keyEvent();
       if (e.key == io::Key::ESCAPE) {
         window_->close();
       }
-    } else if (event.isMouseMoveEvent() && camera_is_selected) {
+    } else if (event.isMouseMoveEvent() && camera_is_selected &&
+               !imgui_captures_mouse) {
       camera_controllers_[selected_camera_].mouseMove(
           engine::GraphicsEngine::display()->cursorNDC());
-    } else if (event.isMouseScrollEvent() && camera_is_selected) {
+    } else if (event.isMouseScrollEvent() && camera_is_selected &&
+               !imgui_captures_mouse) {
       camera_controllers_[selected_camera_].mouseScroll(
           engine::GraphicsEngine::display()->cursorNDC(),
           event.mouseScroll().offset);
     } else if (event.isMouseButtonEvent() && camera_is_selected) {
       auto e = event.mouseButton();
+      if (imgui_captures_mouse && e.action != io::Action::RELEASE)
+        return;
       camera_controllers_[selected_camera_].mouseButton(
           e.action, e.button, engine::GraphicsEngine::display()->cursorNDC());
     }
@@ -166,6 +174,14 @@ void SceneApp::selectCamera(const std::string &label) {
     camera_controllers_.emplace(label, controller);
   }
   selected_camera_ = label;
+}
+
+void SceneApp::selectDefault2DCamera() {
+  selectCamera("scene_app_default_2d_camera");
+}
+
+void SceneApp::selectDefault3DCamera() {
+  selectCamera("scene_app_default_camera");
 }
 
 ui::CameraController &SceneApp::cameraController(const std::string &label) {
@@ -226,7 +242,6 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
         .addControl(io::MouseButton::RIGHT,
                     ui::CameraController::ControlType::ORBIT)
         .addScrollControl(ui::CameraController::ControlType::SCROLL_ORBIT);
-    app.selectCamera("scene_app_default_camera");
   }
   { // 2d camera
     auto default_2d_camera_ptr = scene::Camera::Ptr::shared();
@@ -243,8 +258,9 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
         .addControl(io::MouseButton::LEFT,
                     ui::CameraController::ControlType::PAN)
         .addScrollControl(ui::CameraController::ControlType::ZOOM);
-    // app.selectCamera("scene_app_default_2d_camera");
   }
+
+  app.selectDefault3DCamera();
 
   return Result<RA_SceneApp>(std::move(app));
 }
@@ -260,6 +276,7 @@ RA_SceneApp &RA_SceneApp::operator=(RA_SceneApp &&rhs) noexcept {
 }
 
 void RA_SceneApp::destroy() noexcept {
+  picking_.destroy();
   global_descriptor_set_.destroy();
   descriptor_allocator_.destroy();
   SceneApp::destroy();
@@ -270,6 +287,7 @@ void RA_SceneApp::swap(RA_SceneApp &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(sa_ui_callback_);
   VENUS_SWAP_FIELD_WITH_RHS(descriptor_allocator_);
   VENUS_SWAP_FIELD_WITH_RHS(global_descriptor_set_);
+  VENUS_SWAP_FIELD_WITH_RHS(picking_);
   SceneApp::swap(static_cast<SceneApp &>(rhs));
 }
 
@@ -303,6 +321,14 @@ VeResult RA_SceneApp::init() {
       auto, buffer_index,
       cache.buffers().allocate(RASTERIZER_GLOBAL_DESCRITOR_BUFFER_NAME));
   HERMES_UNUSED_VARIABLE(buffer_index);
+
+  VENUS_DECLARE_OR_RETURN_BAD_RESULT(
+      ui::Picking, picking,
+      ui::Picking::Config()
+          .setImageSize(gd.swapchain().imageExtent())
+          .build(*gd));
+  picking_ = std::move(picking);
+
   return VeResult::noError();
 }
 
@@ -310,6 +336,9 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
   HERMES_UNUSED_VARIABLE(frame);
 
   auto &gd = engine::GraphicsEngine::device();
+  // GraphicsDevice::begin waits for the previous frame fence before entering
+  // render(), so readback memory from an earlier pick is safe to access here.
+  VENUS_RETURN_BAD_RESULT(picking_.collectResult());
   // update renderer context
   scene::PushConstantsContext push_constants_ctx;
   engine::GraphicsEngine::Globals::Types::CameraData camera_data;
@@ -324,7 +353,6 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
       if (camera) {
         camera->resize(static_cast<f32>(clip_size.width),
                        static_cast<f32>(clip_size.height));
-
         camera_data.view =
             hermes::math::transpose(camera->viewTransform().matrix());
         camera_data.proj =
@@ -405,21 +433,30 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
     scene::DrawContext draw_ctx = scene::RasterContext();
     scene_.graph().draw({}, draw_ctx);
 
+    // picking
+    VENUS_RETURN_BAD_RESULT(picking_.resize(*gd, gd.swapchain().imageExtent()));
+
     pipeline::Rasterizer rasterizer;
     rasterizer.setRenderArea(gd.swapchain().imageExtent());
     auto err = std::visit(
         scene::DrawContextOverloaded{
             [&](scene::RasterContext &ctx) -> VeResult {
+              VENUS_RETURN_BAD_RESULT(
+                  picking_.pick(cb, ctx, push_constants_ctx.proj_view));
               for (const auto &o : ctx.objects) {
                 pipeline::Rasterizer::RasterObject ro;
                 ro.count = o.count;
                 ro.first_index = o.first_index;
+                ro.first_vertex = o.first_vertex;
+                ro.vertex_offset = o.vertex_offset;
+                ro.indexed = o.indexed;
+                ro.index_type = o.index_type;
                 ro.index_buffer = o.index_buffer;
                 ro.vertex_buffer = o.vertex_buffer;
                 ro.descriptor_sets =
                     o.material_instance->localDescriptorSetGroups();
                 pipeline::Rasterizer::RasterMaterial rm;
-                rm.vk_pipeline = *o.material_instance->pipeline();
+                rm.vk_pipeline = *o.material_instance->pipeline(o.topology);
                 rm.vk_pipeline_layout = *o.material_instance->pipelineLayout();
 
                 // descriptor sets
@@ -452,9 +489,18 @@ VeResult RA_SceneApp::render(const engine::FrameLoop::Iteration::Frame &frame) {
 }
 
 VeResult RA_SceneApp::shutdown() {
+  picking_.destroy();
   global_descriptor_set_.destroy();
   descriptor_allocator_.destroy();
   return VeResult::noError();
+}
+
+VeResult RA_SceneApp::requestPick(VkOffset2D pixel) {
+  return picking_.request(pixel);
+}
+
+std::optional<ui::Picking::PickResult> RA_SceneApp::takePickResult() {
+  return picking_.takeResult();
 }
 
 VeResult RA_SceneApp::ui() {
@@ -481,6 +527,7 @@ Result<RT_SceneApp> RT_SceneApp::Config::build() const {
 
   app.fps_ = fps_;
   app.frames_ = frames_;
+  app.ge_config_ = ge_config_;
 
   return Result<RT_SceneApp>(std::move(app));
 }

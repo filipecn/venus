@@ -32,6 +32,7 @@
 #include <venus/pipeline/rasterizer.h>
 #include <venus/pipeline/ray_tracer.h>
 #include <venus/ui/camera.h>
+#include <venus/ui/picking.h>
 
 namespace venus::app {
 
@@ -69,6 +70,8 @@ public:
   Scene &scene();
   void selectCamera(const std::string &label);
   ui::CameraController &cameraController(const std::string &label);
+  void selectDefault2DCamera();
+  void selectDefault3DCamera();
 
   i32 run() override;
 
@@ -122,6 +125,10 @@ public:
   void swap(RA_SceneApp &rhs);
 
   pipeline::DescriptorAllocator &descriptorAllocator();
+  /// Request picking at a framebuffer pixel. Read the result with
+  /// takePickResult() after a subsequent frame has completed.
+  VeResult requestPick(VkOffset2D pixel);
+  std::optional<ui::Picking::PickResult> takePickResult();
 
 protected:
   VeResult init() override;
@@ -138,6 +145,8 @@ private:
   /// The global descriptor set is bound at the beginning of the array of
   /// descriptor sets accessed by all render objects.
   pipeline::DescriptorSet global_descriptor_set_;
+
+  ui::Picking picking_;
 };
 
 class RT_SceneApp : public SceneApp {

@@ -55,4 +55,5 @@ void main()
   printMat(scene_data.projection);
   printMat(scene_data.view);
 	gl_Position =  scene_data.projection * scene_data.view * pos;	
+  gl_PointSize = 1.0;
 }

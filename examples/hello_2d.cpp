@@ -63,6 +63,7 @@ VeResult init(app::RA_SceneApp &app) {
   app.scene().graph().addModel("sky", sky);
   app.scene().graph().addModel("cube", cube_model_ptr);
   app.scene().graph().addModel("grid", grid);
+  app.selectDefault2DCamera();
 
   return VeResult::noError();
 }
@@ -78,7 +79,7 @@ int main() {
                                        .setDynamicRendering()
                                        .setShaderDemoteToHelperInvocation()
                                        .setBindless())
-          .setDisplay<io::GLFW_Window>("Hello Vulkan Display App", {1024, 1024})
+          .setDisplay<io::GLFW_Window>("Hello 2D Example", {1024, 1024})
           .setStartupFn(init)
           .setFPS(60)
           .setDurationInFrames(0)

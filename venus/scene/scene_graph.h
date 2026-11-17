@@ -59,6 +59,12 @@ struct RasterContext {
 
     u32 count{0}; //< index count or vertex count
     u32 first_index{0};
+    u32 first_vertex{0};
+    i32 vertex_offset{0};
+    bool indexed{false};
+    VkPrimitiveTopology topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+    VkIndexType index_type{VK_INDEX_TYPE_UINT32};
+    mem::VertexLayout vertex_layout;
     VkBuffer index_buffer{VK_NULL_HANDLE};
     VkBuffer vertex_buffer{VK_NULL_HANDLE};
     VkDeviceAddress vertex_buffer_address{0};
@@ -357,6 +363,7 @@ public:
 
   void draw(const hermes::geo::Transform &top_matrix,
             DrawContext &context) override;
+
   void destroy() noexcept override;
 
 private:

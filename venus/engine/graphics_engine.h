@@ -75,6 +75,13 @@ public:
         hermes::geo::Transform proj;
         hermes::geo::point3 eye;
       };
+      struct PickingPushConstants {
+        hermes::geo::Transform mvp;
+        u32 object_id;
+        u32 primitive_id;
+        u32 first_vertex;
+        u32 derive_primitive_id;
+      };
     };
 
     /// \brief Set of venus built-in shaders.
@@ -99,6 +106,7 @@ public:
       scene::Material vdb;
       scene::Material color;
       scene::Material empty;
+      scene::Material picking;
 
     private:
       friend struct Globals;
@@ -238,6 +246,8 @@ public:
   HERMES_NODISCARD static GraphicsDevice &device();
   /// \return Display
   HERMES_NODISCARD static io::Display::Ptr display();
+  /// \return Whether the UI wants to consume mouse input.
+  HERMES_NODISCARD static bool uiWantsCaptureMouse();
 
 private:
   GraphicsEngine() noexcept = default;

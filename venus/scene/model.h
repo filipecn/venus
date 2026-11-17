@@ -73,6 +73,8 @@ public:
         material_instance; //< material for this shape.
     u32 index_base{0};     //< where this shape starts in the index buffer.
     u32 index_count{0};    //< index count of this shape in the index buffer.
+    u32 vertex_base{0};    //< first vertex for non-indexed draws.
+    i32 vertex_offset{0};  //< vertex offset applied to indexed draws.
     u32 vertex_count{0};   //< vertex count of this shape in the vertex buffer
   };
 
@@ -91,6 +93,8 @@ public:
     Derived &setIndices(VkBuffer vk_index_buffer, VkDeviceAddress vk_address);
     Derived &setTransform(VkBuffer vk_transform_buffer,
                           VkDeviceAddress vk_address);
+    Derived &setPrimitiveTopology(VkPrimitiveTopology topology);
+    Derived &setIndexType(VkIndexType index_type);
 
   protected:
     VkBuffer vk_vertex_buffer_{VK_NULL_HANDLE};
@@ -101,6 +105,8 @@ public:
     VkDeviceAddress vk_transform_buffer_address_{0};
     std::vector<Shape> shapes_;
     mem::VertexLayout vertex_layout_;
+    VkPrimitiveTopology primitive_topology_{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+    VkIndexType index_type_{VK_INDEX_TYPE_UINT32};
   };
 
   struct Config : public Setup<Config> {
@@ -122,6 +128,8 @@ public:
   VkDeviceAddress indexBufferAddress() const;
   VkDeviceAddress transformBufferAddress() const;
   const mem::VertexLayout &vertexLayout() const;
+  VkPrimitiveTopology primitiveTopology() const;
+  VkIndexType indexType() const;
 
 protected:
   std::vector<Shape> shapes_;
@@ -132,6 +140,8 @@ protected:
   VkDeviceAddress vk_index_buffer_address_{0};
   VkDeviceAddress vk_transform_buffer_address_{0};
   mem::VertexLayout vertex_layout_;
+  VkPrimitiveTopology primitive_topology_{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+  VkIndexType index_type_{VK_INDEX_TYPE_UINT32};
 
 #ifdef VENUS_INCLUDE_DEBUG_TRAITS
   friend struct hermes::DebugTraits<Model>;
@@ -162,6 +172,19 @@ Derived &Model::Setup<Derived>::setTransform(VkBuffer vk_transform_buffer,
                                              VkDeviceAddress vk_address) {
   vk_transform_buffer_ = vk_transform_buffer;
   vk_transform_buffer_address_ = vk_address;
+  return static_cast<Derived &>(*this);
+}
+
+template <typename Derived>
+Derived &Model::Setup<Derived>::setPrimitiveTopology(
+    VkPrimitiveTopology topology) {
+  primitive_topology_ = topology;
+  return static_cast<Derived &>(*this);
+}
+
+template <typename Derived>
+Derived &Model::Setup<Derived>::setIndexType(VkIndexType index_type) {
+  index_type_ = index_type;
   return static_cast<Derived &>(*this);
 }
 

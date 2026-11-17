@@ -117,6 +117,11 @@ const pipeline::GraphicsPipeline &Material::Instance::pipeline() const {
   return material_->pipeline().pipeline();
 }
 
+const pipeline::GraphicsPipeline &
+Material::Instance::pipeline(VkPrimitiveTopology topology) const {
+  return material_->pipeline().pipeline(topology);
+}
+
 const pipeline::Pipeline::Layout &Material::Instance::pipelineLayout() const {
   return material_->pipeline().pipelineLayout();
 }
@@ -202,6 +207,17 @@ Material::Pipeline::Config::build(VkDevice vk_device,
       p.pipeline_, graphics_pipeline_config_.build(
                        vk_device, *p.pipeline_layout_, vk_renderpass));
 
+  for (const auto topology : {VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+                              VK_PRIMITIVE_TOPOLOGY_POINT_LIST}) {
+    auto variant_config = graphics_pipeline_config_;
+    variant_config.setInputTopology(topology);
+    pipeline::GraphicsPipeline variant;
+    VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+        variant, variant_config.build(vk_device, *p.pipeline_layout_,
+                                      vk_renderpass));
+    p.topology_pipelines_.emplace(topology, std::move(variant));
+  }
+
 #ifdef VENUS_DEBUG
   p.config_ = *this;
 #endif
@@ -258,11 +274,15 @@ Material::Pipeline::operator=(Material::Pipeline &&rhs) noexcept {
 void Material::Pipeline::swap(Material::Pipeline &rhs) {
 
   VENUS_SWAP_FIELD_WITH_RHS(pipeline_);
+  VENUS_SWAP_FIELD_WITH_RHS(topology_pipelines_);
   VENUS_SWAP_FIELD_WITH_RHS(pipeline_layout_);
 }
 
 void Material::Pipeline::destroy() noexcept {
   pipeline_.destroy();
+  for (auto &item : topology_pipelines_)
+    item.second.destroy();
+  topology_pipelines_.clear();
   pipeline_layout_.destroy();
 }
 
@@ -271,6 +291,14 @@ const pipeline::GraphicsPipeline &Material::Pipeline::operator*() const {
 }
 
 const pipeline::GraphicsPipeline &Material::Pipeline::pipeline() const {
+  return pipeline_;
+}
+
+const pipeline::GraphicsPipeline &
+Material::Pipeline::pipeline(VkPrimitiveTopology topology) const {
+  auto it = topology_pipelines_.find(topology);
+  if (it != topology_pipelines_.end())
+    return it->second;
   return pipeline_;
 }
 

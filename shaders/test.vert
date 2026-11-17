@@ -46,5 +46,6 @@ void main()
   }
 
     //printVec(gl_Position);
+    gl_PointSize = 1.0;
 }
 

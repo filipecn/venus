@@ -104,6 +104,13 @@ VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(CartesianGrid, setBounds,
 
 Result<CartesianGrid>
 CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
+  struct alignas(16) GridParameters {
+    f32 thickness;
+    f32 major_step;
+    f32 minor_step;
+    f32 padding;
+  };
+
   CartesianGrid cg;
 
   // setup material
@@ -154,6 +161,14 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
           .enableShaderDeviceAddress()
           .setDeviceLocal()
           .build(*gd));
+
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      cg.params_,
+      mem::AllocatedBuffer::Config::forUniform(sizeof(GridParameters))
+          .build(*gd));
+  const GridParameters grid_parameters{1.f, 10.f, 1.f, 0.f};
+  VENUS_RETURN_BAD_RESULT(
+      cg.params_.copy(&grid_parameters, sizeof(grid_parameters)));
 
   // copy data
 
@@ -208,6 +223,11 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
             .build(venus::engine::GraphicsEngine::globals()
                        .descriptors.allocator()))
 
+    pipeline::DescriptorWriter()
+        .writeBuffer(0, *cg.params_, sizeof(GridParameters), 0,
+                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+        .update(instance->localDescriptorSet(1));
+
     shape.material_instance = instance;
     cg.shapes_.emplace_back(shape);
     break;
@@ -231,11 +251,12 @@ CartesianGrid &CartesianGrid::operator=(CartesianGrid &&rhs) noexcept {
 void CartesianGrid::destroy() noexcept {
   storage_.vertices.destroy();
   storage_.indices.destroy();
+  storage_.transform.destroy();
+  params_.destroy();
   material_.destroy();
 
   vk_index_buffer_ = VK_NULL_HANDLE;
   vk_vertex_buffer_ = VK_NULL_HANDLE;
-  vk_index_buffer_ = VK_NULL_HANDLE;
   vk_transform_buffer_ = VK_NULL_HANDLE;
   vk_vertex_buffer_address_ = 0;
   vk_index_buffer_address_ = 0;
@@ -245,11 +266,15 @@ void CartesianGrid::destroy() noexcept {
 void CartesianGrid::swap(CartesianGrid &rhs) {
   VENUS_SWAP_FIELD_WITH_RHS(storage_.vertices);
   VENUS_SWAP_FIELD_WITH_RHS(storage_.indices);
+  VENUS_SWAP_FIELD_WITH_RHS(storage_.transform);
+  VENUS_SWAP_FIELD_WITH_RHS(params_);
   VENUS_SWAP_FIELD_WITH_RHS(shapes_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_vertex_buffer_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_index_buffer_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_transform_buffer_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_vertex_buffer_address_);
   VENUS_SWAP_FIELD_WITH_RHS(vk_index_buffer_address_);
+  VENUS_SWAP_FIELD_WITH_RHS(vk_transform_buffer_address_);
   VENUS_SWAP_FIELD_WITH_RHS(vertex_layout_);
   VENUS_SWAP_FIELD_WITH_RHS(material_);
 }

@@ -28,6 +28,8 @@
 
 #include <venus/utils/vk_debug.h>
 
+#include <algorithm>
+
 namespace venus::core {
 
 Device::Config &
@@ -174,8 +176,10 @@ Device::Config::build(const PhysicalDevice &physical_device) const {
 
   Device device;
   device.physical_device_ = physical_device;
+  device.enabled_extensions_ = extensions_;
   VENUS_VK_RETURN_BAD_RESULT(vkCreateDevice(*physical_device, &create_info,
                                             nullptr, &device.vk_device_));
+  volkLoadDevice(device.vk_device_);
 
   VmaVulkanFunctions vulkan_functions = {};
   vulkan_functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
@@ -207,6 +211,7 @@ void Device::swap(Device &rhs) noexcept {
   VENUS_SWAP_FIELD_WITH_RHS(vk_device_);
   VENUS_SWAP_FIELD_WITH_RHS(allocator_);
   VENUS_SWAP_FIELD_WITH_RHS(physical_device_);
+  VENUS_SWAP_FIELD_WITH_RHS(enabled_extensions_);
 }
 
 void Device::destroy() noexcept {
@@ -218,6 +223,7 @@ void Device::destroy() noexcept {
     vkDestroyDevice(vk_device_, nullptr);
     vk_device_ = VK_NULL_HANDLE;
   }
+  enabled_extensions_.clear();
 }
 
 VkDevice Device::operator*() const { return vk_device_; }
@@ -225,5 +231,10 @@ VkDevice Device::operator*() const { return vk_device_; }
 VmaAllocator Device::allocator() const { return allocator_; }
 
 const PhysicalDevice &Device::physical() const { return physical_device_; }
+
+bool Device::hasExtension(std::string_view extension_name) const {
+  return std::find(enabled_extensions_.begin(), enabled_extensions_.end(),
+                   extension_name) != enabled_extensions_.end();
+}
 
 } // namespace venus::core

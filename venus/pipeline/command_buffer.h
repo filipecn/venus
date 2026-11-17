@@ -344,6 +344,9 @@ public:
   void transitionImage(VkImage vk_image, VkImageLayout current_layout,
                        VkImageLayout new_layout) const;
 
+  /// Makes a transfer write visible to later host reads of a buffer.
+  void makeBufferHostReadable(VkBuffer buffer) const;
+
 private:
   friend class CommandPool;
 

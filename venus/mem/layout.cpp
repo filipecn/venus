@@ -36,6 +36,11 @@ VertexLayout &VertexLayout::pushComponent(VertexLayout::ComponentType component,
   return *this;
 }
 
+VertexLayout &VertexLayout::setStride(VkDeviceSize stride) {
+  stride_ = stride;
+  return *this;
+}
+
 bool VertexLayout::contains(const VertexLayout &other) {
   for (const auto &c : other.components_)
     if (!componentFormat(c.type))

@@ -30,6 +30,8 @@
 #include <venus/core/physical_device.h>
 #include <venus/utils/macros.h>
 
+#include <string_view>
+
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
 #define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
 #include <vk_mem_alloc.h>
@@ -111,6 +113,8 @@ public:
   void swap(Device &rhs) noexcept;
   /// \return Associated physical device.
   const PhysicalDevice &physical() const;
+  /// Returns whether this logical device was created with the extension enabled.
+  bool hasExtension(std::string_view extension_name) const;
   /// \return Underlying vulkan logical device object.
   VkDevice operator*() const;
   /// \return allocator
@@ -120,6 +124,7 @@ protected:
   VmaAllocator allocator_{VK_NULL_HANDLE};
   VkDevice vk_device_{VK_NULL_HANDLE};
   PhysicalDevice physical_device_;
+  std::vector<std::string> enabled_extensions_;
 
 #ifdef VENUS_INCLUDE_DEBUG_TRAITS
   friend struct hermes::DebugTraits<Device>;

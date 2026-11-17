@@ -31,6 +31,7 @@
 
 #include <backends/imgui_impl_vulkan.h>
 #include <hermes/colors/argb_colors.h>
+#include <imgui.h>
 
 std::vector<std::string> getInstanceExtensions() {
   std::vector<std::string> extensions;
@@ -89,6 +90,8 @@ VeResult GraphicsEngine::Globals::Shaders::init(VkDevice vk_device) {
   CREATE_SHADER_MODULE(frag_shaders_["mesh_pbr"], mesh_pbr.frag.spv)
   CREATE_SHADER_MODULE(vert_shaders_["vdb_volume"], ve_vdb_volume.vert.spv)
   CREATE_SHADER_MODULE(frag_shaders_["vdb_volume"], ve_vdb_volume.frag.spv)
+  CREATE_SHADER_MODULE(frag_shaders_["picking"], picking.frag.spv)
+  CREATE_SHADER_MODULE(vert_shaders_["picking"], picking.vert.spv)
 
   CREATE_SHADER_MODULE(vert_shaders_["test"], test.vert.spv)
   CREATE_SHADER_MODULE(frag_shaders_["bindless_test"], bindless_test.vert.spv)
@@ -112,6 +115,8 @@ VeResult GraphicsEngine::Globals::Materials::init(GraphicsDevice &gd) {
       color, scene::materials::Material_Test::material(gd));
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(empty,
                                     scene::materials::MAT_Empty::material(gd));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
+      picking, scene::materials::MAT_Picking::material(gd));
 #ifdef VENUS_INCLUDE_GLTF
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       gltf_metallic_roughness,
@@ -133,6 +138,7 @@ void GraphicsEngine::Globals::Materials::clear() {
 #endif
   color.destroy();
   empty.destroy();
+  picking.destroy();
 }
 
 pipeline::DescriptorAllocator &
@@ -380,15 +386,12 @@ VeResult GraphicsEngine::Globals::UI::init(engine::GraphicsEngine &ge) {
   ImGui_ImplVulkan_LoadFunctions(
       ge.instance_.apiVersion().version(),
       [](const char *function_name, void *globals_ui) {
-        PFN_vkVoidFunction instanceAddr = vkGetInstanceProcAddr(
-            (*(reinterpret_cast<GraphicsEngine::Globals::UI *>(globals_ui)))
-                .vk_instance_,
-            function_name);
-        PFN_vkVoidFunction deviceAddr = vkGetDeviceProcAddr(
-            (*(reinterpret_cast<GraphicsEngine::Globals::UI *>(globals_ui)))
-                .vk_device_,
-            function_name);
-        return deviceAddr ? deviceAddr : instanceAddr;
+        auto &ui = *reinterpret_cast<GraphicsEngine::Globals::UI *>(globals_ui);
+        PFN_vkVoidFunction instance_address =
+            vkGetInstanceProcAddr(ui.vk_instance_, function_name);
+        if (instance_address)
+          return instance_address;
+        return vkGetDeviceProcAddr(ui.vk_device_, function_name);
       },
       this);
   ImGui_ImplVulkan_Init(&init_info);
@@ -572,5 +575,9 @@ GraphicsEngine::Cache &GraphicsEngine::cache() { return s_instance.cache_; }
 GraphicsDevice &GraphicsEngine::device() { return s_instance.gd_; }
 
 io::Display::Ptr GraphicsEngine::display() { return s_instance.display_; }
+
+bool GraphicsEngine::uiWantsCaptureMouse() {
+  return ImGui::GetIO().WantCaptureMouse;
+}
 
 } // namespace venus::engine

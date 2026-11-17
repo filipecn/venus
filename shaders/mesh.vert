@@ -46,5 +46,6 @@ void main()
 	outColor = v.color.xyz * materialData.colorFactors.xyz;	
 	outUV.x = v.uv_x;
 	outUV.y = v.uv_y;
+  gl_PointSize = 1.0;
 }
 

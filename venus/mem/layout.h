@@ -73,6 +73,8 @@ public:
   /// \param component The component type.
   /// \param format The component data format.
   VertexLayout &pushComponent(ComponentType component, VkFormat format);
+  /// Overrides the stride while preserving the declared attribute offsets.
+  VertexLayout &setStride(VkDeviceSize stride);
   /// \param other
   /// \return true if this layout contains other's components.
   bool contains(const VertexLayout &other);

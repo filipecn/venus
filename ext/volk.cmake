@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
   volk
   GIT_REPOSITORY https://github.com/zeux/volk.git
-  GIT_TAG 1.3.270)
+  GIT_TAG 1.4.350)
 
 set(VOLK_INSTALL
     ON
