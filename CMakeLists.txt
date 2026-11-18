@@ -25,7 +25,7 @@ option(VENUS_BUILD_DOCS "build library documentation" OFF)
 option(VENUS_INCLUDE_DEBUG_TRAITS "enable venus::to_string methods" ON)
 option(VENUS_INCLUDE_VDB "include vdb volumes support" OFF)
 option(VENUS_INCLUDE_GLTF "include gltf support" OFF)
-option(VENUS_USE_DOUBLE_AS_DEFAULT "use double as default type" ON)
+option(VENUS_USE_DOUBLE_AS_DEFAULT "use double as default type" OFF)
 
 # ##############################################################################
 # COMPILATION                                                                  #
