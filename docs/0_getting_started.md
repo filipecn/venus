@@ -36,9 +36,9 @@ documentation for each of these groups here:
       venus::scene::AllocatedModel, triangle_model_ptr,
       venus::scene::AllocatedModel::Config::fromShape(
           venus::scene::shapes::triangle, //
-          hermes::geo::point3(-2.f, 0.f, 0.f),
-          hermes::geo::point3(-2.f, 0.5f, 0.5f),
-          hermes::geo::point3(-2.f, 0.f, 0.5f),
+          hermes::geo::point3f(-2.f, 0.f, 0.f),
+          hermes::geo::point3f(-2.f, 0.5f, 0.5f),
+          hermes::geo::point3f(-2.f, 0.f, 0.5f),
           venus::scene::shape_option_bits::none)
           .create(venus::engine::GraphicsEngine::device()));
 

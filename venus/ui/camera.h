@@ -52,8 +52,8 @@ public:
 
   struct ControlState {
     bool dragging{false};
-    hermes::geo::point2 start;
-    hermes::geo::point2 last_position;
+    hermes::geo::point2f start;
+    hermes::geo::point2f last_position;
     ControlType mode;
   };
 
@@ -65,14 +65,15 @@ public:
   /// \param button button code
   /// \param p normalized mouse position (NDC)
   void mouseButton(io::Action action, io::MouseButton button,
-                   const hermes::geo::point2 &ndc);
+                   const hermes::geo::point2f &ndc);
   /// process mouse move event
   /// \param p normalized mouse position (NDC)
-  void mouseMove(const hermes::geo::point2 &ndc);
+  void mouseMove(const hermes::geo::point2f &ndc);
   /// process mouse wheel event
   /// \param p normalized mouse position (NDC)
   /// \param d scroll vector
-  void mouseScroll(const hermes::geo::point2 &ndc, const hermes::geo::vec2 &d);
+  void mouseScroll(const hermes::geo::point2f &ndc,
+                   const hermes::geo::vec2f &d);
   /// Set camera object to be manipulated by this constroller.
   CameraController &setCamera(scene::Camera::Ptr camera);
   /// Add control to camera
@@ -92,18 +93,18 @@ protected:
   /// \param tb trackball reference
   /// \param camera active viewport camera
   /// \param p mouse position in normalized window position (NPos)
-  void start(const hermes::geo::point2 &p);
+  void start(const hermes::geo::point2f &p);
   /// Stops the manipulation (usually after a button release)
   /// \param p mouse position in normalized window position (NPos)
-  void stop(const hermes::geo::point2 &p);
+  void stop(const hermes::geo::point2f &p);
 
   scene::Camera::Ptr camera_;
   ControlState input_state_;
   std::unordered_map<h_index, ControlType> input_;
   std::unordered_map<ControlType, h_index> modes_;
   std::vector<std::function<void(scene::Camera::Ptr, ControlState &,
-                                 const hermes::geo::point2 &,
-                                 const hermes::geo::vec2 &)>>
+                                 const hermes::geo::point2f &,
+                                 const hermes::geo::vec2f &)>>
       behaviors_;
 };
 

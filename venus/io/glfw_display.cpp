@@ -76,7 +76,7 @@ VeResult GLFW_Window::init(const char *name, const VkExtent2D &extent) {
         GLFW_Window *w =
             static_cast<GLFW_Window *>(glfwGetWindowUserPointer(window));
         if (w && w->input_event_func)
-          w->input_event_func(InputEvent::mouseMoveEvent(hermes::geo::point2(
+          w->input_event_func(InputEvent::mouseMoveEvent(hermes::geo::point2f(
               static_cast<real_t>(xpos), static_cast<real_t>(ypos))));
       });
 
@@ -96,7 +96,7 @@ VeResult GLFW_Window::init(const char *name, const VkExtent2D &extent) {
         GLFW_Window *w =
             static_cast<GLFW_Window *>(glfwGetWindowUserPointer(window));
         if (w && w->input_event_func)
-          w->input_event_func(InputEvent::mouseScrollEvent(hermes::geo::vec2(
+          w->input_event_func(InputEvent::mouseScrollEvent(hermes::geo::vec2f(
               static_cast<real_t>(xoffset), static_cast<real_t>(yoffset))));
       });
 
@@ -154,18 +154,18 @@ VkExtent2D GLFW_Window::waitSize() const {
 
 VkExtent2D GLFW_Window::size() const { return resolution_; }
 
-hermes::geo::point2 GLFW_Window::cursorPos() const {
+hermes::geo::point2f GLFW_Window::cursorPos() const {
   f64 xpos, ypos;
   glfwGetCursorPos(window_, &xpos, &ypos);
-  return hermes::geo::point2(static_cast<real_t>(xpos),
-                             static_cast<real_t>(ypos));
+  return hermes::geo::point2f(static_cast<real_t>(xpos),
+                              static_cast<real_t>(ypos));
 }
 
-hermes::geo::point2 GLFW_Window::cursorNDC() const {
+hermes::geo::point2f GLFW_Window::cursorNDC() const {
   f64 xpos, ypos;
   glfwGetCursorPos(window_, &xpos, &ypos);
   int vp[] = {0, 0, (int)resolution_.width, (int)resolution_.height};
-  return hermes::geo::point2(
+  return hermes::geo::point2f(
       static_cast<real_t>((xpos - vp[0]) / vp[2] * 2.0 - 1.0),
       static_cast<real_t>((ypos - vp[1]) / vp[3] * 2.0 - 1.0));
 }

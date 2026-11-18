@@ -49,7 +49,7 @@ VeResult init(app::RA_SceneApp &app) {
   VENUS_DECLARE_SHARED_PTR_FROM_RESULT_OR_RETURN_BAD_RESULT(
       scene::AllocatedModel, cube_model_ptr,
       scene::AllocatedModel::Config::fromShape(
-          scene::shapes::box, hermes::geo::bounds::bbox3::unit(),
+          scene::shapes::box, hermes::geo::bounds::bbox3f::unit(),
           scene::shape_option_bits::none)
           .build(engine::GraphicsEngine::device()));
 

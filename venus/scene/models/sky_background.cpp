@@ -51,7 +51,7 @@ Result<Material> createSkyMaterial(const engine::GraphicsDevice &gd) {
 
   auto pipeline_layout_config =
       pipeline::Pipeline::Layout::Config().addPushConstantRange(
-          VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(hermes::geo::Transform));
+          VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(hermes::geo::transform3f));
 
   auto pipeline_config =
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
@@ -100,7 +100,7 @@ SkyBackground::Config::build(const engine::GraphicsDevice &gd) const {
                 auto inv_viewproj = hermes::math::transpose(
                     (ctx.inv_view * ctx.inv_projection).matrix());
                 VENUS_RETURN_BAD_HE_RESULT(
-                    block.resize(sizeof(hermes::geo::Transform)));
+                    block.resize(sizeof(hermes::geo::transform3f)));
                 VENUS_RETURN_BAD_HE_RESULT(block.copy(&inv_viewproj));
                 return VeResult::noError();
               })

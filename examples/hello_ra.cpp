@@ -48,9 +48,9 @@ VeResult init(venus::app::RA_SceneApp &app) {
       venus::scene::AllocatedModel, triangle_model_ptr,
       venus::scene::AllocatedModel::Config::fromShape(
           venus::scene::shapes::triangle, //
-          hermes::geo::point3(0.f, 0.f, 0.f),
-          hermes::geo::point3(0.f, 1.f, 0.f),
-          hermes::geo::point3(1.f, 0.f, 0.f),
+          hermes::geo::point3f(0.f, 0.f, 0.f),
+          hermes::geo::point3f(0.f, 1.f, 0.f),
+          hermes::geo::point3f(1.f, 0.f, 0.f),
           venus::scene::shape_option_bits::none)
           .build(venus::engine::GraphicsEngine::device()));
 

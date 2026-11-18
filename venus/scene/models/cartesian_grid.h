@@ -36,11 +36,11 @@ public:
 
   struct Config {
     Config() noexcept;
-    Config &setBounds(const hermes::geo::bounds::bbox3 &bounds);
+    Config &setBounds(const hermes::geo::bounds::bbox3f &bounds);
     Result<CartesianGrid> build(const engine::GraphicsDevice &gd) const;
 
   private:
-    hermes::geo::bounds::bbox3 bounds_;
+    hermes::geo::bounds::bbox3f bounds_;
   };
 
   VENUS_DECLARE_RAII_FUNCTIONS(CartesianGrid);

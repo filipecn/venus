@@ -161,7 +161,7 @@ std::optional<Picking::PickResult> Picking::takeResult() {
 
 VeResult Picking::pick(const pipeline::CommandBuffer &cb,
                        const scene::RasterContext &ctx,
-                       const hermes::geo::Transform &view_projection) {
+                       const hermes::geo::transform3f &view_projection) {
   if (!request_pending_)
     return VeResult::noError();
 
@@ -217,7 +217,8 @@ VeResult Picking::pick(const pipeline::CommandBuffer &cb,
     for (const auto &component : o.vertex_layout.components()) {
       if (component.type == mem::VertexLayout::ComponentType::Position &&
           component.format == VK_FORMAT_R32G32B32_SFLOAT &&
-          component.offset == 0 && o.vertex_layout.stride() >= 3 * sizeof(f32)) {
+          component.offset == 0 &&
+          o.vertex_layout.stride() >= 3 * sizeof(f32)) {
         has_compatible_position = true;
         break;
       }
@@ -236,9 +237,8 @@ VeResult Picking::pick(const pipeline::CommandBuffer &cb,
           scene::Material::Instance, instance,
           scene::materials::MAT_Picking().write(globals.descriptors.allocator(),
                                                 material));
-      material_it = picking_materials_
-                        .emplace(o.vertex_layout.stride(), instance)
-                        .first;
+      material_it =
+          picking_materials_.emplace(o.vertex_layout.stride(), instance).first;
     }
     const auto &picking_material = material_it->second;
     cb.bindPipeline(*picking_material->pipeline(),
@@ -250,8 +250,8 @@ VeResult Picking::pick(const pipeline::CommandBuffer &cb,
       cb.bindIndexBuffer(o.index_buffer, 0, o.index_type);
 
     engine::GraphicsEngine::Globals::Types::PickingPushConstants pc{};
-    pc.mvp = hermes::geo::Transform(hermes::math::transpose(
-        (view_projection * o.transform).matrix()));
+    pc.mvp = hermes::geo::transform3f(
+        hermes::math::transpose((view_projection * o.transform).matrix()));
     pc.object_id = object_index;
     pc.first_vertex = o.first_vertex;
 
@@ -264,7 +264,8 @@ VeResult Picking::pick(const pipeline::CommandBuffer &cb,
         cb.pushConstants(
             *picking_material->pipelineLayout(),
             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-            sizeof(engine::GraphicsEngine::Globals::Types::PickingPushConstants),
+            sizeof(
+                engine::GraphicsEngine::Globals::Types::PickingPushConstants),
             &pc);
         cb.drawIndexed(3, 1, o.first_index + primitive_index * 3,
                        o.vertex_offset, 0);

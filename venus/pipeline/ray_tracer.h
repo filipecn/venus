@@ -49,8 +49,8 @@ public:
     mem::VertexLayout vertex_layout;
   };
   struct UniformBuffer {
-    hermes::geo::Transform view_inverse;
-    hermes::geo::Transform proj_inverse;
+    hermes::geo::transform3f view_inverse;
+    hermes::geo::transform3f proj_inverse;
   };
   VENUS_DECLARE_RAII_FUNCTIONS(RayTracer)
   void destroy() noexcept;

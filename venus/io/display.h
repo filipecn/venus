@@ -78,8 +78,8 @@ public:
     HERMES_ASSERT(resolution_.height);
     return resolution_.width / static_cast<f32>(resolution_.height);
   }
-  virtual hermes::geo::point2 cursorPos() const = 0;
-  virtual hermes::geo::point2 cursorNDC() const = 0;
+  virtual hermes::geo::point2f cursorPos() const = 0;
+  virtual hermes::geo::point2f cursorNDC() const = 0;
 
   // input callback
   std::function<void(const InputEvent &)> input_event_func;

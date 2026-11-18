@@ -247,7 +247,7 @@ Result<RA_SceneApp> RA_SceneApp::Config::build() const {
     auto default_2d_camera_ptr = scene::Camera::Ptr::shared();
     *default_2d_camera_ptr =
         scene::Camera::orthographic(-10.f, 10.f, -10.f, 10.f)
-            .setPosition(hermes::geo::point3(0, 1, 0));
+            .setPosition(hermes::geo::point3f(0, 1, 0));
     default_2d_camera_ptr->projection()->setFar(1000);
     default_2d_camera_ptr->projection()->setNear(-1000);
 

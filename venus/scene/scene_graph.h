@@ -53,7 +53,7 @@ struct RasterContext {
     // scene
 
     hermes::geo::bounds::bsphere3 bounds;
-    hermes::geo::Transform transform;
+    hermes::geo::transform3f transform;
 
     // mesh
 
@@ -81,7 +81,7 @@ struct RasterContext {
 struct TracerContext {
   struct RenderObject {
     mem::VertexLayout vertex_layout;
-    hermes::geo::Transform transform;
+    hermes::geo::transform3f transform;
     VkDeviceAddress vertex_buffer_address;
     VkDeviceAddress index_buffer_address;
     VkDeviceAddress transform_buffer_address;
@@ -110,7 +110,7 @@ DrawContextOverloaded(Ts...) -> DrawContextOverloaded<Ts...>;
 /// Interface for objects that can produce render objects.
 class Renderable {
 public:
-  virtual void draw(const hermes::geo::Transform &top_matrix,
+  virtual void draw(const hermes::geo::transform3f &top_matrix,
                     DrawContext &context) = 0;
 
   void setVisible(bool visible);
@@ -139,14 +139,14 @@ public:
 
   // Interface
 
-  virtual void draw(const hermes::geo::Transform &top_matrix,
+  virtual void draw(const hermes::geo::transform3f &top_matrix,
                     DrawContext &context) override;
   virtual void destroy() noexcept override;
 
   // access
 
   /// \return Node local transform matrix.
-  const hermes::geo::Transform &localTransform() const;
+  const hermes::geo::transform3f &localTransform() const;
   /// \return This node parent.
   Node::Ptr parent();
 
@@ -160,18 +160,18 @@ public:
   void addChild(Node::Ptr child);
   /// Sets a local transform for this node.
   /// \param transform Local transform matrix.
-  void setLocalTransform(const hermes::geo::Transform &transform);
+  void setLocalTransform(const hermes::geo::transform3f &transform);
   /// Propagates the world transform of all nodes downwards.
   /// \param parent_matrix New transform coming from above.
-  void updateTrasform(const hermes::geo::Transform &parent_matrix);
+  void updateTrasform(const hermes::geo::transform3f &parent_matrix);
 
 protected:
   // graph
   Node::Ptr parent_;
   std::vector<Ptr> children_;
   // geometry
-  hermes::geo::Transform local_matrix_;
-  hermes::geo::Transform world_matrix_;
+  hermes::geo::transform3f local_matrix_;
+  hermes::geo::transform3f world_matrix_;
 
 #ifdef VENUS_INCLUDE_DEBUG_TRAITS
   virtual hermes::DebugMessage debugMessage() const {
@@ -201,7 +201,7 @@ public:
   virtual ~ModelNode() noexcept = default;
   ModelNode(Model::Ptr model);
 
-  void draw(const hermes::geo::Transform &top_matrix,
+  void draw(const hermes::geo::transform3f &top_matrix,
             DrawContext &context) override;
   void destroy() noexcept override;
 
@@ -234,7 +234,7 @@ public:
   virtual ~CameraNode() noexcept = default;
   CameraNode(Camera::Ptr camera);
 
-  void draw(const hermes::geo::Transform &top_matrix,
+  void draw(const hermes::geo::transform3f &top_matrix,
             DrawContext &context) override;
   void destroy() noexcept override;
 
@@ -269,7 +269,7 @@ public:
 
   ~GLTF_Node() noexcept;
 
-  void draw(const hermes::geo::Transform &top_matrix,
+  void draw(const hermes::geo::transform3f &top_matrix,
             DrawContext &ctx) override;
   void destroy() noexcept override;
 
@@ -310,7 +310,7 @@ public:
 
   ~VDB_Node() noexcept;
 
-  void draw(const hermes::geo::Transform &top_matrix,
+  void draw(const hermes::geo::transform3f &top_matrix,
             DrawContext &ctx) override;
   void destroy() noexcept override;
 
@@ -361,7 +361,7 @@ public:
     return reinterpret_cast<NodeType *>(it->second.get());
   }
 
-  void draw(const hermes::geo::Transform &top_matrix,
+  void draw(const hermes::geo::transform3f &top_matrix,
             DrawContext &context) override;
 
   void destroy() noexcept override;

@@ -115,11 +115,11 @@ struct KeyEvent {
 };
 
 struct MouseMoveEvent {
-  hermes::geo::point2 pos;
+  hermes::geo::point2f pos;
 };
 
 struct MouseScrollEvent {
-  hermes::geo::vec2 offset;
+  hermes::geo::vec2f offset;
 };
 
 struct MouseButtonEvent {
@@ -129,10 +129,10 @@ struct MouseButtonEvent {
 };
 
 struct InputEvent {
-  static InputEvent mouseMoveEvent(const hermes::geo::point2 &pos) {
+  static InputEvent mouseMoveEvent(const hermes::geo::point2f &pos) {
     return InputEvent(MouseMoveEvent{.pos = pos});
   }
-  static InputEvent mouseScrollEvent(const hermes::geo::vec2 &offset) {
+  static InputEvent mouseScrollEvent(const hermes::geo::vec2f &offset) {
     return InputEvent(MouseScrollEvent{.offset = offset});
   }
   static InputEvent mouseButtonEvent(Action action, MouseButton button,

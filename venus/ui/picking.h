@@ -67,7 +67,7 @@ public:
   std::optional<PickResult> takeResult();
   VeResult pick(const pipeline::CommandBuffer &cb,
                 const scene::RasterContext &ctx,
-                const hermes::geo::Transform &view_projection);
+                const hermes::geo::transform3f &view_projection);
 
   void destroy() noexcept;
 

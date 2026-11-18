@@ -66,17 +66,17 @@ public:
     struct Types {
       /// Common push constants for shaders.
       struct DrawPushConstants {
-        hermes::geo::Transform world_matrix;
+        hermes::geo::transform3f world_matrix;
         VkDeviceAddress vertex_buffer;
       };
       /// Common scene data for shaders.
       struct CameraData {
-        hermes::geo::Transform view;
-        hermes::geo::Transform proj;
-        hermes::geo::point3 eye;
+        hermes::geo::transform3f view;
+        hermes::geo::transform3f proj;
+        hermes::geo::point3f eye;
       };
       struct PickingPushConstants {
-        hermes::geo::Transform mvp;
+        hermes::geo::transform3f mvp;
         u32 object_id;
         u32 primitive_id;
         u32 first_vertex;

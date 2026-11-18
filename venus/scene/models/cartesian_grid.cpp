@@ -64,7 +64,7 @@ Result<Material> createMaterial(const engine::GraphicsDevice &gd) {
           .addDescriptorSetLayout(*l)
           .addPushConstantRange(VK_SHADER_STAGE_VERTEX_BIT |
                                     VK_SHADER_STAGE_FRAGMENT_BIT,
-                                0, sizeof(hermes::geo::Transform));
+                                0, sizeof(hermes::geo::transform3f));
 
   auto pipeline_config =
       pipeline::GraphicsPipeline::Config::forDynamicRendering(gd.swapchain())
@@ -94,12 +94,12 @@ Result<Material> createMaterial(const engine::GraphicsDevice &gd) {
 }
 
 CartesianGrid::Config::Config() noexcept {
-  bounds_ = hermes::geo::bounds::bbox3::unit();
+  bounds_ = hermes::geo::bounds::bbox3f::unit();
   bounds_.expand(10.f);
 }
 
 VENUS_DEFINE_SET_CONFIG_FIELD_METHOD(CartesianGrid, setBounds,
-                                     const hermes::geo::bounds::bbox3 &,
+                                     const hermes::geo::bounds::bbox3f &,
                                      bounds_ = value)
 
 Result<CartesianGrid>
@@ -119,16 +119,16 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
   cg.material_ = material;
 
   // plane meshes
-  hermes::geo::vec2 plane_size(10.f, 10.f);
+  hermes::geo::vec2f plane_size(10.f, 10.f);
   shape_options options = shape_option_bits::uv;
   HERMES_UNUSED_VARIABLE(options)
   Model::Mesh meshes[3];
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      meshes[0], shapes::plane(hermes::geo::Plane::XZ(), plane_size));
+      meshes[0], shapes::plane(hermes::geo::plane3f::XZ(), plane_size));
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      meshes[1], shapes::plane(hermes::geo::Plane::XY(), plane_size));
+      meshes[1], shapes::plane(hermes::geo::plane3f::XY(), plane_size));
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      meshes[2], shapes::plane(hermes::geo::Plane::YZ(), plane_size));
+      meshes[2], shapes::plane(hermes::geo::plane3f::YZ(), plane_size));
 
   Model::Mesh mesh;
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(mesh, shapes::merge(meshes[0], meshes[1]));
@@ -140,7 +140,7 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
   // vertices
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       cg.storage_.vertices,
-      mem::AllocatedBuffer::Config ::forStorage(
+      mem::AllocatedBuffer::Config::forStorage(
           vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
           .enableShaderDeviceAddress()
           .setDeviceLocal()
@@ -148,16 +148,16 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
   // indices
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       cg.storage_.indices,
-      mem::AllocatedBuffer::Config ::forStorage(
-          index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+      mem::AllocatedBuffer::Config::forStorage(index_buffer_size,
+                                               VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
           .enableShaderDeviceAddress()
           .setDeviceLocal()
           .build(*gd));
 
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
       cg.storage_.transform,
-      mem::AllocatedBuffer::Config ::forStorage(
-          sizeof(hermes::geo::Transform), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+      mem::AllocatedBuffer::Config::forStorage(
+          sizeof(hermes::geo::transform3f), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
           .enableShaderDeviceAddress()
           .setDeviceLocal()
           .build(*gd));
@@ -179,9 +179,9 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
   buffer_writter.addBuffer(*cg.storage_.indices, mesh.indices.data(),
                            sizeof(u32) * static_cast<u32>(mesh.indices.size()));
 
-  hermes::geo::Transform identity;
+  hermes::geo::transform3f identity;
   buffer_writter.addBuffer(*cg.storage_.transform, &identity,
-                           sizeof(hermes::geo::Transform));
+                           sizeof(hermes::geo::transform3f));
 
   VENUS_RETURN_BAD_RESULT(buffer_writter.immediateSubmit(gd));
 
@@ -214,7 +214,7 @@ CartesianGrid::Config::build(const engine::GraphicsDevice &gd) const {
                   auto inv_viewproj = hermes::math::transpose(
                       (ctx.inv_view * ctx.inv_projection).matrix());
                   VENUS_RETURN_BAD_HE_RESULT(
-                      block.resize(sizeof(hermes::geo::Transform)));
+                      block.resize(sizeof(hermes::geo::transform3f)));
                   VENUS_RETURN_BAD_HE_RESULT(block.copy(&inv_viewproj));
                   return VeResult::noError();
                 })

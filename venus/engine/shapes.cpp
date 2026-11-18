@@ -28,26 +28,26 @@
 
 namespace venus::scene::shapes {
 
-Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
-                             const hermes::geo::point3 &b,
-                             const hermes::geo::point3 &c,
+Result<Model::Mesh> triangle(const hermes::geo::point3f &a,
+                             const hermes::geo::point3f &b,
+                             const hermes::geo::point3f &c,
                              shape_options options) {
   HERMES_UNUSED_VARIABLE(options);
   Model::Mesh mesh;
-  mesh.aos.pushField<hermes::geo::point3>("position");
+  mesh.aos.pushField<hermes::geo::point3f>("position");
   auto err = mesh.aos.resize(3);
   if (err != HeError::None)
     return VeResult::heError(err);
-  mesh.aos.get<hermes::geo::point3>(0, 0) = a;
-  mesh.aos.get<hermes::geo::point3>(0, 1) = b;
-  mesh.aos.get<hermes::geo::point3>(0, 2) = c;
+  mesh.aos.get<hermes::geo::point3f>(0, 0) = a;
+  mesh.aos.get<hermes::geo::point3f>(0, 1) = b;
+  mesh.aos.get<hermes::geo::point3f>(0, 2) = c;
   mesh.indices = {0, 1, 2};
   mesh.vertex_layout.pushComponent(mem::VertexLayout::ComponentType::Position,
                                    VK_FORMAT_R32G32B32_SFLOAT);
   return Result<Model::Mesh>(std::move(mesh));
 }
 
-Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
+Result<Model::Mesh> box(const hermes::geo::bounds::bbox3f &box,
                         shape_options options) {
   // check options
   if (options.contain(shape_option_bits::tangent_space))
@@ -71,23 +71,23 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
   Model::Mesh mesh;
 
   // data fields
-  const u64 position_id = mesh.aos.pushField<hermes::geo::point3>("position");
+  const u64 position_id = mesh.aos.pushField<hermes::geo::point3f>("position");
   const u64 normal_id =
-      generate_normals ? mesh.aos.pushField<hermes::geo::vec3>("normal") : 0;
+      generate_normals ? mesh.aos.pushField<hermes::geo::vec3f>("normal") : 0;
   const u64 uv_id =
-      generate_uvs ? mesh.aos.pushField<hermes::geo::point2>("uvs") : 0;
+      generate_uvs ? mesh.aos.pushField<hermes::geo::point2f>("uvs") : 0;
   const u64 uvw_id =
-      generate_uvw ? mesh.aos.pushField<hermes::geo::point3>("uvw") : 0;
+      generate_uvw ? mesh.aos.pushField<hermes::geo::point3f>("uvw") : 0;
   const u64 tangent_id =
-      generate_tangents ? mesh.aos.pushField<hermes::geo::vec3>("tangent") : 0;
+      generate_tangents ? mesh.aos.pushField<hermes::geo::vec3f>("tangent") : 0;
   const u64 bitangent_id =
-      generate_bitangents ? mesh.aos.pushField<hermes::geo::vec3>("bitangent")
+      generate_bitangents ? mesh.aos.pushField<hermes::geo::vec3f>("bitangent")
                           : 0;
 
   HERMES_UNUSED_VARIABLE(tangent_id)
   HERMES_UNUSED_VARIABLE(bitangent_id)
   // base vertices
-  hermes::geo::point3 base_vertices[8] = {
+  hermes::geo::point3f base_vertices[8] = {
       {box.lower.x, box.lower.y, box.lower.z},  // 0
       {box.upper.x, box.lower.y, box.lower.z},  // 1
       {box.upper.x, box.upper.y, box.lower.z},  // 2
@@ -98,14 +98,14 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
       {box.lower.x, box.upper.y, box.upper.z}}; // 7
 
   // base uvs
-  hermes::geo::point2 base_uvs[4] = {
+  hermes::geo::point2f base_uvs[4] = {
       {0, 0}, // 0
       {1, 0}, // 1
       {1, 1}, // 2
       {0, 1}, // 3
   };
 
-  hermes::geo::point3 base_uvw[8] = {
+  hermes::geo::point3f base_uvw[8] = {
       {0, 0, 0}, // 0
       {1, 0, 0}, // 1
       {1, 1, 0}, // 2
@@ -116,7 +116,7 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
       {0, 1, 1}, // 7
   };
 
-  hermes::geo::vec3 base_normals[6] = {
+  hermes::geo::vec3f base_normals[6] = {
       {0, 0, -1}, // -Z
       {0, 0, 1},  // +Z
       {0, -1, 0}, // -Y
@@ -171,7 +171,7 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
     if (unique_positions) {
     } else {
       for (u32 i = 0; i < n_vertices; ++i)
-        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
+        mesh.aos.get<hermes::geo::point3f>(position_id, i) = base_vertices[i];
     }
   } else {
     // tesselate cube
@@ -189,16 +189,16 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
     } else {
       HERMES_ASSERT(n_vertices == 8);
       for (u32 i = 0; i < n_vertices; ++i) {
-        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
+        mesh.aos.get<hermes::geo::point3f>(position_id, i) = base_vertices[i];
         if (generate_uvw)
-          mesh.aos.get<hermes::geo::point3>(uvw_id, i) = base_uvw[i];
+          mesh.aos.get<hermes::geo::point3f>(uvw_id, i) = base_uvw[i];
         if (generate_uvs)
-          mesh.aos.get<hermes::geo::point2>(uv_id, i) = base_uvs[i % 4];
+          mesh.aos.get<hermes::geo::point2f>(uv_id, i) = base_uvs[i % 4];
       }
       if (generate_normals) {
         for (int f = 0; f < 6; ++f)
           for (int i = 0; i < 4; ++i)
-            mesh.aos.get<hermes::geo::vec3>(normal_id, f * 4 + i) =
+            mesh.aos.get<hermes::geo::vec3f>(normal_id, f * 4 + i) =
                 flip_normals ? -base_normals[f] : base_normals[f];
       }
     }
@@ -206,8 +206,8 @@ Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
   return Result<Model::Mesh>(std::move(mesh));
 }
 
-Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
-                          const hermes::geo::vec2 &scale,
+Result<Model::Mesh> plane(const hermes::geo::plane3f &plane,
+                          const hermes::geo::vec2f &scale,
                           shape_options options) {
 
   // check options
@@ -233,30 +233,30 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
   Model::Mesh mesh;
 
   // data fields
-  const u64 position_id = mesh.aos.pushField<hermes::geo::point3>("position");
+  const u64 position_id = mesh.aos.pushField<hermes::geo::point3f>("position");
   const u64 normal_id =
-      generate_normals ? mesh.aos.pushField<hermes::geo::vec3>("normal") : 0;
+      generate_normals ? mesh.aos.pushField<hermes::geo::vec3f>("normal") : 0;
   const u64 uv_id =
-      generate_uvs ? mesh.aos.pushField<hermes::geo::point2>("uvs") : 0;
+      generate_uvs ? mesh.aos.pushField<hermes::geo::point2f>("uvs") : 0;
   const u64 tangent_id =
-      generate_tangents ? mesh.aos.pushField<hermes::geo::vec3>("tangent") : 0;
+      generate_tangents ? mesh.aos.pushField<hermes::geo::vec3f>("tangent") : 0;
   const u64 bitangent_id =
-      generate_bitangents ? mesh.aos.pushField<hermes::geo::vec3>("bitangent")
+      generate_bitangents ? mesh.aos.pushField<hermes::geo::vec3f>("bitangent")
                           : 0;
 
   HERMES_UNUSED_VARIABLE(tangent_id)
   HERMES_UNUSED_VARIABLE(bitangent_id)
 
   // find tangent vectors
-  hermes::geo::vec3 tangent(0.f, 1.f, 0.f);
-  hermes::geo::vec3 bitangent =
-      hermes::geo::cross(tangent, hermes::geo::vec3(plane.normal));
+  hermes::geo::vec3f tangent(0.f, 1.f, 0.f);
+  hermes::geo::vec3f bitangent =
+      hermes::geo::cross(tangent, hermes::geo::vec3f(plane.normal));
 
   // if normal and tangent are parallel, pick another tangent base
   if (hermes::numbers::cmp::is_zero(bitangent.length2(),
                                     static_cast<real_t>(1e-6))) {
-    tangent = hermes::geo::vec3(1.f, 0.f, 0.f);
-    bitangent = hermes::geo::cross(tangent, hermes::geo::vec3(plane.normal));
+    tangent = hermes::geo::vec3f(1.f, 0.f, 0.f);
+    bitangent = hermes::geo::cross(tangent, hermes::geo::vec3f(plane.normal));
   }
 
   tangent.normalize();
@@ -266,16 +266,16 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
   bitangent *= scale.y;
 
   auto origin =
-      hermes::geo::point3() + plane.offset * hermes::geo::vec3(plane.normal);
+      hermes::geo::point3f() + plane.offset * hermes::geo::vec3f(plane.normal);
 
   // base vertices
-  hermes::geo::point3 base_vertices[8] = {{origin - tangent - bitangent},  // 0
-                                          {origin + tangent - bitangent},  // 1
-                                          {origin + tangent + bitangent},  // 2
-                                          {origin - tangent + bitangent}}; // 3
+  hermes::geo::point3f base_vertices[8] = {{origin - tangent - bitangent},  // 0
+                                           {origin + tangent - bitangent},  // 1
+                                           {origin + tangent + bitangent},  // 2
+                                           {origin - tangent + bitangent}}; // 3
 
   // base uvs
-  hermes::geo::point2 base_uvs[4] = {
+  hermes::geo::point2f base_uvs[4] = {
       {0, 0}, // 0
       {1, 0}, // 1
       {1, 1}, // 2
@@ -317,7 +317,7 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
     if (unique_positions) {
     } else {
       for (u32 i = 0; i < n_vertices; ++i)
-        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
+        mesh.aos.get<hermes::geo::point3f>(position_id, i) = base_vertices[i];
     }
   } else {
     // tesselate plane
@@ -334,15 +334,15 @@ Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
     } else {
       HERMES_ASSERT(n_vertices == 4);
       for (u32 i = 0; i < n_vertices; ++i) {
-        mesh.aos.get<hermes::geo::point3>(position_id, i) = base_vertices[i];
+        mesh.aos.get<hermes::geo::point3f>(position_id, i) = base_vertices[i];
         if (generate_uvs)
-          mesh.aos.get<hermes::geo::point2>(uv_id, i) = base_uvs[i % 4];
+          mesh.aos.get<hermes::geo::point2f>(uv_id, i) = base_uvs[i % 4];
       }
       if (generate_normals) {
         for (int f = 0; f < 1; ++f)
           for (int i = 0; i < 4; ++i)
-            mesh.aos.get<hermes::geo::vec3>(normal_id, f * 4 + i) =
-                hermes::geo::vec3(flip_normals ? -plane.normal : plane.normal);
+            mesh.aos.get<hermes::geo::vec3f>(normal_id, f * 4 + i) =
+                hermes::geo::vec3f(flip_normals ? -plane.normal : plane.normal);
       }
     }
   }

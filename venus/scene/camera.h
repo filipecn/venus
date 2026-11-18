@@ -59,7 +59,7 @@ public:
     Projection() = default;
     virtual ~Projection() = default;
     // updates projection transform after changes
-    virtual hermes::geo::Transform computeTransform() const {
+    virtual hermes::geo::transform3f computeTransform() const {
       HERMES_WARN("Calling base Camera::Projection::computeTransform()");
       return transform_;
     };
@@ -73,8 +73,8 @@ public:
     Projection &setNear(f32 near);
     Projection &setFar(f32 far);
     Projection &addOptions(hermes::geo::transform_options options);
-    const hermes::geo::Transform &inverse() const;
-    const hermes::geo::Transform &operator*() const;
+    const hermes::geo::transform3f &inverse() const;
+    const hermes::geo::transform3f &operator*() const;
 
   protected:
     f32 zoom_{1.f};
@@ -83,13 +83,14 @@ public:
     f32 far_{1000.f}; //!< far depth clip plane
     hermes::geo::transform_options options_{
         hermes::geo::transform_option_bits::left_handed}; //!< flags to choose
-                                                          //!< handedness, etc.
+                                                          //!< handedness,
+                                                          //!< etc.
 
     // transforms are lazily updated based on the dirty flag
 
-    mutable bool needs_update_{true};          //!< dirty flag
-    mutable hermes::geo::Transform transform_; //!< projection transform
-    mutable hermes::geo::Transform inv_transform_;
+    mutable bool needs_update_{true};            //!< dirty flag
+    mutable hermes::geo::transform3f transform_; //!< projection transform
+    mutable hermes::geo::transform3f inv_transform_;
 
 #ifdef VENUS_INCLUDE_DEBUG_TRAITS
     friend struct hermes::DebugTraits<Projection>;
@@ -101,34 +102,34 @@ public:
   virtual ~Camera() = default;
 
   /// \return MVP transform
-  HERMES_NODISCARD virtual hermes::geo::Transform transform() const;
+  HERMES_NODISCARD virtual hermes::geo::transform3f transform() const;
   /// \return camera projection const ptr
   HERMES_NODISCARD Camera::Projection *projection();
   HERMES_NODISCARD const Camera::Projection *projection() const;
   /// \return projection transform
-  HERMES_NODISCARD hermes::geo::Transform projectionTransform() const;
+  HERMES_NODISCARD hermes::geo::transform3f projectionTransform() const;
   /// \return model transform
-  HERMES_NODISCARD virtual hermes::math::mat3 normalMatrix() const;
-  HERMES_NODISCARD virtual hermes::geo::Transform modelTransform() const;
-  HERMES_NODISCARD virtual hermes::geo::Transform viewTransform() const;
+  HERMES_NODISCARD virtual hermes::math::mat3f normalMatrix() const;
+  HERMES_NODISCARD virtual hermes::geo::transform3f modelTransform() const;
+  HERMES_NODISCARD virtual hermes::geo::transform3f viewTransform() const;
   /// \return up vector
-  HERMES_NODISCARD virtual hermes::geo::vec3 upVector() const;
-  HERMES_NODISCARD virtual hermes::geo::vec3 rightVector() const;
+  HERMES_NODISCARD virtual hermes::geo::vec3f upVector() const;
+  HERMES_NODISCARD virtual hermes::geo::vec3f rightVector() const;
   /// \return eye position
-  HERMES_NODISCARD virtual hermes::geo::point3 position() const;
+  HERMES_NODISCARD virtual hermes::geo::point3f position() const;
   /// \return  target position
-  HERMES_NODISCARD virtual hermes::geo::point3 targetPosition() const;
-  HERMES_NODISCARD virtual hermes::geo::vec3 direction() const;
+  HERMES_NODISCARD virtual hermes::geo::point3f targetPosition() const;
+  HERMES_NODISCARD virtual hermes::geo::vec3f direction() const;
 
   template <typename T, class... P> Camera &setProjection(P &&...params) {
     projection_ = std::make_shared<T>(std::forward<P>(params)...);
     return *this;
   }
-  virtual Camera &setUpVector(const hermes::geo::vec3 &u);
+  virtual Camera &setUpVector(const hermes::geo::vec3f &u);
   /// \param p target position
-  virtual Camera &setTargetPosition(const hermes::geo::point3 &p);
+  virtual Camera &setTargetPosition(const hermes::geo::point3f &p);
   /// \param p eye position
-  virtual Camera &setPosition(const hermes::geo::point3 &p);
+  virtual Camera &setPosition(const hermes::geo::point3f &p);
   /// \param z
   virtual Camera &setZoom(f32 z);
 
@@ -138,29 +139,29 @@ public:
 
   /// \param p normalized screen position (ndc)
   /// \return line object in world space
-  HERMES_NODISCARD hermes::geo::Line
-  viewLineFromWindow(const hermes::geo::point2 &p) const;
+  HERMES_NODISCARD hermes::geo::line3f
+  viewLineFromWindow(const hermes::geo::point2f &p) const;
   /// \param p point in world space
   /// \return plane containing **p**, perpendicular to camera's view axis
-  HERMES_NODISCARD hermes::geo::Plane
-  viewPlane(const hermes::geo::point3 &p) const;
+  HERMES_NODISCARD hermes::geo::plane3f
+  viewPlane(const hermes::geo::point3f &p) const;
 
 protected:
   virtual void update() const;
   // hermes::Frustum frustum;
-  mutable hermes::geo::vec3 up_{0, 1, 0};
-  hermes::geo::point3 pos_;
-  hermes::geo::point3 target_;
+  mutable hermes::geo::vec3f up_{0, 1, 0};
+  hermes::geo::point3f pos_;
+  hermes::geo::point3f target_;
   std::shared_ptr<Camera::Projection> projection_;
   f32 zoom_{1.};
-  hermes::geo::vec2 film_size_;
+  hermes::geo::vec2f film_size_;
 
   mutable bool needs_update_{true};
-  mutable hermes::math::mat3 normal_;
-  mutable hermes::geo::Transform view_;
-  mutable hermes::geo::Transform inv_view_;
-  mutable hermes::geo::Transform model_;
-  mutable hermes::geo::Transform inv_model_;
+  mutable hermes::math::mat3f normal_;
+  mutable hermes::geo::transform3f view_;
+  mutable hermes::geo::transform3f inv_view_;
+  mutable hermes::geo::transform3f model_;
+  mutable hermes::geo::transform3f inv_model_;
 
 #ifdef VENUS_INCLUDE_DEBUG_TRAITS
   friend struct hermes::DebugTraits<Camera>;
@@ -177,7 +178,7 @@ public:
                               hermes::geo::transform_option_bits::right_handed |
                               hermes::geo::transform_option_bits::flip_y |
                               hermes::geo::transform_option_bits::zero_to_one);
-  HERMES_NODISCARD hermes::geo::Transform computeTransform() const override;
+  HERMES_NODISCARD hermes::geo::transform3f computeTransform() const override;
   HERMES_NODISCARD Camera::Projection *copy() const override;
 
 private:
@@ -203,7 +204,7 @@ public:
   /// \param bottom
   /// \param top
   void set(f32 left, f32 right, f32 bottom, f32 top);
-  HERMES_NODISCARD hermes::geo::Transform computeTransform() const override;
+  HERMES_NODISCARD hermes::geo::transform3f computeTransform() const override;
   HERMES_NODISCARD Camera::Projection *copy() const override;
 
 private:

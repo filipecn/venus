@@ -107,7 +107,7 @@ namespace venus::scene::graph {
 
 Node::~Node() noexcept { this->destroy(); }
 
-void Node::draw(const hermes::geo::Transform &top_matrix,
+void Node::draw(const hermes::geo::transform3f &top_matrix,
                 DrawContext &context) {
   if (!visible_)
     return;
@@ -128,15 +128,15 @@ void Node::setParent(Node::Ptr _parent) { parent_ = Node::Ptr::weak(_parent); }
 
 void Node::addChild(Node::Ptr child) { children_.push_back(child); }
 
-void Node::setLocalTransform(const hermes::geo::Transform &transform) {
+void Node::setLocalTransform(const hermes::geo::transform3f &transform) {
   local_matrix_ = transform;
 }
 
-const hermes::geo::Transform &Node::localTransform() const {
+const hermes::geo::transform3f &Node::localTransform() const {
   return local_matrix_;
 }
 
-void Node::updateTrasform(const hermes::geo::Transform &parent_matrix) {
+void Node::updateTrasform(const hermes::geo::transform3f &parent_matrix) {
   world_matrix_ = parent_matrix * local_matrix_;
   for (auto &child : children_)
     child->updateTrasform(world_matrix_);
@@ -144,7 +144,7 @@ void Node::updateTrasform(const hermes::geo::Transform &parent_matrix) {
 
 ModelNode::ModelNode(Model::Ptr model) : model_{model} {}
 
-void ModelNode::draw(const hermes::geo::Transform &top_matrix,
+void ModelNode::draw(const hermes::geo::transform3f &top_matrix,
                      DrawContext &context) {
   if (!visible_)
     return;
@@ -219,7 +219,7 @@ void ModelNode::setModel(Model::Ptr model) { model_ = model; }
 
 CameraNode::CameraNode(Camera::Ptr camera) : camera_{camera} {}
 
-void CameraNode::draw(const hermes::geo::Transform &top_matrix,
+void CameraNode::draw(const hermes::geo::transform3f &top_matrix,
                       DrawContext &context) {
   if (!visible_)
     return;
@@ -440,9 +440,9 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
                &mesh_storage,
            std::vector<Model::Ptr> &flatten_meshes) {
   struct Vertex {
-    hermes::geo::point3 position;
+    hermes::geo::point3f position;
     f32 uv_x;
-    hermes::geo::vec3 normal;
+    hermes::geo::vec3f normal;
     f32 uv_y;
     hermes::colors::RGBA_Color color;
   };
@@ -538,14 +538,14 @@ loadMeshes(fastgltf::Asset &asset, const engine::GraphicsDevice &gd,
         surface.material = materials[0];
       }
 
-      hermes::geo::point3 minpos = vertices[initial_vtx].position;
-      hermes::geo::point3 maxpos = vertices[initial_vtx].position;
+      hermes::geo::point3f minpos = vertices[initial_vtx].position;
+      hermes::geo::point3f maxpos = vertices[initial_vtx].position;
       for (u32 i = initial_vtx; i < vertices.size(); i++)
         for (u32 j = 0; j < 3; ++j) {
           minpos[j] = std::min(minpos[j], vertices[i].position[j]);
           maxpos[j] = std::max(maxpos[j], vertices[i].position[j]);
         }
-      surface.bounds.setCenter((maxpos + hermes::geo::vec3(minpos)) / 2.f);
+      surface.bounds.setCenter((maxpos + hermes::geo::vec3f(minpos)) / 2.f);
       surface.bounds.setRadius(((maxpos - minpos) / 2.f).length());
 
       model_config.addShape(surface);
@@ -775,30 +775,30 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
 
     nodes.push_back(new_node);
     scene->nodes_[node.name.c_str()];
-    std::visit(fastgltf::visitor{
-                   [&](fastgltf::math::fmat4x4 matrix) {
-                     // glm::mat4x4 m(matrix.data());
-                     //  memcpy(&m, matrix.data(), sizeof(matrix));
-                     // new_node->setLocalTransform(m);
-                     HERMES_UNUSED_VARIABLE(matrix);
-                   },
-                   [&](fastgltf::TRS transform) {
-                     hermes::geo::vec3 tl(transform.translation[0],
-                                          transform.translation[1],
-                                          transform.translation[2]);
-                     hermes::geo::quat rot(
-                         transform.rotation[3], transform.rotation[0],
-                         transform.rotation[1], transform.rotation[2]);
-                     hermes::geo::vec3 sc(transform.scale[0],
-                                          transform.scale[1],
-                                          transform.scale[2]);
+    std::visit(
+        fastgltf::visitor{
+            [&](fastgltf::math::fmat4x4 matrix) {
+              // glm::mat4x4 m(matrix.data());
+              //  memcpy(&m, matrix.data(), sizeof(matrix));
+              // new_node->setLocalTransform(m);
+              HERMES_UNUSED_VARIABLE(matrix);
+            },
+            [&](fastgltf::TRS transform) {
+              hermes::geo::vec3f tl(transform.translation[0],
+                                    transform.translation[1],
+                                    transform.translation[2]);
+              hermes::geo::quat rot(
+                  transform.rotation[3], transform.rotation[0],
+                  transform.rotation[1], transform.rotation[2]);
+              hermes::geo::vec3f sc(transform.scale[0], transform.scale[1],
+                                    transform.scale[2]);
 
-                     auto tm = hermes::geo::Transform::translate(tl);
-                     auto rm = hermes::geo::Transform(rot.matrix());
-                     auto sm = hermes::geo::Transform::scale(sc.x, sc.y, sc.z);
-                     new_node->setLocalTransform(tm * rm * sm);
-                   }},
-               node.transform);
+              auto tm = hermes::geo::transform3f::translate(tl);
+              auto rm = hermes::geo::transform3f(rot.matrix());
+              auto sm = hermes::geo::transform3f::scale(sc.x, sc.y, sc.z);
+              new_node->setLocalTransform(tm * rm * sm);
+            }},
+        node.transform);
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -819,7 +819,7 @@ Result<GLTF_Node::Ptr> GLTF_Node::from(const std::filesystem::path &path,
   for (auto &node : nodes) {
     if (!node->parent()) {
       scene->top_nodes_.push_back(node);
-      node->updateTrasform(hermes::geo::Transform());
+      node->updateTrasform(hermes::geo::transform3f());
     }
   }
 
@@ -848,7 +848,7 @@ void GLTF_Node::destroy() noexcept {
   samplers_.clear();
 }
 
-void GLTF_Node::draw(const hermes::geo::Transform &top_matrix,
+void GLTF_Node::draw(const hermes::geo::transform3f &top_matrix,
                      DrawContext &ctx) {
   if (!visible_)
     return;
@@ -904,7 +904,7 @@ Result<VDB_Node::Ptr> VDB_Node::from(const std::filesystem::path &vdb_file_path,
       throw std::runtime_error(
           "GridHandle does not contain a grid with value type float");
 
-    hermes::geo::bounds::bbox3 box;
+    hermes::geo::bounds::bbox3f box;
     box.lower.x = dstGrid->worldBBox().min()[0];
     box.lower.y = dstGrid->worldBBox().min()[1];
     box.lower.z = dstGrid->worldBBox().min()[2];
@@ -978,7 +978,7 @@ Result<VDB_Node::Ptr> VDB_Node::from(const std::filesystem::path &vdb_file_path,
 
 VDB_Node::~VDB_Node() noexcept { destroy(); }
 
-void VDB_Node::draw(const hermes::geo::Transform &top_matrix,
+void VDB_Node::draw(const hermes::geo::transform3f &top_matrix,
                     DrawContext &draw_ctx) {
   if (!visible_)
     return;
@@ -1072,7 +1072,7 @@ LabeledGraph &LabeledGraph::addCamera(const std::string &name,
   return add(name, CameraNode::Ptr::shared(camera), parent);
 }
 
-void LabeledGraph::draw(const hermes::geo::Transform &top_matrix,
+void LabeledGraph::draw(const hermes::geo::transform3f &top_matrix,
                         DrawContext &context) {
   if (!visible_)
     return;

@@ -110,41 +110,41 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
   const bool acceleration_structure_enabled =
       (*gd).hasExtension(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 
-  auto vertex_buffer_config = mem::AllocatedBuffer::Config ::forStorage(
-                                 vertex_buffer_size,
-                                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
-                                 .enableShaderDeviceAddress()
-                                 .setDeviceLocal();
+  auto vertex_buffer_config =
+      mem::AllocatedBuffer::Config::forStorage(
+          vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+          .enableShaderDeviceAddress()
+          .setDeviceLocal();
   if (acceleration_structure_enabled)
     vertex_buffer_config.addUsage(
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR);
 
-  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(
-      model.storage_.vertices, vertex_buffer_config.build(*gd));
+  VENUS_ASSIGN_OR_RETURN_BAD_RESULT(model.storage_.vertices,
+                                    vertex_buffer_config.build(*gd));
 
   if (index_buffer_size) {
-    auto index_buffer_config = mem::AllocatedBuffer::Config ::forStorage(
-                                   index_buffer_size,
-                                   VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
-                                   .enableShaderDeviceAddress()
-                                   .setDeviceLocal();
+    auto index_buffer_config =
+        mem::AllocatedBuffer::Config::forStorage(
+            index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT)
+            .enableShaderDeviceAddress()
+            .setDeviceLocal();
     if (acceleration_structure_enabled)
       index_buffer_config.addUsage(
           VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR);
     VENUS_ASSIGN_OR_RETURN_BAD_RESULT(model.storage_.indices,
-                                     index_buffer_config.build(*gd));
+                                      index_buffer_config.build(*gd));
   }
 
-  auto transform_buffer_config = mem::AllocatedBuffer::Config ::forStorage(
-                                     sizeof(hermes::geo::Transform),
-                                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
-                                     .enableShaderDeviceAddress()
-                                     .setDeviceLocal();
+  auto transform_buffer_config =
+      mem::AllocatedBuffer::Config::forStorage(
+          sizeof(hermes::geo::transform3f), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT)
+          .enableShaderDeviceAddress()
+          .setDeviceLocal();
   if (acceleration_structure_enabled)
     transform_buffer_config.addUsage(
         VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR);
   VENUS_ASSIGN_OR_RETURN_BAD_RESULT(model.storage_.transform,
-                                   transform_buffer_config.build(*gd));
+                                    transform_buffer_config.build(*gd));
 
   // copy data
 
@@ -157,9 +157,9 @@ AllocatedModel::Config::build(const engine::GraphicsDevice &gd) const {
                              static_cast<u32>(index_buffer_size));
   }
 
-  hermes::geo::Transform identity;
+  hermes::geo::transform3f identity;
   buffer_writter.addBuffer(*model.storage_.transform, &identity,
-                           sizeof(hermes::geo::Transform));
+                           sizeof(hermes::geo::transform3f));
 
   VENUS_RETURN_BAD_RESULT(buffer_writter.immediateSubmit(gd));
 

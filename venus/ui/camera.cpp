@@ -33,18 +33,18 @@
 
 namespace venus::ui {
 
-hermes::geo::point3 hitViewPlane(scene::Camera::Ptr camera,
-                                 const hermes::geo::point2 &ndc) {
-  hermes::geo::Line l = camera->viewLineFromWindow(ndc);
-  hermes::geo::Plane vp = camera->viewPlane(camera->targetPosition());
-  hermes::geo::point3 hp;
+hermes::geo::point3f hitViewPlane(scene::Camera::Ptr camera,
+                                  const hermes::geo::point2f &ndc) {
+  hermes::geo::line3f l = camera->viewLineFromWindow(ndc);
+  hermes::geo::plane3f vp = camera->viewPlane(camera->targetPosition());
+  hermes::geo::point3f hp;
   hermes::geo::queries::intersect(vp, l, &hp);
   return hp;
 }
 
 void noneModeBvr(scene::Camera::Ptr camera,
                  CameraController::ControlState &input,
-                 const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+                 const hermes::geo::point2f &p, const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(camera);
   HERMES_UNUSED_VARIABLE(input);
   HERMES_UNUSED_VARIABLE(p);
@@ -53,8 +53,8 @@ void noneModeBvr(scene::Camera::Ptr camera,
 
 void scaleModeBvr(scene::Camera::Ptr camera,
                   CameraController::ControlState &input,
-                  const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
-  if (d == hermes::geo::vec2())
+                  const hermes::geo::point2f &p, const hermes::geo::vec2f &d) {
+  if (d == hermes::geo::vec2f())
     return;
   HERMES_UNUSED_VARIABLE(p);
   HERMES_UNUSED_VARIABLE(input);
@@ -69,12 +69,12 @@ void scaleModeBvr(scene::Camera::Ptr camera,
 
 void panModeBvr(scene::Camera::Ptr camera,
                 CameraController::ControlState &input,
-                const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+                const hermes::geo::point2f &p, const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(d);
   if (!input.dragging)
     return;
-  hermes::geo::point3 a = hitViewPlane(camera, input.last_position);
-  hermes::geo::point3 b = hitViewPlane(camera, p);
+  hermes::geo::point3f a = hitViewPlane(camera, input.last_position);
+  hermes::geo::point3f b = hitViewPlane(camera, p);
   // it is -(b - a), because moving the mouse up should move the camera down
   // (so the image goes up)
   auto translation = a - b;
@@ -83,13 +83,13 @@ void panModeBvr(scene::Camera::Ptr camera,
 }
 
 void zModeBvr(scene::Camera::Ptr camera, CameraController::ControlState &input,
-              const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+              const hermes::geo::point2f &p, const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(d);
   if (!input.dragging)
     return;
-  hermes::geo::point3 a = hitViewPlane(camera, input.start);
-  hermes::geo::point3 b = hitViewPlane(camera, p);
-  hermes::geo::vec3 t =
+  hermes::geo::point3f a = hitViewPlane(camera, input.start);
+  hermes::geo::point3f b = hitViewPlane(camera, p);
+  hermes::geo::vec3f t =
       hermes::geo::normalize(camera->targetPosition() - camera->position());
   if (p.y - input.last_position.y < 0.f)
     t *= -1.f;
@@ -100,8 +100,8 @@ void zModeBvr(scene::Camera::Ptr camera, CameraController::ControlState &input,
 
 void scrollOrbitModeBvr(scene::Camera::Ptr camera,
                         CameraController::ControlState &input,
-                        const hermes::geo::point2 &p,
-                        const hermes::geo::vec2 &d) {
+                        const hermes::geo::point2f &p,
+                        const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(p);
   HERMES_UNUSED_VARIABLE(input);
   auto direction = d;
@@ -118,23 +118,23 @@ void scrollOrbitModeBvr(scene::Camera::Ptr camera,
   auto new_pos = camera->position();
 
   // translate target to center
-  new_pos -= (hermes::geo::vec3)camera->targetPosition();
+  new_pos -= (hermes::geo::vec3f)camera->targetPosition();
 
   // GLFW scroll offsets are wheel/trackpad deltas, not normalized screen
   // coordinates. Use a smaller angular scale than the drag orbit behavior.
   constexpr f32 scroll_sensitivity = 0.1f;
   f32 angle = hermes::math::constants::pi * scroll_sensitivity * direction.x;
-  auto transform = hermes::geo::Transform::rotate(angle, u);
+  auto transform = hermes::geo::transform3f::rotate(angle, u);
   angle = hermes::math::constants::pi * scroll_sensitivity * direction.y;
-  transform = transform * hermes::geo::Transform::rotate(-angle, left);
-  new_pos = camera->targetPosition() + (hermes::geo::vec3)transform(new_pos);
+  transform = transform * hermes::geo::transform3f::rotate(-angle, left);
+  new_pos = camera->targetPosition() + (hermes::geo::vec3f)transform(new_pos);
 
   camera->setPosition(new_pos);
 }
 
 void orbitModeBvr(scene::Camera::Ptr camera,
                   CameraController::ControlState &input,
-                  const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+                  const hermes::geo::point2f &p, const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(d);
   if (!input.dragging || p == input.last_position)
     return;
@@ -157,25 +157,25 @@ void orbitModeBvr(scene::Camera::Ptr camera,
   auto new_pos = camera->position();
 
   // translate target to center
-  new_pos -= (hermes::geo::vec3)camera->targetPosition();
+  new_pos -= (hermes::geo::vec3f)camera->targetPosition();
 
   // the distance between coordinates -1 and 1 is equivalent to a full rotation
   // here we rotate camera position
   f32 angle = hermes::math::constants::pi * direction.x;
-  auto transform = hermes::geo::Transform::rotate(angle, u);
+  auto transform = hermes::geo::transform3f::rotate(angle, u);
   angle = hermes::math::constants::pi * direction.y;
-  transform = transform * hermes::geo::Transform::rotate(-angle, left);
-  new_pos = camera->targetPosition() + (hermes::geo::vec3)transform(new_pos);
+  transform = transform * hermes::geo::transform3f::rotate(-angle, left);
+  new_pos = camera->targetPosition() + (hermes::geo::vec3f)transform(new_pos);
 
   camera->setPosition(new_pos);
 }
 
 void dollyModeBvr(scene::Camera::Ptr camera,
                   CameraController::ControlState &input,
-                  const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+                  const hermes::geo::point2f &p, const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(input);
   HERMES_UNUSED_VARIABLE(p);
-  if (d == hermes::geo::vec2())
+  if (d == hermes::geo::vec2f())
     return;
   // get distance
   auto direction = camera->targetPosition() - camera->position();
@@ -183,15 +183,15 @@ void dollyModeBvr(scene::Camera::Ptr camera,
   if (distance < 1e-6f)
     return;
   constexpr f32 min_distance = 1e-3f;
-  const auto new_distance =
-      std::max(min_distance, distance * std::exp(-0.1f * d.y));
+  const auto new_distance = std::max(
+      min_distance, static_cast<f32>(distance * std::exp(-0.1f * d.y)));
   camera->setPosition(camera->targetPosition() -
                       new_distance * direction.normalized());
 }
 
 void zoomModeBvr(scene::Camera::Ptr camera,
                  CameraController::ControlState &input,
-                 const hermes::geo::point2 &p, const hermes::geo::vec2 &d) {
+                 const hermes::geo::point2f &p, const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(input);
   HERMES_UNUSED_VARIABLE(p);
   auto *proj =
@@ -203,8 +203,8 @@ void zoomModeBvr(scene::Camera::Ptr camera,
 
 void firstPersonModeBvr(scene::Camera::Ptr camera,
                         CameraController::ControlState &input,
-                        const hermes::geo::point2 &p,
-                        const hermes::geo::vec2 &d) {
+                        const hermes::geo::point2f &p,
+                        const hermes::geo::vec2f &d) {
   HERMES_UNUSED_VARIABLE(d);
   if (!input.dragging || p == input.last_position)
     return;
@@ -227,15 +227,15 @@ void firstPersonModeBvr(scene::Camera::Ptr camera,
   auto new_target = camera->targetPosition();
 
   // translate target to center
-  new_target -= (hermes::geo::vec3)camera->position();
+  new_target -= (hermes::geo::vec3f)camera->position();
 
   // the distance between coordinates -1 and 1 is equivalent to a full rotation
   // here we rotate camera position
   f32 angle = hermes::math::constants::pi * direction.x;
-  auto transform = hermes::geo::Transform::rotate(angle, u);
+  auto transform = hermes::geo::transform3f::rotate(angle, u);
   angle = hermes::math::constants::pi * direction.y;
-  transform = transform * hermes::geo::Transform::rotate(-angle, left);
-  new_target = camera->position() + (hermes::geo::vec3)transform(new_target);
+  transform = transform * hermes::geo::transform3f::rotate(-angle, left);
+  new_target = camera->position() + (hermes::geo::vec3f)transform(new_target);
 
   camera->setTargetPosition(new_target);
 }
@@ -262,7 +262,7 @@ CameraController::CameraController() noexcept {
 }
 
 void CameraController::mouseButton(io::Action action, io::MouseButton button,
-                                   const hermes::geo::point2 &ndc) {
+                                   const hermes::geo::point2f &ndc) {
   if (!input_.contains(static_cast<u32>(button)))
     return;
   if (action == io::Action::PRESS) {
@@ -278,7 +278,7 @@ void CameraController::mouseButton(io::Action action, io::MouseButton button,
   }
 }
 
-void CameraController::mouseMove(const hermes::geo::point2 &ndc) {
+void CameraController::mouseMove(const hermes::geo::point2f &ndc) {
   if (input_state_.mode == CameraController::ControlType::NONE)
     return;
   auto it = modes_.find(input_state_.mode);
@@ -290,8 +290,8 @@ void CameraController::mouseMove(const hermes::geo::point2 &ndc) {
   }
 }
 
-void CameraController::mouseScroll(const hermes::geo::point2 &ndc,
-                                   const hermes::geo::vec2 &d) {
+void CameraController::mouseScroll(const hermes::geo::point2f &ndc,
+                                   const hermes::geo::vec2f &d) {
   if (!input_.contains(static_cast<u32>(io::Action::SCROLL)))
     return;
   auto mode = input_[static_cast<u32>(io::Action::SCROLL)];
@@ -339,13 +339,13 @@ void CameraController::reset() {
   input_state_.mode = CameraController::ControlType::NONE;
 }
 
-void CameraController::start(const hermes::geo::point2 &p) {
+void CameraController::start(const hermes::geo::point2f &p) {
   input_state_.start = p;
   input_state_.last_position = p;
   input_state_.dragging = true;
 }
 
-void CameraController::stop(const hermes::geo::point2 &p) {
+void CameraController::stop(const hermes::geo::point2f &p) {
   input_state_.last_position = p;
   input_state_.dragging = false;
 }

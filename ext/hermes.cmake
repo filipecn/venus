@@ -6,6 +6,7 @@ FetchContent_Declare(
   GIT_TAG modern)
 
 set(HERMES_INCLUDE_DEBUG_TRAITS ON CACHE BOOL "" FORCE)
+set(HERMES_USE_DOUBLE_AS_DEFAULT ${VENUS_USE_DOUBLE_AS_DEFAULT} CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(hermes)
 

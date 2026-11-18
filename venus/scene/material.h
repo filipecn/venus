@@ -73,13 +73,13 @@ private:
 };
 
 struct PushConstantsContext {
-  hermes::geo::Transform projection;
-  hermes::geo::Transform view;
-  hermes::geo::Transform inv_projection;
-  hermes::geo::Transform inv_view;
-  hermes::geo::Transform proj_view;
-  hermes::geo::Transform model;
-  hermes::geo::point3 eye;
+  hermes::geo::transform3f projection;
+  hermes::geo::transform3f view;
+  hermes::geo::transform3f inv_projection;
+  hermes::geo::transform3f inv_view;
+  hermes::geo::transform3f proj_view;
+  hermes::geo::transform3f model;
+  hermes::geo::point3f eye;
 };
 
 // *****************************************************************************
@@ -122,7 +122,8 @@ public:
 
     Material::Ptr material() const;
     const pipeline::GraphicsPipeline &pipeline() const;
-    const pipeline::GraphicsPipeline &pipeline(VkPrimitiveTopology topology) const;
+    const pipeline::GraphicsPipeline &
+    pipeline(VkPrimitiveTopology topology) const;
     const pipeline::Pipeline::Layout &pipelineLayout() const;
     bool hasGlobalDescriptors() const;
     std::unordered_map<h_index, std::vector<VkDescriptorSet>>

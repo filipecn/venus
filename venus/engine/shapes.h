@@ -82,16 +82,16 @@ template <> struct FlagTraits<venus::scene::shape_option_bits> {
 
 namespace venus::scene::shapes {
 
-Result<Model::Mesh> triangle(const hermes::geo::point3 &a,
-                             const hermes::geo::point3 &b,
-                             const hermes::geo::point3 &c,
+Result<Model::Mesh> triangle(const hermes::geo::point3f &a,
+                             const hermes::geo::point3f &b,
+                             const hermes::geo::point3f &c,
                              shape_options options = shape_option_bits::none);
 
-Result<Model::Mesh> box(const hermes::geo::bounds::bbox3 &box,
+Result<Model::Mesh> box(const hermes::geo::bounds::bbox3f &box,
                         shape_options options = shape_option_bits::none);
 
-Result<Model::Mesh> plane(const hermes::geo::Plane &plane,
-                          const hermes::geo::vec2 &scale,
+Result<Model::Mesh> plane(const hermes::geo::plane3f &plane,
+                          const hermes::geo::vec2f &scale,
                           shape_options options = shape_option_bits::none);
 
 Result<Model::Mesh> merge(const Model::Mesh &a, const Model::Mesh &b);

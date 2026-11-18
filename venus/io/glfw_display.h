@@ -84,9 +84,9 @@ public:
   /// \return display extent
   VkExtent2D size() const override;
   /// \return current cursor screen position (pixels)
-  hermes::geo::point2 cursorPos() const override;
+  hermes::geo::point2f cursorPos() const override;
   /// \return current cursor position (NDC)
-  hermes::geo::point2 cursorNDC() const override;
+  hermes::geo::point2f cursorNDC() const override;
 
 private:
   GLFWwindow *window_{nullptr};
