@@ -7,8 +7,7 @@
       "cacheVariables": {
         "VENUS_INCLUDE_DEBUG_TRAITS": "ON",
         "VENUS_BUILD_TESTS": "ON",
-        "VENUS_BUILD_EXAMPLES": "ON",
-        "Vulkan_INCLUDE_DIR": "$env{VULKAN_SDK}/include"
+        "VENUS_BUILD_EXAMPLES": "ON"
       }
     },
     {

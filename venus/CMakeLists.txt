@@ -56,7 +56,7 @@ target_include_directories(
 
 add_dependencies(venus venus_shaders VENUS_DEPS)
 
-target_link_libraries(venus PUBLIC optimized VENUS_DEPS debug DEPS)
+target_link_libraries(venus PUBLIC VENUS_DEPS)
 
 include(CMakePrintHelpers)
 cmake_print_properties(TARGETS venus PROPERTIES INTERFACE_INCLUDE_DIRECTORIES)
